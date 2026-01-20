@@ -1323,21 +1323,29 @@ function importarDesdeKobo() {
       csvData = csvData.substring(1);
     }
 
-    // Detectar el separador (puede ser coma, punto y coma, o tab)
+    // Detectar el separador contando ocurrencias en la primera línea
     const primeraLinea = csvData.split('\n')[0];
-    let separador = ',';
-    if (primeraLinea.includes(';') && !primeraLinea.includes(',')) {
-      separador = ';';
-    } else if (primeraLinea.includes('\t') && !primeraLinea.includes(',')) {
+    const countComas = (primeraLinea.match(/,/g) || []).length;
+    const countPuntoComa = (primeraLinea.match(/;/g) || []).length;
+    const countTabs = (primeraLinea.match(/\t/g) || []).length;
+
+    // El separador más frecuente es probablemente el correcto
+    let separador = ';'; // Default para KoboToolbox que usa punto y coma
+    if (countComas > countPuntoComa && countComas > countTabs) {
+      separador = ',';
+    } else if (countTabs > countComas && countTabs > countPuntoComa) {
       separador = '\t';
     }
-    Logger.log('Separador detectado: ' + (separador === '\t' ? 'TAB' : separador));
+    Logger.log('Separadores encontrados - comas: ' + countComas + ', punto y coma: ' + countPuntoComa + ', tabs: ' + countTabs);
+    Logger.log('Separador seleccionado: ' + (separador === '\t' ? 'TAB' : separador));
 
-    // Parsear CSV
+    // Parsear CSV - usar parseo manual para punto y coma (más confiable)
     let rows;
     try {
-      if (separador === ',') {
-        rows = Utilities.parseCsv(csvData);
+      if (separador === ';') {
+        // Para punto y coma, usar parseo manual que es más confiable
+        rows = parsearCSVManual(csvData, separador);
+        Logger.log('Usando parseo manual para separador ;');
       } else {
         rows = Utilities.parseCsv(csvData, separador);
       }
