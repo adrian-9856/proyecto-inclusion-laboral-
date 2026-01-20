@@ -161,6 +161,7 @@ function onOpen() {
       .addItem('📋 Importar desde KoboToolbox', 'importarDesdeKobo')
       .addItem('🔗 Configurar URL de Kobo', 'configurarKoboURL')
       .addItem('🔍 Probar Conexión Kobo', 'probarConexionKobo')
+      .addItem('📊 Ver Columnas Tech', 'verColumnasKobo')
       .addItem('🔄 Importación Automática', 'configurarImportacionAutomatica'))
     .addSeparator()
     .addSubMenu(ui.createMenu('📋 Gestión de Cohortes')
@@ -1633,6 +1634,71 @@ function verificarValorPositivo(fila, indice) {
   if (!valor) return false;
   const valorStr = valor.toString().toLowerCase().trim();
   return valorStr === '1' || valorStr === 'true' || valorStr === 'sí' || valorStr === 'si' || valorStr === 'yes';
+}
+
+/**
+ * DEBUG: Muestra las columnas de tecnología encontradas en Kobo
+ */
+function verColumnasKobo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  const url = props.getProperty('KOBO_URL') || CONFIG.KOBO_URL;
+
+  try {
+    ss.toast('🔍 Analizando columnas...', 'Análisis', 3);
+
+    const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+    let csvData = response.getContentText('UTF-8');
+
+    if (csvData.charCodeAt(0) === 0xFEFF) csvData = csvData.substring(1);
+
+    const rows = parsearCSVManual(csvData, ';');
+    const headers = rows[0];
+
+    let mensaje = '📊 COLUMNAS TECH ENCONTRADAS:\n\n';
+    let colsTech = [];
+
+    for (let i = 0; i < headers.length; i++) {
+      const h = headers[i].toLowerCase();
+      if (h.includes('marketing') || h.includes('programacion') || h.includes('programación') ||
+          h.includes('tecnolog') || h.includes('alfabetizaci') || h.includes('certificaci') ||
+          h.includes('microsoft')) {
+        colsTech.push({ idx: i, nombre: headers[i] });
+      }
+    }
+
+    if (colsTech.length > 0) {
+      colsTech.forEach(c => {
+        mensaje += '📌 [' + c.idx + '] ' + c.nombre.substring(0, 40) + '\n';
+      });
+
+      mensaje += '\n📋 VALORES FILA 1:\n';
+      const primeraFila = rows[1];
+      colsTech.forEach(c => {
+        const valor = primeraFila && primeraFila[c.idx] ? primeraFila[c.idx] : '(vacío)';
+        mensaje += '"' + valor + '" ← ' + c.nombre.substring(0, 25) + '\n';
+      });
+    } else {
+      mensaje += '⚠️ No encontradas. Buscando alternativas...\n\n';
+      for (let i = 0; i < headers.length; i++) {
+        const h = headers[i].toLowerCase();
+        if (h.includes('interés') || h.includes('interes') || h.includes('servicio') || h.includes('formación')) {
+          mensaje += '[' + i + '] ' + headers[i].substring(0, 50) + '\n';
+        }
+      }
+    }
+
+    mensaje += '\n📊 Total: ' + headers.length + ' cols, ' + rows.length + ' filas';
+
+    ui.alert('Columnas Kobo', mensaje, ui.ButtonSet.OK);
+
+    Logger.log('=== COLUMNAS KOBO ===');
+    headers.forEach((h, i) => Logger.log(i + ': ' + h));
+
+  } catch (error) {
+    ui.alert('Error', error.message, ui.ButtonSet.OK);
+  }
 }
 
 /**
