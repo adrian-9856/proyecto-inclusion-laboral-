@@ -1690,54 +1690,52 @@ function probarConexionKobo() {
     const csvData = response.getContentText('UTF-8');
 
     let mensaje = '📊 RESULTADO DE PRUEBA\n\n';
-    mensaje += '🔗 URL: ' + url.substring(0, 50) + '...\n';
     mensaje += '📡 Código HTTP: ' + responseCode + '\n';
     mensaje += '📄 Tipo contenido: ' + contentType + '\n';
     mensaje += '📏 Tamaño: ' + csvData.length + ' caracteres\n\n';
 
-    if (responseCode === 200 && csvData.length > 0) {
-      const lineas = csvData.split('\n');
-      mensaje += '📋 Líneas totales: ' + lineas.length + '\n\n';
+    // Mostrar primeros 400 caracteres
+    mensaje += '📝 CONTENIDO RECIBIDO:\n';
+    mensaje += '─────────────────────\n';
+    mensaje += csvData.substring(0, 400).replace(/\n/g, '↵\n') + '\n';
+    mensaje += '─────────────────────\n\n';
 
-      // Mostrar headers
-      const primeraLinea = lineas[0];
-      const separador = primeraLinea.includes(';') ? ';' : (primeraLinea.includes('\t') ? 'TAB' : ',');
-      mensaje += '🔀 Separador: ' + separador + '\n\n';
-
-      // Contar columnas
-      let headers;
-      try {
-        headers = Utilities.parseCsv(primeraLinea)[0];
-        mensaje += '📊 Columnas encontradas: ' + headers.length + '\n\n';
-
-        // Buscar columnas de tecnología
-        const techCols = headers.filter(h =>
-          h.toLowerCase().includes('tecnología') ||
-          h.toLowerCase().includes('tecnologia') ||
-          h.toLowerCase().includes('marketing') ||
-          h.toLowerCase().includes('programación') ||
-          h.toLowerCase().includes('programacion')
-        );
-
-        if (techCols.length > 0) {
-          mensaje += '🖥️ Columnas Tech encontradas:\n';
-          techCols.forEach(c => { mensaje += '  • ' + c + '\n'; });
-        } else {
-          mensaje += '⚠️ No se encontraron columnas de Tecnología\n';
-        }
-      } catch (e) {
-        mensaje += '⚠️ Error parseando headers: ' + e.message + '\n';
-      }
-
-      mensaje += '\n✅ Conexión exitosa';
+    // Verificar tipo de contenido
+    if (csvData.includes('<!DOCTYPE') || csvData.includes('<html') || csvData.includes('<HTML')) {
+      mensaje += '❌ PROBLEMA: Recibiendo HTML, no CSV\n';
+      mensaje += 'La URL requiere login o no es correcta.\n';
+    } else if (csvData.trim().startsWith('{') || csvData.trim().startsWith('[')) {
+      mensaje += '⚠️ Recibiendo JSON, no CSV\n';
+      mensaje += 'Usa la URL de exportación CSV.\n';
     } else {
-      mensaje += '❌ Error en la respuesta';
+      const lineas = csvData.split(/\r?\n/).filter(l => l.trim());
+      mensaje += '📋 Líneas con datos: ' + lineas.length + '\n';
+
+      // Contar separadores
+      const primeraLinea = lineas[0] || '';
+      const comas = (primeraLinea.match(/,/g) || []).length;
+      const tabs = (primeraLinea.match(/\t/g) || []).length;
+      const puntoComa = (primeraLinea.match(/;/g) || []).length;
+
+      mensaje += '🔀 Separadores: comas=' + comas + ' tabs=' + tabs + ' ;=' + puntoComa + '\n';
+
+      if (lineas.length > 1) {
+        mensaje += '\n✅ Parece ser CSV válido';
+      }
     }
 
     ui.alert('Prueba de Conexión', mensaje, ui.ButtonSet.OK);
 
+    // Log completo para debug
+    Logger.log('=== PRUEBA KOBO ===');
+    Logger.log('URL: ' + url);
+    Logger.log('Código: ' + responseCode);
+    Logger.log('Content-Type: ' + contentType);
+    Logger.log('Primeros 2000 chars:\n' + csvData.substring(0, 2000));
+
   } catch (error) {
     ui.alert('❌ Error', 'No se pudo conectar:\n\n' + error.message, ui.ButtonSet.OK);
+    Logger.log('Error: ' + error.message);
   }
 }
 
