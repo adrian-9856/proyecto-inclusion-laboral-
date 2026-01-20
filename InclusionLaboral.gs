@@ -1263,7 +1263,21 @@ function configurarKoboURL() {
 }
 
 /**
- * Importa datos desde KoboToolbox (solo Tech)
+ * Importa datos desde KoboToolbox (solo Tecnología: Marketing y Programación)
+ *
+ * MAPEO DE COLUMNAS KOBO → HOJA DE INTERÉS:
+ * - Inicio/Creamos ID → Creamos ID
+ * - Inicio/Número de DPI → DPI
+ * - Inicio/Nombre(s) + Inicio/Apellido(s) → Nombre Completo
+ * - Inicio/Fecha de nacimiento → Edad (calculada)
+ * - Inicio/Número de Teléfono → Teléfono
+ * - Inicio/¿Cuál es tu último nivel de estudios terminado? → Nivel Educativo
+ * - Inicio/Zona → Zona
+ * - ¿Cómo te enteraste de Creamos? → Cómo se enteró
+ *
+ * FILTRO TECNOLOGÍA:
+ * - Inclusión Laboral/.../Tecnología - Marketing = 1
+ * - Inclusión Laboral/.../Tecnología - Programación = 1
  */
 function importarDesdeKobo() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1301,99 +1315,229 @@ function importarDesdeKobo() {
 
     // Obtener headers
     const headers = rows[0];
+    Logger.log('Headers encontrados: ' + headers.length);
 
-    // Buscar índices de columnas importantes
-    // Ajusta estos nombres según los campos de tu formulario Kobo
+    // Buscar índices de columnas - Mapeo específico para tu formulario Kobo
     const colIndices = {
-      programa: buscarIndiceColumna(headers, ['programa', 'program', 'area', 'tipo']),
-      creamosId: buscarIndiceColumna(headers, ['creamos_id', 'creamos', 'id_creamos']),
-      dpi: buscarIndiceColumna(headers, ['dpi', 'cui', 'documento']),
-      nombre: buscarIndiceColumna(headers, ['nombre', 'name', 'nombre_completo']),
-      edad: buscarIndiceColumna(headers, ['edad', 'age']),
-      telefono: buscarIndiceColumna(headers, ['telefono', 'phone', 'tel', 'celular']),
-      nivelEducativo: buscarIndiceColumna(headers, ['nivel_educativo', 'educacion', 'education']),
-      zona: buscarIndiceColumna(headers, ['zona', 'zone', 'ubicacion']),
-      comoSeEntero: buscarIndiceColumna(headers, ['como_se_entero', 'referencia', 'source'])
+      // Creamos ID
+      creamosId: buscarIndiceColumnaExacto(headers, [
+        'Inicio/Creamos ID',
+        'Creamos ID',
+        'creamos_id'
+      ]),
+
+      // DPI
+      dpi: buscarIndiceColumnaExacto(headers, [
+        'Inicio/Número de DPI',
+        'Número de DPI',
+        'DPI'
+      ]),
+
+      // Nombre(s)
+      nombres: buscarIndiceColumnaExacto(headers, [
+        'Inicio/Nombre(s)',
+        'Nombre(s)',
+        'Nombres'
+      ]),
+
+      // Apellido(s)
+      apellidos: buscarIndiceColumnaExacto(headers, [
+        'Inicio/Apellido(s)',
+        'Apellido(s)',
+        'Apellidos'
+      ]),
+
+      // Fecha de nacimiento (para calcular edad)
+      fechaNacimiento: buscarIndiceColumnaExacto(headers, [
+        'Inicio/Fecha de nacimiento',
+        'Fecha de nacimiento'
+      ]),
+
+      // Teléfono
+      telefono: buscarIndiceColumnaExacto(headers, [
+        'Inicio/Número de Teléfono',
+        'Número de Teléfono',
+        'Inicio/Número de Móvil/WhatsApp',
+        'Número de Móvil/WhatsApp',
+        'Teléfono'
+      ]),
+
+      // Nivel Educativo
+      nivelEducativo: buscarIndiceColumnaExacto(headers, [
+        'Inicio/¿Cuál es tu último nivel de estudios terminado?',
+        '¿Cuál es tu último nivel de estudios terminado?',
+        'Nivel educativo'
+      ]),
+
+      // Zona
+      zona: buscarIndiceColumnaExacto(headers, [
+        'Inicio/Zona',
+        'Zona'
+      ]),
+
+      // Cómo se enteró
+      comoSeEntero: buscarIndiceColumnaExacto(headers, [
+        '¿Cómo te enteraste de Creamos?',
+        'Como te enteraste'
+      ]),
+
+      // === COLUMNAS DE FILTRO TECNOLOGÍA ===
+      techMarketing: buscarIndiceColumnaExacto(headers, [
+        'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Tecnología - Marketing',
+        '¿Tienes interés en un servicio o formación específica?/Tecnología - Marketing',
+        'Tecnología - Marketing'
+      ]),
+
+      techProgramacion: buscarIndiceColumnaExacto(headers, [
+        'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Tecnología - Programación',
+        '¿Tienes interés en un servicio o formación específica?/Tecnología - Programación ',
+        '¿Tienes interés en un servicio o formación específica?/Tecnología - Programación',
+        'Tecnología - Programación'
+      ]),
+
+      // Desea inscribirse en Inclusión Laboral
+      deseaInscribirse: buscarIndiceColumnaExacto(headers, [
+        'Inclusión Laboral/¿Deseas inscribirte en el programa de Inclusión Laboral?',
+        '¿Deseas inscribirte en el programa de Inclusión Laboral?'
+      ])
     };
+
+    // Log de índices encontrados para debug
+    Logger.log('Índices encontrados:');
+    for (const [key, value] of Object.entries(colIndices)) {
+      Logger.log('  ' + key + ': ' + value + (value >= 0 ? ' (' + headers[value] + ')' : ' (NO ENCONTRADO)'));
+    }
 
     const hojaInteres = ss.getSheetByName('Hoja de Interés');
 
     // Obtener IDs existentes para evitar duplicados
     const idsExistentes = new Set();
-    const datosExistentes = hojaInteres.getRange('C2:C500').getValues();
-    datosExistentes.forEach(fila => {
-      if (fila[0]) idsExistentes.add(fila[0].toString().trim());
-    });
+    const dpisExistentes = new Set();
+    const datosExistentes = hojaInteres.getDataRange().getValues();
+    for (let i = 1; i < datosExistentes.length; i++) {
+      if (datosExistentes[i][2]) idsExistentes.add(datosExistentes[i][2].toString().trim());
+      if (datosExistentes[i][3]) dpisExistentes.add(datosExistentes[i][3].toString().trim());
+    }
 
     let importados = 0;
-    let omitidos = 0;
+    let omitidosDuplicados = 0;
+    let omitidosNoTech = 0;
 
-    // Procesar filas (solo Tech)
+    // Procesar filas
     for (let i = 1; i < rows.length; i++) {
       const fila = rows[i];
 
-      // Filtrar solo registros de Tech/Tecnología
-      const programa = colIndices.programa >= 0 ? fila[colIndices.programa] : '';
-      if (programa && !esProgramaTech(programa)) {
-        omitidos++;
+      // === FILTRO: Solo registros de TECNOLOGÍA ===
+      const esMarketing = colIndices.techMarketing >= 0 &&
+        (fila[colIndices.techMarketing] === '1' || fila[colIndices.techMarketing] === 'True' || fila[colIndices.techMarketing] === 'true');
+      const esProgramacion = colIndices.techProgramacion >= 0 &&
+        (fila[colIndices.techProgramacion] === '1' || fila[colIndices.techProgramacion] === 'True' || fila[colIndices.techProgramacion] === 'true');
+
+      if (!esMarketing && !esProgramacion) {
+        omitidosNoTech++;
         continue; // Saltar si no es Tech
       }
 
-      const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId] : '';
+      // Obtener Creamos ID y DPI
+      const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim() : '';
+      const dpi = colIndices.dpi >= 0 ? fila[colIndices.dpi].toString().trim() : '';
 
-      // Verificar si ya existe
-      if (creamosId && idsExistentes.has(creamosId.toString().trim())) {
-        omitidos++;
+      // Verificar duplicados por ID o DPI
+      if ((creamosId && idsExistentes.has(creamosId)) || (dpi && dpisExistentes.has(dpi))) {
+        omitidosDuplicados++;
         continue;
+      }
+
+      // Construir nombre completo
+      const nombres = colIndices.nombres >= 0 ? fila[colIndices.nombres].toString().trim() : '';
+      const apellidos = colIndices.apellidos >= 0 ? fila[colIndices.apellidos].toString().trim() : '';
+      const nombreCompleto = (nombres + ' ' + apellidos).trim();
+
+      // Calcular edad desde fecha de nacimiento
+      let edad = '';
+      if (colIndices.fechaNacimiento >= 0 && fila[colIndices.fechaNacimiento]) {
+        edad = calcularEdad(fila[colIndices.fechaNacimiento]);
+      }
+
+      // Obtener teléfono
+      const telefono = colIndices.telefono >= 0 ? fila[colIndices.telefono].toString().trim() : '';
+
+      // Obtener nivel educativo
+      const nivelEducativo = colIndices.nivelEducativo >= 0 ? fila[colIndices.nivelEducativo].toString().trim() : '';
+
+      // Obtener zona
+      const zona = colIndices.zona >= 0 ? fila[colIndices.zona].toString().trim() : '';
+
+      // Obtener cómo se enteró
+      const comoSeEntero = colIndices.comoSeEntero >= 0 ? fila[colIndices.comoSeEntero].toString().trim() : 'KoboToolbox';
+
+      // Determinar programa de interés
+      let programaInteres = '';
+      if (esMarketing && esProgramacion) {
+        programaInteres = 'Marketing y Programación';
+      } else if (esMarketing) {
+        programaInteres = 'SAC Cohorte I'; // Marketing
+      } else if (esProgramacion) {
+        programaInteres = 'Computación Cohorte I'; // Programación
       }
 
       // Obtener primera fila vacía
       const nuevaFila = obtenerPrimeraFilaVacia(hojaInteres, 'E');
 
-      // Preparar datos
+      // Preparar registro
       const registro = [
-        '',  // A: Fecha (fórmula)
-        '',  // B: No. (fórmula)
-        creamosId || '',
-        colIndices.dpi >= 0 ? fila[colIndices.dpi] : '',
-        colIndices.nombre >= 0 ? fila[colIndices.nombre] : '',
-        colIndices.edad >= 0 ? fila[colIndices.edad] : '',
-        colIndices.telefono >= 0 ? fila[colIndices.telefono] : '',
-        colIndices.nivelEducativo >= 0 ? fila[colIndices.nivelEducativo] : '',
-        colIndices.zona >= 0 ? fila[colIndices.zona] : '',
-        colIndices.comoSeEntero >= 0 ? fila[colIndices.comoSeEntero] : 'KoboToolbox',
-        '',  // K: Programa Interés
-        '',  // L: Responsable
-        'Nuevo',
-        'Importado desde Kobo'
+        '',                // A: Fecha (fórmula automática)
+        '',                // B: No. (fórmula automática)
+        creamosId,         // C: Creamos ID
+        dpi,               // D: DPI
+        nombreCompleto,    // E: Nombre Completo
+        edad,              // F: Edad
+        telefono,          // G: Teléfono
+        nivelEducativo,    // H: Nivel Educativo
+        zona,              // I: Zona
+        comoSeEntero,      // J: Cómo se enteró
+        programaInteres,   // K: Programa Interés
+        '',                // L: Responsable
+        'Nuevo',           // M: Estado
+        'Importado desde Kobo - ' + (esMarketing ? 'Marketing' : '') + (esProgramacion ? (esMarketing ? ' y ' : '') + 'Programación' : '')  // N: Notas
       ];
 
       hojaInteres.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
 
-      if (creamosId) idsExistentes.add(creamosId.toString().trim());
+      if (creamosId) idsExistentes.add(creamosId);
+      if (dpi) dpisExistentes.add(dpi);
       importados++;
     }
 
-    ss.toast(
-      '✅ IMPORTACIÓN COMPLETADA\n\n' +
-      'Importados: ' + importados + '\n' +
-      'Omitidos (duplicados o no Tech): ' + omitidos,
-      'Importación',
-      8
-    );
+    const mensaje = '✅ IMPORTACIÓN COMPLETADA\n\n' +
+      '📥 Importados: ' + importados + '\n' +
+      '🔄 Duplicados omitidos: ' + omitidosDuplicados + '\n' +
+      '🚫 No Tech (omitidos): ' + omitidosNoTech;
 
-    Logger.log('✅ Importación Kobo: ' + importados + ' importados, ' + omitidos + ' omitidos');
+    ss.toast(mensaje, 'Importación', 10);
+    Logger.log(mensaje);
 
   } catch (error) {
     ss.toast('❌ Error: ' + error.message, 'Error de Importación', 5);
     Logger.log('❌ Error importando desde Kobo: ' + error.message);
+    Logger.log(error.stack);
   }
 }
 
 /**
- * Busca el índice de una columna por varios nombres posibles
+ * Busca índice de columna por coincidencia exacta o parcial
  */
-function buscarIndiceColumna(headers, nombresPosibles) {
+function buscarIndiceColumnaExacto(headers, nombresPosibles) {
+  for (let i = 0; i < headers.length; i++) {
+    const header = headers[i].trim();
+    for (const nombre of nombresPosibles) {
+      // Coincidencia exacta primero
+      if (header === nombre) {
+        return i;
+      }
+    }
+  }
+  // Si no hay coincidencia exacta, buscar parcial
   for (let i = 0; i < headers.length; i++) {
     const header = headers[i].toLowerCase().trim();
     for (const nombre of nombresPosibles) {
@@ -1406,19 +1550,39 @@ function buscarIndiceColumna(headers, nombresPosibles) {
 }
 
 /**
- * Verifica si un programa es de Tech/Tecnología
+ * Calcula la edad a partir de una fecha de nacimiento
  */
-function esProgramaTech(programa) {
-  const programaLower = programa.toLowerCase();
-  const palabrasTech = ['tech', 'tecnolog', 'sac', 'computacion', 'computación', 'software', 'programacion', 'programación'];
-
-  for (const palabra of palabrasTech) {
-    if (programaLower.includes(palabra)) {
-      return true;
+function calcularEdad(fechaNacimiento) {
+  try {
+    let fecha;
+    if (typeof fechaNacimiento === 'string') {
+      // Intentar parsear diferentes formatos
+      if (fechaNacimiento.includes('/')) {
+        const partes = fechaNacimiento.split('/');
+        if (partes.length === 3) {
+          fecha = new Date(partes[2], partes[1] - 1, partes[0]);
+        }
+      } else if (fechaNacimiento.includes('-')) {
+        fecha = new Date(fechaNacimiento);
+      }
+    } else if (fechaNacimiento instanceof Date) {
+      fecha = fechaNacimiento;
     }
+
+    if (!fecha || isNaN(fecha.getTime())) return '';
+
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - fecha.getFullYear();
+    const mes = hoy.getMonth() - fecha.getMonth();
+    if (mes < 0 || (mes === 0 && hoy.getDate() < fecha.getDate())) {
+      edad--;
+    }
+    return edad > 0 && edad < 120 ? edad.toString() : '';
+  } catch (e) {
+    return '';
   }
-  return false;
 }
+
 
 /**
  * Configura importación automática (trigger diario)
