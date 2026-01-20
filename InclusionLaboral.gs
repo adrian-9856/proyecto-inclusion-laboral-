@@ -1431,17 +1431,32 @@ function importarDesdeKobo() {
       ]),
 
       // === COLUMNAS DE FILTRO TECNOLOGÍA ===
+      // Los nombres en KoboToolbox usan el nombre corto (ej: "marketing", "programacion")
       techMarketing: buscarIndiceColumnaExacto(headers, [
+        'marketing',
+        'Tecnología - Marketing',
         'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Tecnología - Marketing',
-        '¿Tienes interés en un servicio o formación específica?/Tecnología - Marketing',
-        'Tecnología - Marketing'
+        '¿Tienes interés en un servicio o formación específica?/Tecnología - Marketing'
       ]),
 
       techProgramacion: buscarIndiceColumnaExacto(headers, [
+        'programacion',
+        'Tecnología - Programación',
         'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Tecnología - Programación',
-        '¿Tienes interés en un servicio o formación específica?/Tecnología - Programación ',
-        '¿Tienes interés en un servicio o formación específica?/Tecnología - Programación',
-        'Tecnología - Programación'
+        '¿Tienes interés en un servicio o formación específica?/Tecnología - Programación'
+      ]),
+
+      // Otros programas de tecnología
+      alfabetizacionDigital: buscarIndiceColumnaExacto(headers, [
+        'Alfabetización_digital',
+        'Alfabetizacion_digital',
+        'alfabetizacion_digital'
+      ]),
+
+      certificacionMicrosoft: buscarIndiceColumnaExacto(headers, [
+        'Certificación_Microsoft',
+        'Certificacion_Microsoft',
+        'certificacion_microsoft'
       ]),
 
       // Desea inscribirse en Inclusión Laboral
@@ -1477,12 +1492,14 @@ function importarDesdeKobo() {
       const fila = rows[i];
 
       // === FILTRO: Solo registros de TECNOLOGÍA ===
-      const esMarketing = colIndices.techMarketing >= 0 &&
-        (fila[colIndices.techMarketing] === '1' || fila[colIndices.techMarketing] === 'True' || fila[colIndices.techMarketing] === 'true');
-      const esProgramacion = colIndices.techProgramacion >= 0 &&
-        (fila[colIndices.techProgramacion] === '1' || fila[colIndices.techProgramacion] === 'True' || fila[colIndices.techProgramacion] === 'true');
+      // Verificar cada programa de tecnología
+      const esMarketing = verificarValorPositivo(fila, colIndices.techMarketing);
+      const esProgramacion = verificarValorPositivo(fila, colIndices.techProgramacion);
+      const esAlfabetizacion = verificarValorPositivo(fila, colIndices.alfabetizacionDigital);
+      const esCertificacion = verificarValorPositivo(fila, colIndices.certificacionMicrosoft);
 
-      if (!esMarketing && !esProgramacion) {
+      // Si no tiene ningún programa de tecnología, omitir
+      if (!esMarketing && !esProgramacion && !esAlfabetizacion && !esCertificacion) {
         omitidosNoTech++;
         continue; // Saltar si no es Tech
       }
@@ -1520,15 +1537,24 @@ function importarDesdeKobo() {
       // Obtener cómo se enteró
       const comoSeEntero = colIndices.comoSeEntero >= 0 ? fila[colIndices.comoSeEntero].toString().trim() : 'KoboToolbox';
 
-      // Determinar programa de interés
-      let programaInteres = '';
-      if (esMarketing && esProgramacion) {
-        programaInteres = 'Marketing y Programación';
-      } else if (esMarketing) {
-        programaInteres = 'SAC Cohorte I'; // Marketing
+      // Determinar programa de interés y notas
+      let programasSeleccionados = [];
+      if (esMarketing) programasSeleccionados.push('Marketing');
+      if (esProgramacion) programasSeleccionados.push('Programación');
+      if (esAlfabetizacion) programasSeleccionados.push('Alfabetización Digital');
+      if (esCertificacion) programasSeleccionados.push('Certificación Microsoft');
+
+      // Asignar cohorte basado en el primer programa seleccionado
+      let programaInteres = 'Por definir';
+      if (esMarketing) {
+        programaInteres = 'SAC Cohorte I';
       } else if (esProgramacion) {
-        programaInteres = 'Computación Cohorte I'; // Programación
+        programaInteres = 'Computación Cohorte I';
+      } else if (esAlfabetizacion || esCertificacion) {
+        programaInteres = 'SAC Cohorte II';
       }
+
+      const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
 
       // Obtener primera fila vacía
       const nuevaFila = obtenerPrimeraFilaVacia(hojaInteres, 'E');
@@ -1548,7 +1574,7 @@ function importarDesdeKobo() {
         programaInteres,   // K: Programa Interés
         '',                // L: Responsable
         'Nuevo',           // M: Estado
-        'Importado desde Kobo - ' + (esMarketing ? 'Marketing' : '') + (esProgramacion ? (esMarketing ? ' y ' : '') + 'Programación' : '')  // N: Notas
+        notasPrograma      // N: Notas
       ];
 
       hojaInteres.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
@@ -1596,6 +1622,17 @@ function buscarIndiceColumnaExacto(headers, nombresPosibles) {
     }
   }
   return -1;
+}
+
+/**
+ * Verifica si un valor en una fila es positivo (1, true, True, Sí, etc.)
+ */
+function verificarValorPositivo(fila, indice) {
+  if (indice < 0 || !fila || indice >= fila.length) return false;
+  const valor = fila[indice];
+  if (!valor) return false;
+  const valorStr = valor.toString().toLowerCase().trim();
+  return valorStr === '1' || valorStr === 'true' || valorStr === 'sí' || valorStr === 'si' || valorStr === 'yes';
 }
 
 /**
