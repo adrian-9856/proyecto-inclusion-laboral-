@@ -1431,33 +1431,10 @@ function importarDesdeKobo() {
         'Como te enteraste'
       ]),
 
-      // === COLUMNAS DE FILTRO TECNOLOGÍA ===
-      // Los nombres en KoboToolbox usan el nombre corto (ej: "marketing", "programacion")
-      techMarketing: buscarIndiceColumnaExacto(headers, [
-        'marketing',
-        'Tecnología - Marketing',
-        'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Tecnología - Marketing',
-        '¿Tienes interés en un servicio o formación específica?/Tecnología - Marketing'
-      ]),
-
-      techProgramacion: buscarIndiceColumnaExacto(headers, [
-        'programacion',
-        'Tecnología - Programación',
-        'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Tecnología - Programación',
-        '¿Tienes interés en un servicio o formación específica?/Tecnología - Programación'
-      ]),
-
-      // Otros programas de tecnología
-      alfabetizacionDigital: buscarIndiceColumnaExacto(headers, [
-        'Alfabetización_digital',
-        'Alfabetizacion_digital',
-        'alfabetizacion_digital'
-      ]),
-
-      certificacionMicrosoft: buscarIndiceColumnaExacto(headers, [
-        'Certificación_Microsoft',
-        'Certificacion_Microsoft',
-        'certificacion_microsoft'
+      // === COLUMNA PRINCIPAL DE INTERÉS (contiene texto con las opciones) ===
+      servicioInteres: buscarIndiceColumnaExacto(headers, [
+        'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?',
+        '¿Tienes interés en un servicio o formación específica?'
       ]),
 
       // Desea inscribirse en Inclusión Laboral
@@ -1493,11 +1470,15 @@ function importarDesdeKobo() {
       const fila = rows[i];
 
       // === FILTRO: Solo registros de TECNOLOGÍA ===
-      // Verificar cada programa de tecnología
-      const esMarketing = verificarValorPositivo(fila, colIndices.techMarketing);
-      const esProgramacion = verificarValorPositivo(fila, colIndices.techProgramacion);
-      const esAlfabetizacion = verificarValorPositivo(fila, colIndices.alfabetizacionDigital);
-      const esCertificacion = verificarValorPositivo(fila, colIndices.certificacionMicrosoft);
+      // Obtener el texto de la columna de servicios de interés
+      const servicioTexto = colIndices.servicioInteres >= 0 ?
+        (fila[colIndices.servicioInteres] || '').toString().toLowerCase() : '';
+
+      // Verificar si contiene algún programa de tecnología
+      const esMarketing = servicioTexto.includes('tecnología - marketing') || servicioTexto.includes('tecnologia - marketing');
+      const esProgramacion = servicioTexto.includes('tecnología - programación') || servicioTexto.includes('tecnologia - programacion');
+      const esAlfabetizacion = servicioTexto.includes('alfabetización digital') || servicioTexto.includes('alfabetizacion digital');
+      const esCertificacion = servicioTexto.includes('certificación microsoft') || servicioTexto.includes('certificacion microsoft');
 
       // Si no tiene ningún programa de tecnología, omitir
       if (!esMarketing && !esProgramacion && !esAlfabetizacion && !esCertificacion) {
