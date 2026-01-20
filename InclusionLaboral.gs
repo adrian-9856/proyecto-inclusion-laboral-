@@ -160,6 +160,7 @@ function onOpen() {
     .addSubMenu(ui.createMenu('📥 Importar Datos')
       .addItem('📋 Importar desde KoboToolbox', 'importarDesdeKobo')
       .addItem('🔗 Configurar URL de Kobo', 'configurarKoboURL')
+      .addItem('🔍 Probar Conexión Kobo', 'probarConexionKobo')
       .addItem('🔄 Importación Automática', 'configurarImportacionAutomatica'))
     .addSeparator()
     .addSubMenu(ui.createMenu('📋 Gestión de Cohortes')
@@ -1296,22 +1297,62 @@ function importarDesdeKobo() {
 
     const response = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
+      followRedirects: true,
       headers: {
-        'Accept': 'text/csv'
+        'Accept': 'text/csv, application/csv, text/plain'
       }
     });
 
-    if (response.getResponseCode() !== 200) {
-      throw new Error('Error HTTP: ' + response.getResponseCode());
+    const responseCode = response.getResponseCode();
+    Logger.log('Código de respuesta: ' + responseCode);
+
+    if (responseCode !== 200) {
+      throw new Error('Error HTTP: ' + responseCode + '. Verifica que la URL sea correcta y pública.');
     }
 
-    const csvData = response.getContentText();
-    const rows = Utilities.parseCsv(csvData);
+    let csvData = response.getContentText('UTF-8');
+    Logger.log('Tamaño de datos recibidos: ' + csvData.length + ' caracteres');
 
-    if (rows.length < 2) {
+    // Verificar que hay datos
+    if (!csvData || csvData.trim().length === 0) {
+      throw new Error('No se recibieron datos del servidor');
+    }
+
+    // Limpiar el texto (quitar BOM si existe)
+    if (csvData.charCodeAt(0) === 0xFEFF) {
+      csvData = csvData.substring(1);
+    }
+
+    // Detectar el separador (puede ser coma, punto y coma, o tab)
+    const primeraLinea = csvData.split('\n')[0];
+    let separador = ',';
+    if (primeraLinea.includes(';') && !primeraLinea.includes(',')) {
+      separador = ';';
+    } else if (primeraLinea.includes('\t') && !primeraLinea.includes(',')) {
+      separador = '\t';
+    }
+    Logger.log('Separador detectado: ' + (separador === '\t' ? 'TAB' : separador));
+
+    // Parsear CSV
+    let rows;
+    try {
+      if (separador === ',') {
+        rows = Utilities.parseCsv(csvData);
+      } else {
+        rows = Utilities.parseCsv(csvData, separador);
+      }
+    } catch (parseError) {
+      Logger.log('Error en parseCsv: ' + parseError.message);
+      // Intentar parseo manual si falla
+      rows = parsearCSVManual(csvData, separador);
+    }
+
+    if (!rows || rows.length < 2) {
       ss.toast('⚠️ No hay datos para importar', 'Sin Datos', 3);
       return;
     }
+
+    Logger.log('Filas parseadas: ' + rows.length);
 
     // Obtener headers
     const headers = rows[0];
@@ -1550,6 +1591,44 @@ function buscarIndiceColumnaExacto(headers, nombresPosibles) {
 }
 
 /**
+ * Parsea CSV manualmente cuando Utilities.parseCsv falla
+ */
+function parsearCSVManual(csvData, separador) {
+  const lineas = csvData.split(/\r?\n/);
+  const resultado = [];
+
+  for (const linea of lineas) {
+    if (!linea.trim()) continue;
+
+    const campos = [];
+    let campoActual = '';
+    let dentroComillas = false;
+
+    for (let i = 0; i < linea.length; i++) {
+      const char = linea[i];
+
+      if (char === '"') {
+        if (dentroComillas && linea[i + 1] === '"') {
+          campoActual += '"';
+          i++; // Saltar la siguiente comilla
+        } else {
+          dentroComillas = !dentroComillas;
+        }
+      } else if (char === separador && !dentroComillas) {
+        campos.push(campoActual.trim());
+        campoActual = '';
+      } else {
+        campoActual += char;
+      }
+    }
+    campos.push(campoActual.trim());
+    resultado.push(campos);
+  }
+
+  return resultado;
+}
+
+/**
  * Calcula la edad a partir de una fecha de nacimiento
  */
 function calcularEdad(fechaNacimiento) {
@@ -1583,6 +1662,84 @@ function calcularEdad(fechaNacimiento) {
   }
 }
 
+
+/**
+ * Prueba la conexión con KoboToolbox y muestra información de debug
+ */
+function probarConexionKobo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  const url = props.getProperty('KOBO_URL') || CONFIG.KOBO_URL;
+
+  if (!url) {
+    ui.alert('⚠️ URL no configurada');
+    return;
+  }
+
+  try {
+    ss.toast('🔍 Probando conexión...', 'Test', 3);
+
+    const response = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+
+    const responseCode = response.getResponseCode();
+    const contentType = response.getHeaders()['Content-Type'] || 'Desconocido';
+    const csvData = response.getContentText('UTF-8');
+
+    let mensaje = '📊 RESULTADO DE PRUEBA\n\n';
+    mensaje += '🔗 URL: ' + url.substring(0, 50) + '...\n';
+    mensaje += '📡 Código HTTP: ' + responseCode + '\n';
+    mensaje += '📄 Tipo contenido: ' + contentType + '\n';
+    mensaje += '📏 Tamaño: ' + csvData.length + ' caracteres\n\n';
+
+    if (responseCode === 200 && csvData.length > 0) {
+      const lineas = csvData.split('\n');
+      mensaje += '📋 Líneas totales: ' + lineas.length + '\n\n';
+
+      // Mostrar headers
+      const primeraLinea = lineas[0];
+      const separador = primeraLinea.includes(';') ? ';' : (primeraLinea.includes('\t') ? 'TAB' : ',');
+      mensaje += '🔀 Separador: ' + separador + '\n\n';
+
+      // Contar columnas
+      let headers;
+      try {
+        headers = Utilities.parseCsv(primeraLinea)[0];
+        mensaje += '📊 Columnas encontradas: ' + headers.length + '\n\n';
+
+        // Buscar columnas de tecnología
+        const techCols = headers.filter(h =>
+          h.toLowerCase().includes('tecnología') ||
+          h.toLowerCase().includes('tecnologia') ||
+          h.toLowerCase().includes('marketing') ||
+          h.toLowerCase().includes('programación') ||
+          h.toLowerCase().includes('programacion')
+        );
+
+        if (techCols.length > 0) {
+          mensaje += '🖥️ Columnas Tech encontradas:\n';
+          techCols.forEach(c => { mensaje += '  • ' + c + '\n'; });
+        } else {
+          mensaje += '⚠️ No se encontraron columnas de Tecnología\n';
+        }
+      } catch (e) {
+        mensaje += '⚠️ Error parseando headers: ' + e.message + '\n';
+      }
+
+      mensaje += '\n✅ Conexión exitosa';
+    } else {
+      mensaje += '❌ Error en la respuesta';
+    }
+
+    ui.alert('Prueba de Conexión', mensaje, ui.ButtonSet.OK);
+
+  } catch (error) {
+    ui.alert('❌ Error', 'No se pudo conectar:\n\n' + error.message, ui.ButtonSet.OK);
+  }
+}
 
 /**
  * Configura importación automática (trigger diario)
