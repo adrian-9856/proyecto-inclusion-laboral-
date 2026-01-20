@@ -747,22 +747,29 @@ function configurarValidaciones() {
   const responsables = obtenerResponsablesActuales();
 
   // === HOJA DE INTERÉS ===
+  // Nota: Columnas H (Nivel Educativo), I (Zona), J (Cómo se enteró) permiten valores inválidos
+  // porque se llenan desde KoboToolbox con valores que pueden no estar en las listas
   const interes = ss.getSheetByName('Hoja de Interés');
   if (interes) {
+    // Nivel Educativo - permitir valores de Kobo (ej: "Tercero Básico", "Diversificado")
     interes.getRange('H2:H500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.NIVELES_EDUCATIVOS).setAllowInvalid(true).build()
     );
+    // Zona - permitir valores de Kobo
     interes.getRange('I2:I500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ZONAS).setAllowInvalid(true).build()
     );
+    // Programa Interés (cohortes)
     interes.getRange('K2:K500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(cohortes).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(cohortes).setAllowInvalid(true).build()
     );
+    // Responsable
     interes.getRange('L2:L500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
     );
+    // Estado
     interes.getRange('M2:M500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(['Nuevo', 'Contactado', 'Entrevista agendada', 'En proceso', 'No seleccionada']).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(['Nuevo', 'Contactado', 'Entrevista agendada', 'En proceso', 'No seleccionada']).setAllowInvalid(true).build()
     );
   }
 
