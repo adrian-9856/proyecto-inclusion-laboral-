@@ -1548,6 +1548,10 @@ function importarDesdeKobo() {
       // Obtener primera fila vacía
       const nuevaFila = obtenerPrimeraFilaVacia(hojaInteres, 'E');
 
+      // IMPORTANTE: Limpiar validaciones de la fila antes de insertar
+      // Esto evita errores cuando los valores de Kobo no coinciden con las listas
+      hojaInteres.getRange(nuevaFila, 1, 1, 14).clearDataValidations();
+
       // Preparar registro
       const registro = [
         '',                // A: Fecha (fórmula automática)
