@@ -10,11 +10,8 @@
  * - Hoja Entrevistas: Agregada columna "Enviar" al final
  * - Unificada "No Interesados" + "No Seleccionadas" en una sola hoja
  * - Conexión con KoboToolbox para importar datos automáticamente
- *
- * COHORTES DISPONIBLES:
- * - SAC Cohorte I
- * - SAC Cohorte II
- * - Computación Cohorte I
+ * - Las cohortes se crean dinámicamente desde el menú
+ * - Cada cohorte tiene su propia hoja individual
  *
  * =====================================================================
  */
@@ -27,13 +24,8 @@ const CONFIG = {
   // URL de KoboToolbox para importar datos
   KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esLPozzAX85W2xSv98r2AVM/data.csv',
 
-  // Cohortes disponibles
-  COHORTES: [
-    'SAC Cohorte I',
-    'SAC Cohorte II',
-    'Computación Cohorte I',
-    'Por definir'
-  ],
+  // Cohortes disponibles (se llenan dinámicamente desde la hoja Cohortes)
+  COHORTES: [],
 
   // Responsables del programa
   RESPONSABLES: [
@@ -630,12 +622,8 @@ function crearHojaReporte() {
     ['Personas seleccionadas', '=IFERROR(COUNTA(Seleccionadas!E:E)-1,0)', '=IFERROR(COUNTIF(Seleccionadas!M:M,"Activa"),0)', ''],
     ['', '', '', ''],
 
-    ['PARTICIPANTES POR COHORTE', 'Inscritas', 'Activas', 'Graduadas'],
-    // Estado de Seleccionadas ahora en columna M
-    ['SAC Cohorte I', '=IFERROR(COUNTIF(Seleccionadas!J:J,"SAC Cohorte I"),0)', '=IFERROR(COUNTIFS(Seleccionadas!J:J,"SAC Cohorte I",Seleccionadas!M:M,"Activa"),0)', '=IFERROR(COUNTIF(Graduadas!G:G,"SAC Cohorte I"),0)'],
-    ['SAC Cohorte II', '=IFERROR(COUNTIF(Seleccionadas!J:J,"SAC Cohorte II"),0)', '=IFERROR(COUNTIFS(Seleccionadas!J:J,"SAC Cohorte II",Seleccionadas!M:M,"Activa"),0)', '=IFERROR(COUNTIF(Graduadas!G:G,"SAC Cohorte II"),0)'],
-    ['Computación Cohorte I', '=IFERROR(COUNTIF(Seleccionadas!J:J,"Computación Cohorte I"),0)', '=IFERROR(COUNTIFS(Seleccionadas!J:J,"Computación Cohorte I",Seleccionadas!M:M,"Activa"),0)', '=IFERROR(COUNTIF(Graduadas!G:G,"Computación Cohorte I"),0)'],
-    ['TOTAL', '=SUM(B14:B16)', '=SUM(C14:C16)', '=SUM(D14:D16)'],
+    ['PARTICIPANTES POR COHORTE', 'Ver hoja Cohortes', '', ''],
+    ['(Los datos por cohorte se ven en la hoja Cohortes)', '', '', ''],
     ['', '', '', ''],
 
     ['GRADUADAS', 'Total', 'Este mes', 'Empleadas'],
@@ -1534,13 +1522,16 @@ function importarDesdeKobo() {
       if (esCertificacion) programasSeleccionados.push('Certificación Microsoft');
 
       // Asignar cohorte basado en el primer programa seleccionado
-      let programaInteres = 'Por definir';
+      // Programa de interés basado en la especialidad seleccionada
+      let programaInteres = '';
       if (esMarketing) {
-        programaInteres = 'SAC Cohorte I';
+        programaInteres = 'Marketing Digital';
       } else if (esProgramacion) {
-        programaInteres = 'Computación Cohorte I';
-      } else if (esAlfabetizacion || esCertificacion) {
-        programaInteres = 'SAC Cohorte II';
+        programaInteres = 'Programación';
+      } else if (esAlfabetizacion) {
+        programaInteres = 'Alfabetización Digital';
+      } else if (esCertificacion) {
+        programaInteres = 'Certificación Microsoft';
       }
 
       const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
@@ -2352,9 +2343,9 @@ function crearDatosPrueba() {
   const interes = ss.getSheetByName('Hoja de Interés');
   // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Teléfono, NivelEducativo, Zona, ComoSeEntero, ProgramaInteres, Responsable, Notas, Estado
   const datosPrueba = [
-    ['', '', 'CR001', '1234567890101', 'María García', '22', '5555-1234', 'Diversificado completo', 'Zona 1', 'Redes', 'SAC Cohorte I', 'Adrian Torres', '', 'Nuevo'],
-    ['', '', 'CR002', '2345678901212', 'Ana Martínez', '25', '5555-5678', 'Universitario', 'Zona 7', 'Referido', 'SAC Cohorte I', 'Paola Ortiz', '', 'Nuevo'],
-    ['', '', 'CR003', '3456789012323', 'Laura López', '19', '5555-9012', 'Básicos completos', 'Mixco', 'Facebook', 'Computación Cohorte I', 'Adrian Torres', '', 'Nuevo']
+    ['', '', 'CR001', '1234567890101', 'María García', '22', '5555-1234', 'Diversificado completo', 'Zona 1', 'Redes', 'Marketing Digital', 'Adrian Torres', '', 'Nuevo'],
+    ['', '', 'CR002', '2345678901212', 'Ana Martínez', '25', '5555-5678', 'Universitario', 'Zona 7', 'Referido', 'Programación', 'Paola Ortiz', '', 'Nuevo'],
+    ['', '', 'CR003', '3456789012323', 'Laura López', '19', '5555-9012', 'Básicos completos', 'Mixco', 'Facebook', 'Alfabetización Digital', 'Adrian Torres', '', 'Nuevo']
   ];
   interes.getRange(2, 1, 3, 14).setValues(datosPrueba);
   ss.toast('✅ 3 registros creados', 'OK', 4);
