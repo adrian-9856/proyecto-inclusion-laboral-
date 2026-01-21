@@ -422,8 +422,8 @@ function crearHojaSeleccionadas() {
     'Zona',             // I
     'Cohorte Asignada', // J - Desplegable
     'Responsable',      // K - Desplegable
-    'Estado',           // L - Desplegable
-    'Notas'             // M
+    'Notas',            // L
+    'Estado'            // M - Última columna (acción)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -432,7 +432,7 @@ function crearHojaSeleccionadas() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 50, 100, 130, 200, 60, 120, 150, 120, 150, 120, 100, 250].forEach((w, i) => {
+  [120, 50, 100, 130, 200, 60, 120, 150, 120, 150, 120, 250, 100].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -455,10 +455,10 @@ function crearHojaCohortes() {
     'Activas',            // H - Fórmula
     'Graduadas',          // I - Fórmula
     'Deserciones',        // J - Fórmula
-    'Estado',             // K
-    'Ubicación',          // L
-    'Horario',            // M
-    'Notas'               // N
+    'Ubicación',          // K
+    'Horario',            // L
+    'Notas',              // M
+    'Estado'              // N - Última columna (acción)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -467,23 +467,17 @@ function crearHojaCohortes() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  const cohortesIniciales = [
-    ['SAC Cohorte I', 'Tecnología', '', '', 'Adrian Torres', 25, '', '', '', '', 'Activa', '', '', ''],
-    ['SAC Cohorte II', 'Tecnología', '', '', 'Paola Ortiz', 25, '', '', '', '', 'Planificada', '', '', ''],
-    ['Computación Cohorte I', 'Tecnología', '', '', 'Adrian Torres', 20, '', '', '', '', 'Planificada', '', '', ''],
-    ['Por definir', 'Tecnología', '', '', '', 20, '', '', '', '', 'Planificada', '', '', '']
-  ];
-
-  sheet.getRange(2, 1, cohortesIniciales.length, 14).setValues(cohortesIniciales);
+  // Sin datos de ejemplo - las cohortes se crean desde el menú
 
   for (let i = 2; i <= 20; i++) {
     sheet.getRange('G' + i).setFormula('=IFERROR(COUNTIF(Seleccionadas!J:J,A' + i + '),0)');
-    sheet.getRange('H' + i).setFormula('=IFERROR(COUNTIFS(Seleccionadas!J:J,A' + i + ',Seleccionadas!L:L,"Activa"),0)');
+    // Activas ahora busca en columna M (Estado) de Seleccionadas
+    sheet.getRange('H' + i).setFormula('=IFERROR(COUNTIFS(Seleccionadas!J:J,A' + i + ',Seleccionadas!M:M,"Activa"),0)');
     sheet.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + i + '),0)');
     sheet.getRange('J' + i).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + i + '),0)');
   }
 
-  [180, 100, 120, 120, 120, 100, 80, 80, 80, 80, 100, 150, 150, 200].forEach((w, i) => {
+  [180, 100, 120, 120, 120, 100, 80, 80, 80, 80, 150, 150, 200, 100].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -524,18 +518,18 @@ function crearHojaGraduadas() {
   const sheet = ss.insertSheet('Graduadas');
 
   const headers = [
-    'Fecha Graduación',
-    'Creamos ID',
-    'DPI',
-    'Nombre Completo',
-    'Teléfono',
-    'Nivel Educativo',
-    'Cohorte',
-    'Calificación Final',
-    'Estado Seguimiento',
-    'Empresa/Ocupación',
-    'Fecha Último Contacto',
-    'Notas Seguimiento'
+    'Fecha Graduación',     // A
+    'Creamos ID',           // B
+    'DPI',                  // C
+    'Nombre Completo',      // D
+    'Teléfono',             // E
+    'Nivel Educativo',      // F
+    'Cohorte',              // G
+    'Calificación Final',   // H
+    'Empresa/Ocupación',    // I
+    'Fecha Último Contacto',// J
+    'Notas Seguimiento',    // K
+    'Estado Seguimiento'    // L - Última columna (acción)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -544,7 +538,7 @@ function crearHojaGraduadas() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 100, 130, 200, 120, 150, 180, 120, 180, 200, 150, 300].forEach((w, i) => {
+  [120, 100, 130, 200, 120, 150, 180, 120, 200, 150, 300, 180].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -632,18 +626,21 @@ function crearHojaReporte() {
     ['', '', '', ''],
 
     ['SELECCIONADAS', 'Total', 'Activas', ''],
-    ['Personas seleccionadas', '=IFERROR(COUNTA(Seleccionadas!E:E)-1,0)', '=IFERROR(COUNTIF(Seleccionadas!L:L,"Activa"),0)', ''],
+    // Estado de Seleccionadas ahora en columna M
+    ['Personas seleccionadas', '=IFERROR(COUNTA(Seleccionadas!E:E)-1,0)', '=IFERROR(COUNTIF(Seleccionadas!M:M,"Activa"),0)', ''],
     ['', '', '', ''],
 
     ['PARTICIPANTES POR COHORTE', 'Inscritas', 'Activas', 'Graduadas'],
-    ['SAC Cohorte I', '=IFERROR(COUNTIF(Seleccionadas!J:J,"SAC Cohorte I"),0)', '=IFERROR(COUNTIFS(Seleccionadas!J:J,"SAC Cohorte I",Seleccionadas!L:L,"Activa"),0)', '=IFERROR(COUNTIF(Graduadas!G:G,"SAC Cohorte I"),0)'],
-    ['SAC Cohorte II', '=IFERROR(COUNTIF(Seleccionadas!J:J,"SAC Cohorte II"),0)', '=IFERROR(COUNTIFS(Seleccionadas!J:J,"SAC Cohorte II",Seleccionadas!L:L,"Activa"),0)', '=IFERROR(COUNTIF(Graduadas!G:G,"SAC Cohorte II"),0)'],
-    ['Computación Cohorte I', '=IFERROR(COUNTIF(Seleccionadas!J:J,"Computación Cohorte I"),0)', '=IFERROR(COUNTIFS(Seleccionadas!J:J,"Computación Cohorte I",Seleccionadas!L:L,"Activa"),0)', '=IFERROR(COUNTIF(Graduadas!G:G,"Computación Cohorte I"),0)'],
+    // Estado de Seleccionadas ahora en columna M
+    ['SAC Cohorte I', '=IFERROR(COUNTIF(Seleccionadas!J:J,"SAC Cohorte I"),0)', '=IFERROR(COUNTIFS(Seleccionadas!J:J,"SAC Cohorte I",Seleccionadas!M:M,"Activa"),0)', '=IFERROR(COUNTIF(Graduadas!G:G,"SAC Cohorte I"),0)'],
+    ['SAC Cohorte II', '=IFERROR(COUNTIF(Seleccionadas!J:J,"SAC Cohorte II"),0)', '=IFERROR(COUNTIFS(Seleccionadas!J:J,"SAC Cohorte II",Seleccionadas!M:M,"Activa"),0)', '=IFERROR(COUNTIF(Graduadas!G:G,"SAC Cohorte II"),0)'],
+    ['Computación Cohorte I', '=IFERROR(COUNTIF(Seleccionadas!J:J,"Computación Cohorte I"),0)', '=IFERROR(COUNTIFS(Seleccionadas!J:J,"Computación Cohorte I",Seleccionadas!M:M,"Activa"),0)', '=IFERROR(COUNTIF(Graduadas!G:G,"Computación Cohorte I"),0)'],
     ['TOTAL', '=SUM(B14:B16)', '=SUM(C14:C16)', '=SUM(D14:D16)'],
     ['', '', '', ''],
 
     ['GRADUADAS', 'Total', 'Este mes', 'Empleadas'],
-    ['Personas graduadas', '=IFERROR(COUNTA(Graduadas!D:D)-1,0)', '=IFERROR(COUNTIFS(Graduadas!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', '=IFERROR(COUNTIFS(Graduadas!I:I,"Empleada*"),0)'],
+    // Estado Seguimiento de Graduadas ahora en columna L
+    ['Personas graduadas', '=IFERROR(COUNTA(Graduadas!D:D)-1,0)', '=IFERROR(COUNTIFS(Graduadas!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', '=IFERROR(COUNTIFS(Graduadas!L:L,"Empleada*"),0)'],
     ['', '', '', ''],
 
     ['DESERCIONES', 'Total', 'Este mes', 'Tasa'],
@@ -814,7 +811,8 @@ function configurarValidaciones() {
     seleccionadas.getRange('K2:K500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(false).build()
     );
-    seleccionadas.getRange('L2:L500').setDataValidation(
+    // Estado ahora en columna M (última columna)
+    seleccionadas.getRange('M2:M500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ESTADOS_PARTICIPANTE).setAllowInvalid(false).build()
     );
   }
@@ -839,7 +837,8 @@ function configurarValidaciones() {
     graduadas.getRange('G2:G500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(cohortes).setAllowInvalid(false).build()
     );
-    graduadas.getRange('I2:I500').setDataValidation(
+    // Estado Seguimiento ahora en columna L (última columna)
+    graduadas.getRange('L2:L500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ESTADOS_SEGUIMIENTO).setAllowInvalid(false).build()
     );
   }
@@ -881,7 +880,8 @@ function configurarValidaciones() {
     cohortesSheet.getRange('E2:E50').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(false).build()
     );
-    cohortesSheet.getRange('K2:K50').setDataValidation(
+    // Estado ahora en columna N (última columna)
+    cohortesSheet.getRange('N2:N50').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(['Activa', 'Planificada', 'Finalizada', 'Cancelada']).setAllowInvalid(false).build()
     );
   }
@@ -1933,17 +1933,70 @@ function crearNuevaCohorte() {
   const cohortes = ss.getSheetByName('Cohortes');
   const nuevaFila = obtenerPrimeraFilaVacia(cohortes, 'A');
 
-  const datosCohorte = [nombre, 'Tecnología', '', '', responsable, cupo, '', '', '', '', estadoInicial, '', '', ''];
+  // Orden: Nombre, Área, FechaInicio, FechaFin, Responsable, Cupo, Inscritas(formula), Activas(formula), Graduadas(formula), Deserciones(formula), Ubicación, Horario, Notas, Estado
+  const datosCohorte = [nombre, 'Tecnología', '', '', responsable, cupo, '', '', '', '', '', '', '', estadoInicial];
   cohortes.getRange(nuevaFila, 1, 1, 14).setValues([datosCohorte]);
 
   cohortes.getRange('G' + nuevaFila).setFormula('=IFERROR(COUNTIF(Seleccionadas!J:J,A' + nuevaFila + '),0)');
-  cohortes.getRange('H' + nuevaFila).setFormula('=IFERROR(COUNTIFS(Seleccionadas!J:J,A' + nuevaFila + ',Seleccionadas!L:L,"Activa"),0)');
+  // Estado de Seleccionadas ahora está en columna M
+  cohortes.getRange('H' + nuevaFila).setFormula('=IFERROR(COUNTIFS(Seleccionadas!J:J,A' + nuevaFila + ',Seleccionadas!M:M,"Activa"),0)');
   cohortes.getRange('I' + nuevaFila).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + nuevaFila + '),0)');
   cohortes.getRange('J' + nuevaFila).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + nuevaFila + '),0)');
 
+  // Crear hoja individual para la cohorte
+  crearHojaIndividualCohorte(nombre);
+
   configurarValidaciones();
 
-  ss.toast('✅ Cohorte "' + nombre + '" creada', 'Nueva Cohorte', 5);
+  ss.toast('✅ Cohorte "' + nombre + '" creada con su hoja individual', 'Nueva Cohorte', 5);
+}
+
+/**
+ * Crea una hoja individual para una cohorte específica
+ * Columnas simples: Fecha Selección, No., Creamos ID, DPI, Nombre Completo, Edad, Teléfono, Nivel Educativo
+ */
+function crearHojaIndividualCohorte(nombreCohorte) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Verificar si ya existe la hoja
+  if (ss.getSheetByName(nombreCohorte)) {
+    Logger.log('La hoja "' + nombreCohorte + '" ya existe');
+    return;
+  }
+
+  const sheet = ss.insertSheet(nombreCohorte);
+
+  const headers = [
+    'Fecha Selección',  // A
+    'No.',              // B
+    'Creamos ID',       // C
+    'DPI',              // D
+    'Nombre Completo',  // E
+    'Edad',             // F
+    'Teléfono',         // G
+    'Nivel Educativo'   // H
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#4caf50')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  // Fórmulas automáticas para Fecha y No.
+  for (let i = 2; i <= 100; i++) {
+    sheet.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
+    sheet.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
+  }
+
+  // Anchos de columna
+  [120, 50, 100, 130, 200, 60, 120, 150].forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+
+  // Proteger columnas automáticas
+  sheet.getRange('A2:A100').protect().setWarningOnly(true);
+  sheet.getRange('B2:B100').protect().setWarningOnly(true);
 }
 
 function enviarParticipantesACohorte() {
@@ -1955,7 +2008,8 @@ function enviarParticipantesACohorte() {
 
   const cohortesActivas = [];
   for (let i = 1; i < datosCohortes.length; i++) {
-    if (datosCohortes[i][10] === 'Activa') {
+    // Estado ahora está en columna N (índice 13)
+    if (datosCohortes[i][13] === 'Activa') {
       cohortesActivas.push({
         nombre: datosCohortes[i][0],
         cupo: datosCohortes[i][5],
@@ -2276,7 +2330,8 @@ function repararFormulas() {
   if (cohortes) {
     for (let i = 2; i <= 20; i++) {
       cohortes.getRange('G' + i).setFormula('=IFERROR(COUNTIF(Seleccionadas!J:J,A' + i + '),0)');
-      cohortes.getRange('H' + i).setFormula('=IFERROR(COUNTIFS(Seleccionadas!J:J,A' + i + ',Seleccionadas!L:L,"Activa"),0)');
+      // Estado de Seleccionadas ahora en columna M
+      cohortes.getRange('H' + i).setFormula('=IFERROR(COUNTIFS(Seleccionadas!J:J,A' + i + ',Seleccionadas!M:M,"Activa"),0)');
       cohortes.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + i + '),0)');
       cohortes.getRange('J' + i).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + i + '),0)');
     }
@@ -2295,10 +2350,11 @@ function crearDatosPrueba() {
   if (resp !== SpreadsheetApp.getUi().Button.YES) return;
 
   const interes = ss.getSheetByName('Hoja de Interés');
+  // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Teléfono, NivelEducativo, Zona, ComoSeEntero, ProgramaInteres, Responsable, Notas, Estado
   const datosPrueba = [
-    ['', '', 'CR001', '1234567890101', 'María García', '22', '5555-1234', 'Diversificado completo', 'Zona 1', 'Redes', 'SAC Cohorte I', 'Adrian Torres', 'Nuevo', ''],
-    ['', '', 'CR002', '2345678901212', 'Ana Martínez', '25', '5555-5678', 'Universitario', 'Zona 7', 'Referido', 'SAC Cohorte I', 'Paola Ortiz', 'Nuevo', ''],
-    ['', '', 'CR003', '3456789012323', 'Laura López', '19', '5555-9012', 'Básicos completos', 'Mixco', 'Facebook', 'Computación Cohorte I', 'Adrian Torres', 'Nuevo', '']
+    ['', '', 'CR001', '1234567890101', 'María García', '22', '5555-1234', 'Diversificado completo', 'Zona 1', 'Redes', 'SAC Cohorte I', 'Adrian Torres', '', 'Nuevo'],
+    ['', '', 'CR002', '2345678901212', 'Ana Martínez', '25', '5555-5678', 'Universitario', 'Zona 7', 'Referido', 'SAC Cohorte I', 'Paola Ortiz', '', 'Nuevo'],
+    ['', '', 'CR003', '3456789012323', 'Laura López', '19', '5555-9012', 'Básicos completos', 'Mixco', 'Facebook', 'Computación Cohorte I', 'Adrian Torres', '', 'Nuevo']
   ];
   interes.getRange(2, 1, 3, 14).setValues(datosPrueba);
   ss.toast('✅ 3 registros creados', 'OK', 4);
