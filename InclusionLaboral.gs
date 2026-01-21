@@ -740,29 +740,22 @@ function configurarValidaciones() {
   const responsables = obtenerResponsablesActuales();
 
   // === HOJA DE INTERÉS ===
-  // Nota: Columnas H (Nivel Educativo), I (Zona), J (Cómo se enteró) permiten valores inválidos
-  // porque se llenan desde KoboToolbox con valores que pueden no estar en las listas
+  // Solo Estado tiene desplegable - los demás datos vienen de Kobo
   const interes = ss.getSheetByName('Hoja de Interés');
   if (interes) {
-    // Nivel Educativo - permitir valores de Kobo (ej: "Tercero Básico", "Diversificado")
-    interes.getRange('H2:H500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.NIVELES_EDUCATIVOS).setAllowInvalid(true).build()
-    );
-    // Zona - permitir valores de Kobo
-    interes.getRange('I2:I500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ZONAS).setAllowInvalid(true).build()
-    );
-    // Programa Interés (programas de tecnología - permite valores de Kobo)
-    interes.getRange('K2:K500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.PROGRAMAS_TECNOLOGIA).setAllowInvalid(true).build()
-    );
-    // Responsable
-    interes.getRange('L2:L500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
-    );
-    // Estado (ahora en columna N - última columna)
+    // Limpiar validaciones anteriores
+    interes.getRange('H2:H500').clearDataValidations();
+    interes.getRange('I2:I500').clearDataValidations();
+    interes.getRange('K2:K500').clearDataValidations();
+    interes.getRange('L2:L500').clearDataValidations();
+
+    // Estado (columna N) - ÚNICO DESPLEGABLE en Hoja de Interés
+    // Nuevo → Contactado → Entrevista agendada (pasa a Entrevistas) | No interesado (pasa a No Seleccionadas)
     interes.getRange('N2:N500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(['Nuevo', 'Contactado', 'Entrevista agendada', 'En proceso', 'No seleccionada']).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation()
+        .requireValueInList(['Nuevo', 'Contactado', 'Entrevista agendada', 'No interesado'])
+        .setAllowInvalid(false)
+        .build()
     );
   }
 
@@ -983,8 +976,9 @@ function alEditar(e) {
   if (val === '') return;
 
   // === HOJA DE INTERÉS ===
+  // Estado está en columna N (14)
   if (hoja === 'Hoja de Interés') {
-    if (columna === 13) { // Estado (M)
+    if (columna === 14) { // Estado (N - última columna)
       procesarCambioEstadoInteres(sheet, fila, val);
     }
   }
@@ -994,11 +988,16 @@ function alEditar(e) {
     if (columna === 11 && val === 'Sí') { // Columna Enviar
       procesarEnvioDesdeEntrevista(sheet, fila);
     }
+    // Si la fase cambia a "No aprobada", mover a No Seleccionadas
+    if (columna === 7 && val.includes('No aprobada')) { // Fase de Entrevista (G)
+      procesarNoAprobadaEntrevista(sheet, fila);
+    }
   }
 
   // === SELECCIONADAS ===
+  // Estado está en columna M (13)
   if (hoja === 'Seleccionadas') {
-    if (columna === 12) { // Estado (L)
+    if (columna === 13) { // Estado (M - última columna)
       procesarCambioEstadoParticipante(sheet, fila, val);
     }
   }
@@ -1006,13 +1005,14 @@ function alEditar(e) {
 
 /**
  * Procesa cambio de estado en Hoja de Interés
+ * - "No interesado" → Mueve a No Seleccionadas y ELIMINA de Hoja de Interés
+ * - "Entrevista agendada" → Mueve a Entrevistas y ELIMINA de Hoja de Interés
  */
 function procesarCambioEstadoInteres(sheet, fila, estado) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const datos = sheet.getRange(fila, 1, 1, 14).getValues()[0];
 
-  if (estado === 'No seleccionada') {
-    const datos = sheet.getRange(fila, 1, 1, 14).getValues()[0];
-
+  if (estado === 'No interesado') {
     const noSeleccionadas = ss.getSheetByName('No Seleccionadas');
     const nuevaFila = obtenerPrimeraFilaVacia(noSeleccionadas, 'C');
 
@@ -1022,21 +1022,21 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       datos[4],             // Nombre
       datos[6],             // Teléfono
       'Interés inicial',    // Etapa
-      '',                   // Motivo
+      'No interesado',      // Motivo
       'Hoja de Interés',    // Origen
-      datos[13],            // Notas
+      datos[12],            // Notas (columna M)
       'No'                  // Recontactar
     ];
 
     noSeleccionadas.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
-    sheet.getRange(fila, 1, 1, 14).setBackground('#ffcdd2');
 
-    ss.toast('📋 Persona movida a "No Seleccionadas"', 'Registro', 3);
+    // ELIMINAR de Hoja de Interés
+    sheet.deleteRow(fila);
+
+    ss.toast('📋 Persona movida a "No Seleccionadas" y eliminada de Interés', 'Limpieza', 3);
   }
 
   if (estado === 'Entrevista agendada') {
-    const datos = sheet.getRange(fila, 1, 1, 14).getValues()[0];
-
     const entrevistas = ss.getSheetByName('Entrevistas');
     const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'D');
 
@@ -1046,23 +1046,59 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       datos[2],             // Creamos ID
       datos[4],             // Nombre
       datos[6],             // Teléfono
-      datos[11],            // Entrevistador (Responsable)
+      datos[11],            // Entrevistador (Responsable) - columna L
       'Agendada',           // Fase de Entrevista
       '',                   // Calificación
       '',                   // Observaciones
-      datos[10],            // Cohorte a Enviar (Programa Interés)
+      datos[10],            // Cohorte a Enviar (Programa Interés) - columna K
       ''                    // Enviar (vacío)
     ];
 
     entrevistas.getRange(nuevaFila, 1, 1, 11).setValues([registro]);
+
+    // Marcar en amarillo (NO eliminar - necesitamos los datos para Seleccionadas)
     sheet.getRange(fila, 1, 1, 14).setBackground('#fff9c4');
 
-    ss.toast('📋 Entrevista creada. Complete fecha, hora y use "Enviar" cuando apruebe.', 'Entrevista Agendada', 4);
+    ss.toast('📋 Entrevista creada. Complete fecha y hora en hoja Entrevistas.', 'Entrevista Agendada', 4);
   }
 }
 
 /**
+ * Procesa cuando alguien NO aprueba la entrevista
+ * Mueve a No Seleccionadas y ELIMINA de Entrevistas
+ */
+function procesarNoAprobadaEntrevista(sheet, fila) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const datos = sheet.getRange(fila, 1, 1, 11).getValues()[0];
+
+  const noSeleccionadas = ss.getSheetByName('No Seleccionadas');
+  const nuevaFila = obtenerPrimeraFilaVacia(noSeleccionadas, 'C');
+
+  const registro = [
+    new Date(),
+    datos[2],             // Creamos ID
+    datos[3],             // Nombre
+    datos[4],             // Teléfono
+    'Post-entrevista',    // Etapa
+    'No aprobó entrevista', // Motivo
+    'Entrevistas',        // Origen
+    datos[8],             // Notas (Observaciones)
+    'Sí'                  // Recontactar (posible para otra cohorte)
+  ];
+
+  noSeleccionadas.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
+
+  // ELIMINAR de Entrevistas
+  sheet.deleteRow(fila);
+
+  ss.toast('📋 Persona no aprobada movida a "No Seleccionadas"', 'Entrevista', 3);
+}
+
+/**
  * Procesa envío desde Entrevistas cuando columna "Enviar" = "Sí"
+ * - Mueve a Seleccionadas
+ * - Agrega a la hoja individual de la Cohorte
+ * - ELIMINA de Entrevistas y de Hoja de Interés
  */
 function procesarEnvioDesdeEntrevista(sheet, fila) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1070,6 +1106,7 @@ function procesarEnvioDesdeEntrevista(sheet, fila) {
   const datos = sheet.getRange(fila, 1, 1, 11).getValues()[0];
   const fase = datos[6]; // Fase de Entrevista (G)
   const cohorteDestino = datos[9]; // Cohorte a Enviar (J)
+  const creamosId = datos[2]; // Creamos ID
 
   // Verificar que la fase sea "Aprobada"
   if (!fase || !fase.toString().includes('Aprobada')) {
@@ -1087,77 +1124,109 @@ function procesarEnvioDesdeEntrevista(sheet, fila) {
 
   // Buscar datos adicionales en Hoja de Interés
   const interes = ss.getSheetByName('Hoja de Interés');
-  const datosInteres = buscarPorCreamosID(interes, datos[2]);
+  const busqueda = buscarPorCreamosID(interes, creamosId);
+  const datosInteres = busqueda ? busqueda.datos : null;
+  const filaInteres = busqueda ? busqueda.fila : null;
 
-  // Mover a Seleccionadas
+  // 1. Mover a Seleccionadas
   const seleccionadas = ss.getSheetByName('Seleccionadas');
   const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'E');
 
-  const registro = [
+  // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Cohorte, Responsable, Notas, Estado
+  const registroSeleccionadas = [
     new Date(),
     nuevaFila - 1,
-    datos[2],             // Creamos ID
-    datosInteres ? datosInteres[3] : '',  // DPI
-    datos[3],             // Nombre
-    datosInteres ? datosInteres[5] : '',  // Edad
-    datos[4],             // Teléfono
-    datosInteres ? datosInteres[7] : '',  // Nivel Educativo
-    datosInteres ? datosInteres[8] : '',  // Zona
-    cohorteDestino,       // Cohorte Asignada
-    datos[5],             // Responsable (Entrevistador)
-    'Activa',
-    datos[8]              // Notas (Observaciones)
+    creamosId,                                    // Creamos ID
+    datosInteres ? datosInteres[3] : '',          // DPI
+    datos[3],                                     // Nombre
+    datosInteres ? datosInteres[5] : '',          // Edad
+    datos[4],                                     // Teléfono
+    datosInteres ? datosInteres[7] : '',          // Nivel Educativo
+    datosInteres ? datosInteres[8] : '',          // Zona
+    cohorteDestino,                               // Cohorte Asignada
+    datos[5],                                     // Responsable (Entrevistador)
+    datos[8],                                     // Notas (Observaciones)
+    'Activa'                                      // Estado (última columna)
   ];
 
-  seleccionadas.getRange(nuevaFila, 1, 1, 13).setValues([registro]);
+  seleccionadas.getRange(nuevaFila, 1, 1, 13).setValues([registroSeleccionadas]);
 
-  // Marcar fila como enviada
-  sheet.getRange(fila, 1, 1, 11).setBackground('#c8e6c9');
-  sheet.getRange(fila, 11).setValue('Enviado ✓');
+  // 2. Agregar a la hoja individual de la Cohorte (si existe)
+  const hojaCohorte = ss.getSheetByName(cohorteDestino);
+  if (hojaCohorte) {
+    const nuevaFilaCohorte = obtenerPrimeraFilaVacia(hojaCohorte, 'E');
+    // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu
+    const registroCohorte = [
+      new Date(),
+      nuevaFilaCohorte - 1,
+      creamosId,
+      datosInteres ? datosInteres[3] : '',
+      datos[3],
+      datosInteres ? datosInteres[5] : '',
+      datos[4],
+      datosInteres ? datosInteres[7] : ''
+    ];
+    hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, 8).setValues([registroCohorte]);
+  }
 
-  ss.toast('✅ ' + datos[3] + ' enviada a ' + cohorteDestino, 'Participante Enviada', 4);
+  // 3. ELIMINAR de Hoja de Interés
+  if (filaInteres) {
+    interes.deleteRow(filaInteres);
+  }
 
-  // Enviar email
-  enviarEmailAprobacion(datos[3], cohorteDestino, datos[5]);
+  // 4. ELIMINAR de Entrevistas
+  sheet.deleteRow(fila);
+
+  ss.toast('✅ ' + datos[3] + ' enviada a ' + cohorteDestino + ' (limpieza completada)', 'Seleccionada', 4);
 }
 
 /**
  * Procesa cambio de estado en Seleccionadas
+ * - Graduada → Pregunta si enviar a archivo externo de Seguimiento
+ * - Deserción → Mueve a Deserciones
+ * En ambos casos: ELIMINA de Seleccionadas y de la hoja de la Cohorte
  */
 function procesarCambioEstadoParticipante(sheet, fila, estado) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
   const datos = sheet.getRange(fila, 1, 1, 13).getValues()[0];
+  const cohorte = datos[9]; // Cohorte Asignada (columna J)
+  const creamosId = datos[2];
 
   if (estado === 'Graduada') {
-    const graduadas = ss.getSheetByName('Graduadas');
-    const nuevaFila = obtenerPrimeraFilaVacia(graduadas, 'D');
+    // Preguntar si desea enviar al archivo externo de seguimiento
+    const respuesta = ui.alert(
+      '🎓 Graduación',
+      '¿Desea enviar a ' + datos[4] + ' al archivo de Seguimiento?\n\n' +
+      'Esto eliminará el registro de este archivo.',
+      ui.ButtonSet.YES_NO
+    );
 
-    const registro = [
-      new Date(),
-      datos[2],  // Creamos ID
-      datos[3],  // DPI
-      datos[4],  // Nombre
-      datos[6],  // Teléfono
-      datos[7],  // Nivel Educativo
-      datos[9],  // Cohorte
-      '',        // Calificación Final
-      'Sin seguimiento',
-      '',
-      '',
-      datos[12]  // Notas
-    ];
+    if (respuesta === ui.Button.YES) {
+      // Intentar enviar a archivo externo
+      const enviado = enviarGraduadaAArchivoExterno(datos);
+      if (!enviado) {
+        sheet.getRange(fila, 13).setValue('Activa'); // Revertir
+        return;
+      }
+    }
 
-    graduadas.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
-    sheet.getRange(fila, 1, 1, 13).setBackground('#c8e6c9');
+    // Eliminar de la hoja individual de la Cohorte
+    const hojaCohorte = ss.getSheetByName(cohorte);
+    if (hojaCohorte) {
+      eliminarPorCreamosID(hojaCohorte, creamosId);
+    }
 
-    ss.toast('🎓 ¡Felicitaciones! Persona graduada registrada', 'Graduación', 4);
-    enviarEmailGraduacion(datos[4], datos[9]);
+    // ELIMINAR de Seleccionadas
+    sheet.deleteRow(fila);
+
+    ss.toast('🎓 ¡' + datos[4] + ' graduada! Registro eliminado de este archivo.', 'Graduación', 4);
   }
 
   if (estado === 'Deserción') {
     const motivo = mostrarDialogoMotivoDesercion(datos[4]);
     if (!motivo) {
-      sheet.getRange(fila, 12).setValue('Activa');
+      sheet.getRange(fila, 13).setValue('Activa'); // Columna M = Estado
       return;
     }
 
@@ -1174,15 +1243,94 @@ function procesarCambioEstadoParticipante(sheet, fila, estado) {
       datos[9],  // Cohorte
       '',        // Clases Asistidas
       motivo,
-      datos[12], // Notas
+      datos[11], // Notas (columna L)
       'Sí'
     ];
 
     deserciones.getRange(nuevaFila, 1, 1, 11).setValues([registro]);
-    sheet.getRange(fila, 1, 1, 13).setBackground('#ffcdd2');
 
-    ss.toast('📋 Deserción registrada: ' + motivo, 'Deserción', 4);
-    enviarEmailDesercion(datos[4], datos[9], motivo);
+    // Eliminar de la hoja individual de la Cohorte
+    const hojaCohorte = ss.getSheetByName(cohorte);
+    if (hojaCohorte) {
+      eliminarPorCreamosID(hojaCohorte, creamosId);
+    }
+
+    // ELIMINAR de Seleccionadas
+    sheet.deleteRow(fila);
+
+    ss.toast('📋 Deserción registrada y persona eliminada: ' + motivo, 'Deserción', 4);
+  }
+}
+
+/**
+ * Elimina una fila por Creamos ID
+ */
+function eliminarPorCreamosID(sheet, creamosId) {
+  if (!creamosId) return false;
+  const datos = sheet.getDataRange().getValues();
+  for (let i = datos.length - 1; i >= 1; i--) {
+    if (datos[i][2] && datos[i][2].toString().trim() === creamosId.toString().trim()) {
+      sheet.deleteRow(i + 1);
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Envía graduada a archivo externo de Seguimiento
+ */
+function enviarGraduadaAArchivoExterno(datos) {
+  const ui = SpreadsheetApp.getUi();
+
+  // Obtener URL del archivo de seguimiento
+  let urlSeguimiento = PropertiesService.getScriptProperties().getProperty('URL_SEGUIMIENTO');
+
+  if (!urlSeguimiento) {
+    const resp = ui.prompt(
+      'Archivo de Seguimiento',
+      'Ingrese la URL del Google Sheet de Seguimiento:\n\n' +
+      '(Esta URL se guardará para futuras graduaciones)',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (resp.getSelectedButton() !== ui.Button.OK) return false;
+
+    urlSeguimiento = resp.getResponseText().trim();
+    if (!urlSeguimiento) return false;
+
+    // Guardar para futuro uso
+    PropertiesService.getScriptProperties().setProperty('URL_SEGUIMIENTO', urlSeguimiento);
+  }
+
+  try {
+    const archivoExterno = SpreadsheetApp.openByUrl(urlSeguimiento);
+    const hojaSeguimiento = archivoExterno.getSheetByName('Seguimiento') || archivoExterno.getSheets()[0];
+
+    const nuevaFila = hojaSeguimiento.getLastRow() + 1;
+
+    // Datos a enviar: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, FechaGraduacion
+    const registro = [
+      new Date(),           // Fecha de registro en seguimiento
+      datos[2],             // Creamos ID
+      datos[3],             // DPI
+      datos[4],             // Nombre
+      datos[6],             // Teléfono
+      datos[7],             // Nivel Educativo
+      datos[9],             // Cohorte
+      new Date(),           // Fecha Graduación
+      'Pendiente contacto'  // Estado de seguimiento
+    ];
+
+    hojaSeguimiento.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
+
+    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Enviada a archivo de Seguimiento', 'Éxito', 3);
+    return true;
+
+  } catch (e) {
+    ui.alert('❌ Error al acceder al archivo de Seguimiento:\n\n' + e.message +
+             '\n\nVerifique que tiene permisos de edición.');
+    return false;
   }
 }
 
@@ -1231,7 +1379,10 @@ function buscarPorCreamosID(sheet, creamosId) {
   const datos = sheet.getDataRange().getValues();
   for (let i = 1; i < datos.length; i++) {
     if (datos[i][2] && datos[i][2].toString().trim() === creamosId.toString().trim()) {
-      return datos[i];
+      return {
+        datos: datos[i],
+        fila: i + 1  // +1 porque getValues() empieza en 0 pero las filas en 1
+      };
     }
   }
   return null;
