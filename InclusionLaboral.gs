@@ -27,6 +27,14 @@ const CONFIG = {
   // Cohortes disponibles (se llenan dinámicamente desde la hoja Cohortes)
   COHORTES: [],
 
+  // Programas de Tecnología (para Hoja de Interés - viene de Kobo)
+  PROGRAMAS_TECNOLOGIA: [
+    'Marketing Digital',
+    'Programación',
+    'Alfabetización Digital',
+    'Certificación Microsoft'
+  ],
+
   // Responsables del programa
   RESPONSABLES: [
     'Adrian Torres',
@@ -744,9 +752,9 @@ function configurarValidaciones() {
     interes.getRange('I2:I500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ZONAS).setAllowInvalid(true).build()
     );
-    // Programa Interés (cohortes)
+    // Programa Interés (programas de tecnología - permite valores de Kobo)
     interes.getRange('K2:K500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(cohortes).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.PROGRAMAS_TECNOLOGIA).setAllowInvalid(true).build()
     );
     // Responsable
     interes.getRange('L2:L500').setDataValidation(
