@@ -381,11 +381,10 @@ function crearHojaEntrevistas() {
     'Nombre Completo',    // D
     'Teléfono',           // E
     'Entrevistador',      // F - Desplegable (responsables)
-    'Fase de Entrevista', // G - Desplegable (antes "Estado")
+    'Fase de Entrevista', // G - Desplegable
     'Calificación',       // H - 1-10
     'Observaciones',      // I
-    'Cohorte a Enviar',   // J - Desplegable (antes "Programa", movido al final)
-    'Enviar'              // K - Desplegable Sí/No (trigger para enviar)
+    'Enviar'              // J - Desplegable Sí/No (trigger para enviar)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -395,12 +394,12 @@ function crearHojaEntrevistas() {
     .setHorizontalAlignment('center');
 
   // Anchos de columna
-  [120, 80, 100, 200, 120, 120, 180, 100, 300, 180, 80].forEach((w, i) => {
+  [120, 80, 100, 200, 120, 120, 180, 100, 300, 80].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
   // Destacar columna "Enviar"
-  sheet.getRange('K1').setBackground('#4caf50');
+  sheet.getRange('J1').setBackground('#4caf50');
 }
 
 /**
@@ -420,10 +419,9 @@ function crearHojaSeleccionadas() {
     'Teléfono',         // G
     'Nivel Educativo',  // H
     'Zona',             // I
-    'Cohorte Asignada', // J - Desplegable
-    'Responsable',      // K - Desplegable
-    'Notas',            // L
-    'Estado'            // M - Última columna (acción)
+    'Cohorte Asignada', // J
+    'Notas',            // K
+    'Estado'            // L - Última columna (acción)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -432,7 +430,7 @@ function crearHojaSeleccionadas() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 50, 100, 130, 200, 60, 120, 150, 120, 150, 120, 250, 100].forEach((w, i) => {
+  [120, 50, 100, 130, 200, 60, 120, 150, 120, 150, 250, 100].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -634,9 +632,8 @@ function crearHojaReporte() {
     ['(Los datos por cohorte se ven en la hoja Cohortes)', '', '', ''],
     ['', '', '', ''],
 
-    ['GRADUADAS', 'Total', 'Este mes', 'Empleadas'],
-    // Estado Seguimiento de Graduadas ahora en columna L
-    ['Personas graduadas', '=IFERROR(COUNTA(Graduadas!D:D)-1,0)', '=IFERROR(COUNTIFS(Graduadas!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', '=IFERROR(COUNTIFS(Graduadas!L:L,"Empleada*"),0)'],
+    ['GRADUADAS', 'Total', 'Este mes', ''],
+    ['Personas graduadas', '=IFERROR(COUNTA(Graduadas!D:D)-1,0)', '=IFERROR(COUNTIFS(Graduadas!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', ''],
     ['', '', '', ''],
 
     ['DESERCIONES', 'Total', 'Este mes', 'Tasa'],
@@ -759,14 +756,14 @@ function configurarValidaciones() {
     );
   }
 
-  // === HOJA DE ENTREVISTAS (MODIFICADA) ===
+  // === HOJA DE ENTREVISTAS (sin Cohorte a Enviar) ===
   const entrevistas = ss.getSheetByName('Entrevistas');
   if (entrevistas) {
     // Entrevistador (F)
     entrevistas.getRange('F2:F500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(false).build()
     );
-    // Fase de Entrevista (G) - antes "Estado"
+    // Fase de Entrevista (G)
     entrevistas.getRange('G2:G500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.FASES_ENTREVISTA).setAllowInvalid(false).build()
     );
@@ -775,17 +772,13 @@ function configurarValidaciones() {
     entrevistas.getRange('H2:H500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(calificaciones).setAllowInvalid(false).build()
     );
-    // Cohorte a Enviar (J) - antes "Programa"
+    // Enviar (J) - ahora columna J
     entrevistas.getRange('J2:J500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(cohortes).setAllowInvalid(false).build()
-    );
-    // Enviar (K) - nueva columna
-    entrevistas.getRange('K2:K500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(['Sí', 'No']).setAllowInvalid(false).build()
     );
   }
 
-  // === HOJA DE SELECCIONADAS ===
+  // === HOJA DE SELECCIONADAS (sin Responsable) ===
   const seleccionadas = ss.getSheetByName('Seleccionadas');
   if (seleccionadas) {
     seleccionadas.getRange('H2:H500').setDataValidation(
@@ -797,11 +790,8 @@ function configurarValidaciones() {
     seleccionadas.getRange('J2:J500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(cohortes).setAllowInvalid(false).build()
     );
-    seleccionadas.getRange('K2:K500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(false).build()
-    );
-    // Estado ahora en columna M (última columna)
-    seleccionadas.getRange('M2:M500').setDataValidation(
+    // Estado ahora en columna L (última columna, sin Responsable)
+    seleccionadas.getRange('L2:L500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ESTADOS_PARTICIPANTE).setAllowInvalid(false).build()
     );
   }
@@ -941,8 +931,8 @@ function aplicarFormatos() {
 
     entrevistas.setConditionalFormatRules([reglaAprobada, reglaPendiente, reglaNoAprobada]);
 
-    // Formato para columna Enviar
-    const rangoEnviar = entrevistas.getRange('K2:K500');
+    // Formato para columna Enviar (ahora J)
+    const rangoEnviar = entrevistas.getRange('J2:J500');
     const reglaEnviarSi = SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('Sí').setBackground('#4caf50').setFontColor('white').setRanges([rangoEnviar]).build();
 
@@ -983,9 +973,9 @@ function alEditar(e) {
     }
   }
 
-  // === ENTREVISTAS - Columna "Enviar" (K = 11) ===
+  // === ENTREVISTAS - Columna "Enviar" ahora es J (10) ===
   if (hoja === 'Entrevistas') {
-    if (columna === 11 && val === 'Sí') { // Columna Enviar
+    if (columna === 10 && val === 'Sí') { // Columna Enviar (J)
       procesarEnvioDesdeEntrevista(sheet, fila);
     }
     // Si la fase cambia a "No aprobada", mover a No Seleccionadas
@@ -995,10 +985,21 @@ function alEditar(e) {
   }
 
   // === SELECCIONADAS ===
-  // Estado está en columna M (13)
+  // Estado está en columna L (12) - sin Responsable
   if (hoja === 'Seleccionadas') {
-    if (columna === 13) { // Estado (M - última columna)
+    if (columna === 12) { // Estado (L - última columna)
       procesarCambioEstadoParticipante(sheet, fila, val);
+    }
+  }
+
+  // === HOJAS DE COHORTES INDIVIDUALES ===
+  // Si la hoja no es una de las principales, es una cohorte
+  const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Seleccionadas', 'Cohortes',
+                            'Asistencias', 'Graduadas', 'Deserciones', 'No Seleccionadas', 'Reporte'];
+  if (!hojasPrincipales.includes(hoja)) {
+    // Estado está en columna I (9) en hojas de cohorte
+    if (columna === 9 && val === 'Deserción') {
+      procesarDesercionEnCohorte(sheet, fila, hoja);
     }
   }
 }
@@ -1040,21 +1041,21 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'D');
 
+    // Entrevistas ahora tiene 10 columnas (sin Cohorte a Enviar)
     const registro = [
-      '',                   // Fecha Entrevista
-      '',                   // Hora
-      datos[2],             // Creamos ID
-      datos[4],             // Nombre
-      datos[6],             // Teléfono
-      datos[11],            // Entrevistador (Responsable) - columna L
-      'Agendada',           // Fase de Entrevista
-      '',                   // Calificación
-      '',                   // Observaciones
-      datos[10],            // Cohorte a Enviar (Programa Interés) - columna K
-      ''                    // Enviar (vacío)
+      '',                   // A: Fecha Entrevista
+      '',                   // B: Hora
+      datos[2],             // C: Creamos ID
+      datos[4],             // D: Nombre
+      datos[6],             // E: Teléfono
+      '',                   // F: Entrevistador
+      'Agendada',           // G: Fase de Entrevista
+      '',                   // H: Calificación
+      '',                   // I: Observaciones
+      ''                    // J: Enviar (vacío)
     ];
 
-    entrevistas.getRange(nuevaFila, 1, 1, 11).setValues([registro]);
+    entrevistas.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
 
     // Marcar en amarillo (NO eliminar - necesitamos los datos para Seleccionadas)
     sheet.getRange(fila, 1, 1, 14).setBackground('#fff9c4');
@@ -1069,7 +1070,8 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
  */
 function procesarNoAprobadaEntrevista(sheet, fila) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const datos = sheet.getRange(fila, 1, 1, 11).getValues()[0];
+  // Entrevistas ahora tiene 10 columnas
+  const datos = sheet.getRange(fila, 1, 1, 10).getValues()[0];
 
   const noSeleccionadas = ss.getSheetByName('No Seleccionadas');
   const nuevaFila = obtenerPrimeraFilaVacia(noSeleccionadas, 'C');
@@ -1095,6 +1097,75 @@ function procesarNoAprobadaEntrevista(sheet, fila) {
 }
 
 /**
+ * Procesa deserción desde hoja individual de Cohorte
+ * Pregunta motivo y mueve a Deserciones
+ */
+function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Datos de la hoja de cohorte: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Estado
+  const datos = sheet.getRange(fila, 1, 1, 9).getValues()[0];
+  const creamosId = datos[2];
+  const nombre = datos[4];
+
+  // Mostrar motivos de deserción
+  let listaMotivos = '';
+  CONFIG.MOTIVOS_DESERCION.forEach((motivo, idx) => {
+    listaMotivos += (idx + 1) + '. ' + motivo + '\n';
+  });
+
+  const respuesta = ui.prompt(
+    '📋 Deserción - ' + nombre,
+    'Seleccione el MOTIVO:\n\n' + listaMotivos + '\nIngrese el número:',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta.getSelectedButton() !== ui.Button.OK) {
+    sheet.getRange(fila, 9).setValue(''); // Limpiar Estado
+    return;
+  }
+
+  const num = parseInt(respuesta.getResponseText().trim());
+  if (isNaN(num) || num < 1 || num > CONFIG.MOTIVOS_DESERCION.length) {
+    ui.alert('Número inválido');
+    sheet.getRange(fila, 9).setValue(''); // Limpiar Estado
+    return;
+  }
+
+  const motivo = CONFIG.MOTIVOS_DESERCION[num - 1];
+
+  // Agregar a Deserciones
+  const deserciones = ss.getSheetByName('Deserciones');
+  const nuevaFila = obtenerPrimeraFilaVacia(deserciones, 'D');
+
+  const registro = [
+    new Date(),
+    datos[2],           // Creamos ID
+    datos[3],           // DPI
+    datos[4],           // Nombre
+    datos[6],           // Teléfono
+    datos[7],           // Nivel Educativo
+    nombreCohorte,      // Cohorte
+    '',                 // Clases Asistidas
+    motivo,
+    '',                 // Notas
+    'Sí'                // Recontactar
+  ];
+
+  deserciones.getRange(nuevaFila, 1, 1, 11).setValues([registro]);
+
+  // ELIMINAR de Seleccionadas (si existe)
+  const seleccionadas = ss.getSheetByName('Seleccionadas');
+  eliminarPorCreamosID(seleccionadas, creamosId);
+
+  // ELIMINAR de la hoja de Cohorte
+  sheet.deleteRow(fila);
+
+  ss.toast('📋 Deserción registrada: ' + motivo, 'Cohorte ' + nombreCohorte, 4);
+}
+
+/**
  * Procesa envío desde Entrevistas cuando columna "Enviar" = "Sí"
  * - Mueve a Seleccionadas
  * - Agrega a la hoja individual de la Cohorte
@@ -1102,23 +1173,17 @@ function procesarNoAprobadaEntrevista(sheet, fila) {
  */
 function procesarEnvioDesdeEntrevista(sheet, fila) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
 
-  const datos = sheet.getRange(fila, 1, 1, 11).getValues()[0];
+  // Entrevistas ahora tiene 10 columnas (sin Cohorte a Enviar)
+  const datos = sheet.getRange(fila, 1, 1, 10).getValues()[0];
   const fase = datos[6]; // Fase de Entrevista (G)
-  const cohorteDestino = datos[9]; // Cohorte a Enviar (J)
   const creamosId = datos[2]; // Creamos ID
 
   // Verificar que la fase sea "Aprobada"
   if (!fase || !fase.toString().includes('Aprobada')) {
     ss.toast('⚠️ Solo se puede enviar si la fase es "Realizada - Aprobada"', 'Error', 4);
-    sheet.getRange(fila, 11).setValue(''); // Limpiar
-    return;
-  }
-
-  // Verificar que haya cohorte seleccionada
-  if (!cohorteDestino || cohorteDestino.toString().trim() === '') {
-    ss.toast('⚠️ Seleccione una "Cohorte a Enviar" primero', 'Error', 4);
-    sheet.getRange(fila, 11).setValue(''); // Limpiar
+    sheet.getRange(fila, 10).setValue(''); // Limpiar columna Enviar (J)
     return;
   }
 
@@ -1128,11 +1193,44 @@ function procesarEnvioDesdeEntrevista(sheet, fila) {
   const datosInteres = busqueda ? busqueda.datos : null;
   const filaInteres = busqueda ? busqueda.fila : null;
 
-  // 1. Mover a Seleccionadas
+  // Obtener cohortes disponibles
+  const cohortes = obtenerCohortesActuales();
+  if (cohortes.length === 0) {
+    ui.alert('⚠️ No hay cohortes creadas. Cree una cohorte primero.');
+    sheet.getRange(fila, 10).setValue('');
+    return;
+  }
+
+  // Preguntar a qué cohorte enviar
+  let listaCohortes = '';
+  cohortes.forEach((c, idx) => { listaCohortes += (idx + 1) + '. ' + c + '\n'; });
+
+  const respCohorte = ui.prompt(
+    '📋 Seleccionar Cohorte',
+    'Participante: ' + datos[3] + '\n\n' +
+    'COHORTES DISPONIBLES:\n' + listaCohortes + '\nIngrese el número:',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respCohorte.getSelectedButton() !== ui.Button.OK) {
+    sheet.getRange(fila, 10).setValue('');
+    return;
+  }
+
+  const numCohorte = parseInt(respCohorte.getResponseText().trim());
+  if (isNaN(numCohorte) || numCohorte < 1 || numCohorte > cohortes.length) {
+    ui.alert('Número inválido');
+    sheet.getRange(fila, 10).setValue('');
+    return;
+  }
+
+  const cohorteDestino = cohortes[numCohorte - 1];
+
+  // 1. Mover a Seleccionadas (ahora 12 columnas, sin Responsable)
   const seleccionadas = ss.getSheetByName('Seleccionadas');
   const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'E');
 
-  // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Cohorte, Responsable, Notas, Estado
+  // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Cohorte, Notas, Estado
   const registroSeleccionadas = [
     new Date(),
     nuevaFila - 1,
@@ -1144,18 +1242,17 @@ function procesarEnvioDesdeEntrevista(sheet, fila) {
     datosInteres ? datosInteres[7] : '',          // Nivel Educativo
     datosInteres ? datosInteres[8] : '',          // Zona
     cohorteDestino,                               // Cohorte Asignada
-    datos[5],                                     // Responsable (Entrevistador)
     datos[8],                                     // Notas (Observaciones)
     'Activa'                                      // Estado (última columna)
   ];
 
-  seleccionadas.getRange(nuevaFila, 1, 1, 13).setValues([registroSeleccionadas]);
+  seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registroSeleccionadas]);
 
   // 2. Agregar a la hoja individual de la Cohorte (si existe)
   const hojaCohorte = ss.getSheetByName(cohorteDestino);
   if (hojaCohorte) {
     const nuevaFilaCohorte = obtenerPrimeraFilaVacia(hojaCohorte, 'E');
-    // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu
+    // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Estado
     const registroCohorte = [
       new Date(),
       nuevaFilaCohorte - 1,
@@ -1164,9 +1261,10 @@ function procesarEnvioDesdeEntrevista(sheet, fila) {
       datos[3],
       datosInteres ? datosInteres[5] : '',
       datos[4],
-      datosInteres ? datosInteres[7] : ''
+      datosInteres ? datosInteres[7] : '',
+      ''  // Estado (vacío - solo opción es Deserción)
     ];
-    hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, 8).setValues([registroCohorte]);
+    hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, 9).setValues([registroCohorte]);
   }
 
   // 3. ELIMINAR de Hoja de Interés
@@ -1189,7 +1287,8 @@ function procesarEnvioDesdeEntrevista(sheet, fila) {
 function procesarCambioEstadoParticipante(sheet, fila, estado) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
-  const datos = sheet.getRange(fila, 1, 1, 13).getValues()[0];
+  // Seleccionadas ahora tiene 12 columnas (sin Responsable)
+  const datos = sheet.getRange(fila, 1, 1, 12).getValues()[0];
   const cohorte = datos[9]; // Cohorte Asignada (columna J)
   const creamosId = datos[2];
 
@@ -1206,7 +1305,7 @@ function procesarCambioEstadoParticipante(sheet, fila, estado) {
       // Intentar enviar a archivo externo
       const enviado = enviarGraduadaAArchivoExterno(datos);
       if (!enviado) {
-        sheet.getRange(fila, 13).setValue('Activa'); // Revertir
+        sheet.getRange(fila, 12).setValue('Activa'); // Revertir (columna L)
         return;
       }
     }
@@ -1226,7 +1325,7 @@ function procesarCambioEstadoParticipante(sheet, fila, estado) {
   if (estado === 'Deserción') {
     const motivo = mostrarDialogoMotivoDesercion(datos[4]);
     if (!motivo) {
-      sheet.getRange(fila, 13).setValue('Activa'); // Columna M = Estado
+      sheet.getRange(fila, 12).setValue('Activa'); // Columna L = Estado
       return;
     }
 
@@ -1243,7 +1342,7 @@ function procesarCambioEstadoParticipante(sheet, fila, estado) {
       datos[9],  // Cohorte
       '',        // Clases Asistidas
       motivo,
-      datos[11], // Notas (columna L)
+      datos[10], // Notas (columna K)
       'Sí'
     ];
 
@@ -2103,7 +2202,7 @@ function crearNuevaCohorte() {
 
 /**
  * Crea una hoja individual para una cohorte específica
- * Columnas simples: Fecha Selección, No., Creamos ID, DPI, Nombre Completo, Edad, Teléfono, Nivel Educativo
+ * Columnas: Fecha, No., Creamos ID, DPI, Nombre, Edad, Teléfono, Nivel Educativo, Estado
  */
 function crearHojaIndividualCohorte(nombreCohorte) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -2124,7 +2223,8 @@ function crearHojaIndividualCohorte(nombreCohorte) {
     'Nombre Completo',  // E
     'Edad',             // F
     'Teléfono',         // G
-    'Nivel Educativo'   // H
+    'Nivel Educativo',  // H
+    'Estado'            // I - Solo opción "Deserción"
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -2140,9 +2240,17 @@ function crearHojaIndividualCohorte(nombreCohorte) {
   }
 
   // Anchos de columna
-  [120, 50, 100, 130, 200, 60, 120, 150].forEach((w, i) => {
+  [120, 50, 100, 130, 200, 60, 120, 150, 100].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
+
+  // Desplegable Estado con solo "Deserción"
+  sheet.getRange('I2:I100').setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['', 'Deserción'])
+      .setAllowInvalid(false)
+      .build()
+  );
 
   // Proteger columnas automáticas
   sheet.getRange('A2:A100').protect().setWarningOnly(true);
