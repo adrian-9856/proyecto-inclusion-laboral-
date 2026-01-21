@@ -340,8 +340,8 @@ function crearHojaInteres() {
     'Cómo se enteró',  // J
     'Programa Interés',// K - Desplegable (cohortes)
     'Responsable',     // L - Desplegable
-    'Estado',          // M - Desplegable
-    'Notas'            // N
+    'Notas',           // M
+    'Estado'           // N - Desplegable (última columna)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -355,7 +355,7 @@ function crearHojaInteres() {
     sheet.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
   }
 
-  [100, 50, 100, 130, 200, 60, 120, 150, 120, 150, 150, 120, 120, 250].forEach((w, i) => {
+  [100, 50, 100, 130, 200, 60, 120, 150, 120, 150, 150, 120, 250, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -767,8 +767,8 @@ function configurarValidaciones() {
     interes.getRange('L2:L500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
     );
-    // Estado
-    interes.getRange('M2:M500').setDataValidation(
+    // Estado (ahora en columna N - última columna)
+    interes.getRange('N2:N500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(['Nuevo', 'Contactado', 'Entrevista agendada', 'En proceso', 'No seleccionada']).setAllowInvalid(true).build()
     );
   }
@@ -1566,8 +1566,8 @@ function importarDesdeKobo() {
         comoSeEntero,      // J: Cómo se enteró
         programaInteres,   // K: Programa Interés
         '',                // L: Responsable
-        'Nuevo',           // M: Estado
-        notasPrograma      // N: Notas
+        notasPrograma,     // M: Notas
+        'Nuevo'            // N: Estado (última columna)
       ];
 
       hojaInteres.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
