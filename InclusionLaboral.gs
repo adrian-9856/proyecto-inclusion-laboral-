@@ -141,6 +141,19 @@ const CONFIG = {
     'Continuando estudios',
     'Sin seguimiento',
     'No contactable'
+  ],
+
+  // Estados laborales para Post Seguimiento
+  ESTADOS_LABORALES: [
+    'Empleada - Área de formación',
+    'Empleada - Otra área',
+    'Emprendimiento propio',
+    'Buscando empleo activamente',
+    'Buscando empleo pasivamente',
+    'Continuando estudios',
+    'No disponible temporalmente',
+    'Pendiente de contactar',
+    'No contactable'
   ]
 };
 
@@ -310,6 +323,7 @@ function crearTodasLasHojas() {
   crearHojaCohortes();
   // Asistencias eliminada - no se usa
   crearHojaGraduadas();
+  crearHojaPostSeguimiento();
   crearHojaDeserciones();
   crearHojaNoSeleccionadas();
   crearHojaReporte();
@@ -514,6 +528,45 @@ function crearHojaGraduadas() {
   [120, 100, 130, 200, 120, 150, 180, 120, 200, 150, 300, 180].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
+}
+
+/**
+ * HOJA DE POST SEGUIMIENTO - Para dar seguimiento a graduadas
+ * Recibe automáticamente a las personas que se gradúan
+ */
+function crearHojaPostSeguimiento() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.insertSheet('Post Seguimiento');
+
+  const headers = [
+    'Fecha Ingreso',        // A - Fecha que entró a seguimiento
+    'Creamos ID',           // B
+    'DPI',                  // C
+    'Nombre Completo',      // D
+    'Teléfono',             // E
+    'Nivel Educativo',      // F
+    'Cohorte',              // G - De qué cohorte se graduó
+    'Fecha Graduación',     // H
+    'Estado Laboral',       // I - Desplegable
+    'Empresa/Ocupación',    // J
+    'Salario Aproximado',   // K
+    'Fecha Último Contacto',// L
+    'Notas Seguimiento',    // M
+    'Próximo Contacto'      // N
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#00695c')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  [120, 100, 130, 200, 120, 150, 180, 120, 180, 200, 120, 120, 300, 120].forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+
+  // Destacar columna Estado Laboral
+  sheet.getRange('I1').setBackground('#4caf50');
 }
 
 /**
@@ -834,6 +887,20 @@ function configurarValidaciones() {
     // Estado (columna M) - Solo Activa/Finalizada
     cohortesSheet.getRange('M2:M50').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ESTADOS_COHORTE).setAllowInvalid(false).build()
+    );
+  }
+
+  // === HOJA DE POST SEGUIMIENTO ===
+  const postSeguimiento = ss.getSheetByName('Post Seguimiento');
+  if (postSeguimiento) {
+    // Estado Laboral (columna I)
+    postSeguimiento.getRange('I2:I500').setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ESTADOS_LABORALES).setAllowInvalid(false).build()
+    );
+    // Cohorte (columna G)
+    const todasCohortes = obtenerCohortesActuales();
+    postSeguimiento.getRange('G2:G500').setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(todasCohortes).setAllowInvalid(true).build()
     );
   }
 
@@ -1428,7 +1495,11 @@ function procesarFinalizacionCohorte(sheet, fila) {
   if (respuesta === ui.Button.YES) {
     // Graduar a todas
     graduarTodaLaCohorte(nombreCohorte, hojaCohorte);
-    ss.toast('🎓 Todas graduadas de ' + nombreCohorte, 'Graduación Masiva', 4);
+
+    // OCULTAR la hoja de cohorte (archivar)
+    hojaCohorte.hideSheet();
+
+    ss.toast('🎓 Todas graduadas de ' + nombreCohorte + ' - Hoja archivada', 'Graduación Masiva', 4);
   } else {
     // Revertir estado a Activa y notificar
     sheet.getRange(fila, 13).setValue('Activa');
@@ -1441,12 +1512,15 @@ function procesarFinalizacionCohorte(sheet, fila) {
 
 /**
  * Gradúa a todas las participantes de una cohorte
+ * También las envía a Post Seguimiento automáticamente
  */
 function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const graduadas = ss.getSheetByName('Graduadas');
+  const postSeguimiento = ss.getSheetByName('Post Seguimiento');
 
   const datosCohorte = hojaCohorte.getDataRange().getValues();
+  const fechaGraduacion = new Date();
 
   // Procesar de abajo hacia arriba para no afectar los índices
   for (let i = datosCohorte.length - 1; i >= 1; i--) {
@@ -1457,7 +1531,7 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
 
       // Orden Graduadas: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, Calif, Empresa, FechaContacto, Notas, Estado
       const registroGraduada = [
-        new Date(),
+        fechaGraduacion,
         fila[2],           // Creamos ID
         fila[3],           // DPI
         fila[4],           // Nombre
@@ -1473,6 +1547,29 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
 
       graduadas.getRange(nuevaFilaGrad, 1, 1, 12).setValues([registroGraduada]);
 
+      // También enviar a Post Seguimiento
+      if (postSeguimiento) {
+        const nuevaFilaPS = obtenerPrimeraFilaVacia(postSeguimiento, 'D');
+        // Orden Post Seguimiento: FechaIngreso, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, FechaGrad, EstadoLaboral, Empresa, Salario, FechaContacto, Notas, ProxContacto
+        const registroPS = [
+          fechaGraduacion,   // Fecha Ingreso
+          fila[2],           // Creamos ID
+          fila[3],           // DPI
+          fila[4],           // Nombre
+          fila[6],           // Teléfono
+          fila[7],           // Nivel Educativo
+          nombreCohorte,     // Cohorte
+          fechaGraduacion,   // Fecha Graduación
+          'Pendiente de contactar', // Estado Laboral
+          '',                // Empresa/Ocupación
+          '',                // Salario
+          '',                // Fecha Último Contacto
+          '',                // Notas
+          ''                 // Próximo Contacto
+        ];
+        postSeguimiento.getRange(nuevaFilaPS, 1, 1, 14).setValues([registroPS]);
+      }
+
       // Eliminar de la hoja de cohorte
       hojaCohorte.deleteRow(i + 1);
     }
@@ -1481,17 +1578,20 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
 
 /**
  * Procesa graduación individual desde hoja de cohorte
+ * También envía a Post Seguimiento automáticamente
  */
 function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const graduadas = ss.getSheetByName('Graduadas');
+  const postSeguimiento = ss.getSheetByName('Post Seguimiento');
 
   const datos = sheet.getRange(fila, 1, 1, 9).getValues()[0];
+  const fechaGraduacion = new Date();
 
   const nuevaFilaGrad = obtenerPrimeraFilaVacia(graduadas, 'D');
 
   const registroGraduada = [
-    new Date(),
+    fechaGraduacion,
     datos[2],           // Creamos ID
     datos[3],           // DPI
     datos[4],           // Nombre
@@ -1507,10 +1607,32 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
 
   graduadas.getRange(nuevaFilaGrad, 1, 1, 12).setValues([registroGraduada]);
 
+  // También enviar a Post Seguimiento
+  if (postSeguimiento) {
+    const nuevaFilaPS = obtenerPrimeraFilaVacia(postSeguimiento, 'D');
+    const registroPS = [
+      fechaGraduacion,   // Fecha Ingreso
+      datos[2],          // Creamos ID
+      datos[3],          // DPI
+      datos[4],          // Nombre
+      datos[6],          // Teléfono
+      datos[7],          // Nivel Educativo
+      nombreCohorte,     // Cohorte
+      fechaGraduacion,   // Fecha Graduación
+      'Pendiente de contactar', // Estado Laboral
+      '',                // Empresa/Ocupación
+      '',                // Salario
+      '',                // Fecha Último Contacto
+      '',                // Notas
+      ''                 // Próximo Contacto
+    ];
+    postSeguimiento.getRange(nuevaFilaPS, 1, 1, 14).setValues([registroPS]);
+  }
+
   // Eliminar de la hoja de cohorte
   sheet.deleteRow(fila);
 
-  ss.toast('🎓 ' + datos[4] + ' graduada', 'Completado', 3);
+  ss.toast('🎓 ' + datos[4] + ' graduada y enviada a Post Seguimiento', 'Completado', 3);
 }
 
 // Función procesarCambioEstadoParticipante eliminada - ya no hay Estado en Seleccionadas
