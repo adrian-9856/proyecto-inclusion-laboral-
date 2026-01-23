@@ -1619,9 +1619,18 @@ function procesarReenvioDesdeDeserciones(sheet, fila) {
   ];
 
   seleccionadas.getRange(nuevaFila, 1, 1, 11).setValues([registro]);
-  sheet.deleteRow(fila);
 
-  ss.toast('✅ ' + nombre + ' reenviada a Seleccionadas (desde Deserción)', 'Reenvío', 4);
+  // NO ELIMINAR - Mantener registro histórico de deserción
+  // Solo marcar que reingresó y limpiar la acción
+  const notasActuales = datos[8] || '';
+  const fechaReingreso = Utilities.formatDate(new Date(), 'America/Guatemala', 'dd/MM/yyyy');
+  sheet.getRange(fila, 9).setValue(notasActuales + ' [Reingresó: ' + fechaReingreso + ']');
+  sheet.getRange(fila, 10).setValue(''); // Limpiar Acción
+
+  // Marcar fila con color gris claro para indicar que ya reingresó
+  sheet.getRange(fila, 1, 1, 10).setBackground('#e0e0e0');
+
+  ss.toast('✅ ' + nombre + ' reenviada a Seleccionadas (registro de deserción conservado)', 'Reenvío', 4);
 }
 
 /**
