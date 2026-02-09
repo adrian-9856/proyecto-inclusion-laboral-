@@ -20,8 +20,11 @@
 // =====================================================================
 
 const CONFIG = {
-  // URL de KoboToolbox para importar datos
+  // URL de KoboToolbox para importar datos de registro inicial
   KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esLPozzAX85W2xSv98r2AVM/data.csv',
+
+  // URL de KoboToolbox para importar datos de ENTREVISTAS (IL_01_Entrevista)
+  KOBO_ENTREVISTAS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aF4nMQPqbHokM7rg2Vtf5w/export-settings/esLcNMQnD8q6r22gnpcYLQt/data.csv',
 
   // Cohortes disponibles (se llenan dinámicamente desde la hoja Cohortes)
   COHORTES: [],
@@ -162,10 +165,14 @@ function onOpen() {
     .addItem('✅ Verificar Instalación', 'verificarInstalacion')
     .addSeparator()
     .addSubMenu(ui.createMenu('📥 Importar Datos')
-      .addItem('📋 Importar desde KoboToolbox', 'importarDesdeKobo')
-      .addItem('🔗 Configurar URL de Kobo', 'configurarKoboURL')
+      .addItem('📋 Importar Registros (Hoja Interés)', 'importarDesdeKobo')
+      .addItem('📝 Importar Entrevistas (Detalle)', 'importarEntrevistasDesdeKobo')
+      .addSeparator()
+      .addItem('🔗 Configurar URL Registros', 'configurarKoboURL')
+      .addItem('🔗 Configurar URL Entrevistas', 'configurarKoboEntrevistasURL')
+      .addSeparator()
       .addItem('🔍 Probar Conexión Kobo', 'probarConexionKobo')
-      .addItem('📊 Ver Columnas Alimentos', 'verColumnasKobo')
+      .addItem('📊 Ver Columnas Kobo', 'verColumnasKobo')
       .addItem('🔄 Importación Automática', 'configurarImportacionAutomatica'))
     .addSeparator()
     .addSubMenu(ui.createMenu('📋 Gestión de Cohortes')
@@ -313,6 +320,7 @@ function crearTodasLasHojas() {
 
   crearHojaInteres();
   crearHojaEntrevistas();
+  crearHojaDetalleEntrevistas();
   crearHojaSeleccionadas();
   crearHojaCohortes();
   // Asistencias eliminada - no se usa
@@ -402,6 +410,131 @@ function crearHojaEntrevistas() {
 
   // Destacar columna "Estado"
   sheet.getRange('I1').setBackground('#4caf50');
+}
+
+/**
+ * HOJA DE DETALLE ENTREVISTAS - Almacena todas las respuestas del formulario Kobo
+ * Se vincula por Creamos ID con las demás hojas
+ * Importa desde: IL_01_Entrevista en KoboToolbox
+ */
+function crearHojaDetalleEntrevistas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.insertSheet('Detalle Entrevistas');
+
+  const headers = [
+    // === INFORMACIÓN GENERAL ===
+    'Fecha Importación',          // A
+    'Creamos ID',                 // B - CLAVE DE VINCULACIÓN
+    'Nombre Completo',            // C
+    'Género',                     // D
+
+    // === TRABAJO EN GRUPOS ===
+    'Grupos Diversos',            // E
+    'Grupos Mixtos',              // F
+    'Experiencia Grupos Mixtos',  // G
+
+    // === FORMACIÓN Y CAPACITACIÓN ===
+    'Formación Previa',           // H
+    'Dónde Formación',            // I
+    'Tiene Certificado',          // J
+    'Cuál Certificado',           // K
+
+    // === INTERESES LABORALES ===
+    'Sector Interés',             // L
+    'Proyecto Interés',           // M
+
+    // === CURSO ALIMENTOS/BEBIDAS/TECNOLOGÍA ===
+    'Dificultades Curso',         // N
+    'Áreas Vida Cambiarán',       // O
+    'Por Qué Interesa Curso',     // P
+    'Firmar Documento',           // Q
+    'Disponibilidad Prácticas',   // R
+    'Trabajar en Sector',         // S
+    'Horarios Demandantes',       // T
+    'Comentarios Curso',          // U
+
+    // === SITUACIÓN ECONÓMICA ===
+    'Ayuda Económica',            // V
+    'Comentario Ayuda',           // W
+    'Dependientes Económicos',    // X
+    'Comentario Dependientes',    // Y
+    'Responsabilidades Cuidado',  // Z
+    'Comentario Cuidado',         // AA
+    'Otros Comentarios Económicos', // AB
+
+    // === TRANSPORTE Y ANTECEDENTES ===
+    'Tiene Transporte',           // AC
+    'Plan Traslado',              // AD
+    'Deudas Bancarias',           // AE
+    'Antecedentes Manchados',     // AF
+    'Comentario Antecedentes',    // AG
+
+    // === SOLO OPERARIOS ===
+    'Trámites Penales',           // AH
+    'Talla Zapato',               // AI
+    'Movilizarse Cualquier Zona', // AJ
+    'Comentarios Operarios',      // AK
+
+    // === ENFOQUE DE GÉNERO ===
+    'Comentario Previo Género',   // AL
+    'Conoce VBG',                 // AM
+    'Grupos Mixtos Género',       // AN
+    'Grupos Diversos Género',     // AO
+    'Comentario Género',          // AP
+    'Conflictos Casa',            // AQ
+    'Comentario Conflictos',      // AR
+    'Grupo Mayormente Mujeres',   // AS
+    'Igualdad Hombres Mujeres',   // AT
+    'Familiares Creamos',         // AU
+    'Nombres Familiares',         // AV
+    'Formal o Informal',          // AW
+    'Conoce Violencia Mujer',     // AX
+
+    // === COLUMNAS ADICIONALES ===
+    'Pregunta Adicional 1',       // AY
+    'Pregunta Adicional 2',       // AZ
+
+    // === CONTROL ===
+    'Vinculado'                   // BA
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#5e35b1')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setWrap(true);
+
+  sheet.setFrozenRows(1);
+
+  const anchos = [
+    100, 100, 180, 80,
+    80, 80, 80,
+    80, 150, 80, 150,
+    120, 150,
+    200, 200, 200, 80, 80, 80, 80, 200,
+    80, 150, 80, 150, 80, 150, 200,
+    80, 200, 80, 80, 150,
+    80, 80, 80, 150,
+    150, 80, 80, 80, 150, 80, 150, 150, 200, 80, 150, 100, 200,
+    150, 150,
+    80
+  ];
+  anchos.forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+
+  // Colorear secciones
+  sheet.getRange('A1:D1').setBackground('#1565c0');
+  sheet.getRange('E1:G1').setBackground('#2e7d32');
+  sheet.getRange('H1:K1').setBackground('#f57c00');
+  sheet.getRange('L1:M1').setBackground('#c62828');
+  sheet.getRange('N1:U1').setBackground('#6a1b9a');
+  sheet.getRange('V1:AB1').setBackground('#00838f');
+  sheet.getRange('AC1:AG1').setBackground('#4527a0');
+  sheet.getRange('AH1:AK1').setBackground('#bf360c');
+  sheet.getRange('AL1:AX1').setBackground('#ad1457');
+  sheet.getRange('AY1:BA1').setBackground('#37474f');
 }
 
 /**
@@ -2276,6 +2409,241 @@ function calcularEdad(fechaNacimiento) {
   }
 }
 
+
+/**
+ * Importa datos de ENTREVISTAS desde KoboToolbox (IL_01_Entrevista)
+ * Guarda en la hoja "Detalle Entrevistas" y vincula por Creamos ID
+ */
+function importarEntrevistasDesdeKobo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const props = PropertiesService.getDocumentProperties();
+  const url = props.getProperty('KOBO_ENTREVISTAS_URL') || CONFIG.KOBO_ENTREVISTAS_URL;
+
+  if (!url) {
+    ui.alert('⚠️ URL no configurada', 'Configure la URL de Entrevistas de KoboToolbox primero.', ui.ButtonSet.OK);
+    return;
+  }
+
+  try {
+    ss.toast('📥 Descargando datos de entrevistas desde KoboToolbox...', 'Importando', 5);
+
+    const response = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: { 'Accept': 'text/csv, application/csv, text/plain' }
+    });
+
+    const responseCode = response.getResponseCode();
+    if (responseCode !== 200) {
+      throw new Error('Error HTTP: ' + responseCode);
+    }
+
+    let csvData = response.getContentText('UTF-8');
+    if (!csvData || csvData.trim().length === 0) {
+      throw new Error('No se recibieron datos del servidor');
+    }
+
+    if (csvData.charCodeAt(0) === 0xFEFF) {
+      csvData = csvData.substring(1);
+    }
+
+    const primeraLinea = csvData.split('\n')[0];
+    const countPuntoComa = (primeraLinea.match(/;/g) || []).length;
+    const countComas = (primeraLinea.match(/,/g) || []).length;
+    const separador = countPuntoComa > countComas ? ';' : ',';
+
+    let rows;
+    try {
+      rows = separador === ';' ? parsearCSVManual(csvData, separador) : Utilities.parseCsv(csvData, separador);
+    } catch (e) {
+      rows = parsearCSVManual(csvData, separador);
+    }
+
+    if (!rows || rows.length < 2) {
+      ss.toast('⚠️ No hay datos para importar', 'Sin Datos', 3);
+      return;
+    }
+
+    const headers = rows[0];
+
+    const colMap = {
+      creamosId: buscarIndiceColumna(headers, ['Creamos ID', 'creamos_id', 'Información General/Creamos ID']),
+      nombre: buscarIndiceColumna(headers, ['Nombre y apellidos', 'nombre', 'Información General/Nombre']),
+      genero: buscarIndiceColumna(headers, ['Género', 'genero', 'Información General/Género']),
+      gruposDiversos: buscarIndiceColumna(headers, ['grupos diversos', 'Trabajo en grupos/grupos diversos']),
+      gruposMixtos: buscarIndiceColumna(headers, ['grupos mixtos', 'Trabajo en grupos/grupos mixtos']),
+      expGruposMixtos: buscarIndiceColumna(headers, ['experiencia previa', 'grupos mixtos de hombres']),
+      formacionPrevia: buscarIndiceColumna(headers, ['formación o capacitación previa', 'Formación']),
+      dondeFormacion: buscarIndiceColumna(headers, ['Dónde', 'donde']),
+      tieneCertificado: buscarIndiceColumna(headers, ['certificado para la capacitación']),
+      cualCertificado: buscarIndiceColumna(headers, ['Cuál']),
+      sectorInteres: buscarIndiceColumna(headers, ['sector te gustaría trabajar']),
+      proyectoInteres: buscarIndiceColumna(headers, ['Proyecto de interés', 'proyecto']),
+      dificultadesCurso: buscarIndiceColumna(headers, ['dificultades crees']),
+      areasVida: buscarIndiceColumna(headers, ['áreas de tu vida']),
+      porQueInteres: buscarIndiceColumna(headers, ['Por qué te interesa']),
+      firmarDocumento: buscarIndiceColumna(headers, ['firmar un documento']),
+      disponibilidadPracticas: buscarIndiceColumna(headers, ['disponibilidad de tiempo para realizar prácticas']),
+      trabajarSector: buscarIndiceColumna(headers, ['dispuesto/a a trabajar en el sector']),
+      horariosDemanantes: buscarIndiceColumna(headers, ['horarios nocturnos']),
+      comentariosCurso: buscarIndiceColumna(headers, ['Comentarios']),
+      ayudaEconomica: buscarIndiceColumna(headers, ['ayuda económicamente']),
+      dependientesEcon: buscarIndiceColumna(headers, ['depende de ti económicamente']),
+      responsabilidadesCuidado: buscarIndiceColumna(headers, ['responsabilidades de cuidado']),
+      tieneTransporte: buscarIndiceColumna(headers, ['transporte para trasladarte']),
+      planTraslado: buscarIndiceColumna(headers, ['plan para trasladarte']),
+      deudasBancarias: buscarIndiceColumna(headers, ['deudas bancarias']),
+      antecedentesManchados: buscarIndiceColumna(headers, ['antecedentes penales o policiacos']),
+      tramitesPenales: buscarIndiceColumna(headers, ['trámites penales']),
+      tallaZapato: buscarIndiceColumna(headers, ['talla de zapato']),
+      movilizarseZona: buscarIndiceColumna(headers, ['movilizarte a cualquier zona']),
+      conoceVBG: buscarIndiceColumna(headers, ['violencia basada en género']),
+      conflictosCasa: buscarIndiceColumna(headers, ['conflictos en casa']),
+      grupoMujeres: buscarIndiceColumna(headers, ['grupo formado mayormente por mujeres']),
+      igualdadHM: buscarIndiceColumna(headers, ['hombres y mujeres sean tratados por igual']),
+      familiaresCreamos: buscarIndiceColumna(headers, ['familiares que son participantes']),
+      nombresFamiliares: buscarIndiceColumna(headers, ['facilitarnos sus nombres']),
+      formalInformal: buscarIndiceColumna(headers, ['formal o informal']),
+      conoceViolenciaMujer: buscarIndiceColumna(headers, ['violencia contra la mujer'])
+    };
+
+    let detalleSheet = ss.getSheetByName('Detalle Entrevistas');
+    if (!detalleSheet) {
+      crearHojaDetalleEntrevistas();
+      detalleSheet = ss.getSheetByName('Detalle Entrevistas');
+    }
+
+    const datosExistentes = detalleSheet.getDataRange().getValues();
+    const idsExistentes = new Set();
+    for (let i = 1; i < datosExistentes.length; i++) {
+      if (datosExistentes[i][1]) {
+        idsExistentes.add(datosExistentes[i][1].toString().trim());
+      }
+    }
+
+    let importados = 0;
+    let duplicados = 0;
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const creamosId = colMap.creamosId >= 0 ? (row[colMap.creamosId] || '').toString().trim() : '';
+
+      if (!creamosId) continue;
+
+      if (idsExistentes.has(creamosId)) {
+        duplicados++;
+        continue;
+      }
+
+      const getVal = (idx) => idx >= 0 && row[idx] ? row[idx].toString().trim() : '';
+
+      const registro = [
+        new Date(), creamosId, getVal(colMap.nombre), getVal(colMap.genero),
+        getVal(colMap.gruposDiversos), getVal(colMap.gruposMixtos), getVal(colMap.expGruposMixtos),
+        getVal(colMap.formacionPrevia), getVal(colMap.dondeFormacion), getVal(colMap.tieneCertificado), getVal(colMap.cualCertificado),
+        getVal(colMap.sectorInteres), getVal(colMap.proyectoInteres),
+        getVal(colMap.dificultadesCurso), getVal(colMap.areasVida), getVal(colMap.porQueInteres),
+        getVal(colMap.firmarDocumento), getVal(colMap.disponibilidadPracticas), getVal(colMap.trabajarSector),
+        getVal(colMap.horariosDemanantes), getVal(colMap.comentariosCurso),
+        getVal(colMap.ayudaEconomica), '', getVal(colMap.dependientesEcon), '',
+        getVal(colMap.responsabilidadesCuidado), '', '',
+        getVal(colMap.tieneTransporte), getVal(colMap.planTraslado), getVal(colMap.deudasBancarias),
+        getVal(colMap.antecedentesManchados), '',
+        getVal(colMap.tramitesPenales), getVal(colMap.tallaZapato), getVal(colMap.movilizarseZona), '',
+        '', getVal(colMap.conoceVBG), '', '', '', getVal(colMap.conflictosCasa), '',
+        getVal(colMap.grupoMujeres), getVal(colMap.igualdadHM), getVal(colMap.familiaresCreamos),
+        getVal(colMap.nombresFamiliares), getVal(colMap.formalInformal), getVal(colMap.conoceViolenciaMujer),
+        '', '', 'No'
+      ];
+
+      const nuevaFila = detalleSheet.getLastRow() + 1;
+      detalleSheet.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
+      idsExistentes.add(creamosId);
+      importados++;
+    }
+
+    vincularEntrevistasConDetalle();
+
+    ss.toast('✅ Importados: ' + importados + ' | Duplicados: ' + duplicados, 'Importación Completa', 5);
+
+  } catch (error) {
+    ss.toast('❌ Error: ' + error.message, 'ERROR', 5);
+    Logger.log('Error importando entrevistas: ' + error.message);
+  }
+}
+
+/**
+ * Busca el índice de una columna por nombre parcial
+ */
+function buscarIndiceColumna(headers, posiblesNombres) {
+  for (let i = 0; i < headers.length; i++) {
+    const header = headers[i].toString().toLowerCase();
+    for (const nombre of posiblesNombres) {
+      if (header.includes(nombre.toLowerCase())) {
+        return i;
+      }
+    }
+  }
+  return -1;
+}
+
+/**
+ * Vincula los registros de Detalle Entrevistas con la hoja Entrevistas
+ */
+function vincularEntrevistasConDetalle() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const entrevistasSheet = ss.getSheetByName('Entrevistas');
+  const detalleSheet = ss.getSheetByName('Detalle Entrevistas');
+
+  if (!entrevistasSheet || !detalleSheet) return;
+
+  const entrevistas = entrevistasSheet.getDataRange().getValues();
+  const detalles = detalleSheet.getDataRange().getValues();
+
+  const detalleMap = new Map();
+  for (let i = 1; i < detalles.length; i++) {
+    const id = detalles[i][1] ? detalles[i][1].toString().trim() : '';
+    if (id) {
+      detalleMap.set(id, { fila: i + 1, datos: detalles[i] });
+    }
+  }
+
+  for (let i = 1; i < entrevistas.length; i++) {
+    const idEntrevista = entrevistas[i][2] ? entrevistas[i][2].toString().trim() : '';
+    if (idEntrevista && detalleMap.has(idEntrevista)) {
+      const info = detalleMap.get(idEntrevista);
+      detalleSheet.getRange(info.fila, 53).setValue('Sí');
+    }
+  }
+}
+
+/**
+ * Configura la URL de KoboToolbox para Entrevistas
+ */
+function configurarKoboEntrevistasURL() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  const urlActual = props.getProperty('KOBO_ENTREVISTAS_URL') || CONFIG.KOBO_ENTREVISTAS_URL;
+
+  const respuesta = ui.prompt(
+    '🔗 Configurar URL de Entrevistas Kobo',
+    'URL actual:\n' + urlActual + '\n\n' +
+    'Ingresa la nueva URL del CSV de IL_01_Entrevista:',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta.getSelectedButton() === ui.Button.OK) {
+    const nuevaUrl = respuesta.getResponseText().trim();
+    if (nuevaUrl && nuevaUrl.includes('http')) {
+      props.setProperty('KOBO_ENTREVISTAS_URL', nuevaUrl);
+      SpreadsheetApp.getActiveSpreadsheet().toast('✅ URL de Entrevistas configurada', 'Configurado', 4);
+    } else {
+      ui.alert('URL inválida');
+    }
+  }
+}
 
 /**
  * Prueba la conexión con KoboToolbox y muestra información de debug
