@@ -138,19 +138,6 @@ const CONFIG = {
     'Continuando estudios',
     'Sin seguimiento',
     'No contactable'
-  ],
-
-  // Estados laborales para Post Seguimiento
-  ESTADOS_LABORALES: [
-    'Empleada - Área de formación',
-    'Empleada - Otra área',
-    'Emprendimiento propio',
-    'Buscando empleo activamente',
-    'Buscando empleo pasivamente',
-    'Continuando estudios',
-    'No disponible temporalmente',
-    'Pendiente de contactar',
-    'No contactable'
   ]
 };
 
@@ -325,7 +312,6 @@ function crearTodasLasHojas() {
   crearHojaCohortes();
   // Asistencias eliminada - no se usa
   crearHojaGraduadas();
-  crearHojaPostSeguimiento();
   crearHojaDeserciones();
   crearHojaNoSeleccionadas();
   crearHojaReporte();
@@ -548,17 +534,16 @@ function crearHojaSeleccionadas() {
   const sheet = ss.insertSheet('Seleccionadas');
 
   const headers = [
-    'Fecha Selección',  // A
-    'No.',              // B
-    'Creamos ID',       // C
-    'DPI',              // D
-    'Nombre Completo',  // E
-    'Edad',             // F
-    'Teléfono',         // G
-    'Nivel Educativo',  // H
-    'Zona',             // I
-    'Notas',            // J
-    'Enviar a Cohorte'  // K - Desplegable dinámico (última columna - trigger)
+    'No.',              // A
+    'Creamos ID',       // B
+    'DPI',              // C
+    'Nombre Completo',  // D
+    'Edad',             // E
+    'Teléfono',         // F
+    'Nivel Educativo',  // G
+    'Zona',             // H
+    'Notas',            // I
+    'Enviar a Cohorte'  // J - Desplegable dinámico (última columna - trigger)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -567,12 +552,12 @@ function crearHojaSeleccionadas() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 50, 100, 130, 200, 60, 120, 150, 120, 250, 180].forEach((w, i) => {
+  [50, 100, 130, 200, 60, 120, 150, 120, 250, 180].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
   // Destacar columna de envío
-  sheet.getRange('K1').setBackground('#4caf50');
+  sheet.getRange('J1').setBackground('#4caf50');
 }
 
 /**
@@ -586,7 +571,7 @@ function crearHojaCohortes() {
 
   const headers = [
     'Nombre Cohorte',     // A
-    'Área',               // B
+    'Proyecto',           // B
     'Fecha Inicio',       // C
     'Fecha Fin',          // D
     'Responsable',        // E
@@ -639,11 +624,8 @@ function crearHojaGraduadas() {
     'Teléfono',             // E
     'Nivel Educativo',      // F
     'Cohorte',              // G
-    'Calificación Final',   // H
-    'Empresa/Ocupación',    // I
-    'Fecha Último Contacto',// J
-    'Notas Seguimiento',    // K
-    'Estado Seguimiento'    // L - Última columna (acción)
+    'Notas Seguimiento',    // H
+    'Estado Seguimiento'    // I - Última columna (acción)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -652,48 +634,9 @@ function crearHojaGraduadas() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 100, 130, 200, 120, 150, 180, 120, 200, 150, 300, 180].forEach((w, i) => {
+  [120, 100, 130, 200, 120, 150, 180, 300, 180].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
-}
-
-/**
- * HOJA DE POST SEGUIMIENTO - Para dar seguimiento a graduadas
- * Recibe automáticamente a las personas que se gradúan
- */
-function crearHojaPostSeguimiento() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.insertSheet('Post Seguimiento');
-
-  const headers = [
-    'Fecha Ingreso',        // A - Fecha que entró a seguimiento
-    'Creamos ID',           // B
-    'DPI',                  // C
-    'Nombre Completo',      // D
-    'Teléfono',             // E
-    'Nivel Educativo',      // F
-    'Cohorte',              // G - De qué cohorte se graduó
-    'Fecha Graduación',     // H
-    'Estado Laboral',       // I - Desplegable
-    'Empresa/Ocupación',    // J
-    'Salario Aproximado',   // K
-    'Fecha Último Contacto',// L
-    'Notas Seguimiento',    // M
-    'Próximo Contacto'      // N
-  ];
-
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
-    .setBackground('#00695c')
-    .setFontColor('white')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center');
-
-  [120, 100, 130, 200, 120, 150, 180, 120, 180, 200, 120, 120, 300, 120].forEach((w, i) => {
-    sheet.setColumnWidth(i + 1, w);
-  });
-
-  // Destacar columna Estado Laboral
-  sheet.getRange('I1').setBackground('#4caf50');
 }
 
 /**
@@ -938,23 +881,25 @@ function configurarValidaciones() {
   }
 
   // === HOJA DE SELECCIONADAS ===
+  // Columnas: A-No, B-CreamosID, C-DPI, D-Nombre, E-Edad, F-Tel, G-NivelEdu, H-Zona, I-Notas, J-EnviarACohorte
   const seleccionadas = ss.getSheetByName('Seleccionadas');
   if (seleccionadas) {
-    seleccionadas.getRange('H2:H500').setDataValidation(
+    seleccionadas.getRange('G2:G500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
     );
-    seleccionadas.getRange('I2:I500').setDataValidation(
+    seleccionadas.getRange('H2:H500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ZONAS).setAllowInvalid(true).build()
     );
-    // Enviar a Cohorte (K) - dropdown dinámico con cohortes activas
+    // Enviar a Cohorte (J) - dropdown dinámico con cohortes activas
     if (cohortes.length > 0) {
-      seleccionadas.getRange('K2:K500').setDataValidation(
+      seleccionadas.getRange('J2:J500').setDataValidation(
         SpreadsheetApp.newDataValidation().requireValueInList(cohortes).setAllowInvalid(false).build()
       );
     }
   }
 
   // === HOJA DE GRADUADAS ===
+  // Columnas: A-Fecha, B-CreamosID, C-DPI, D-Nombre, E-Tel, F-NivelEdu, G-Cohorte, H-Notas, I-Estado
   const graduadas = ss.getSheetByName('Graduadas');
   if (graduadas) {
     graduadas.getRange('F2:F500').setDataValidation(
@@ -964,7 +909,7 @@ function configurarValidaciones() {
     graduadas.getRange('G2:G500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(todasCohortes).setAllowInvalid(false).build()
     );
-    graduadas.getRange('L2:L500').setDataValidation(
+    graduadas.getRange('I2:I500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ESTADOS_SEGUIMIENTO).setAllowInvalid(false).build()
     );
   }
@@ -1014,20 +959,6 @@ function configurarValidaciones() {
     // Estado (columna M) - Solo Activa/Finalizada
     cohortesSheet.getRange('M2:M50').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ESTADOS_COHORTE).setAllowInvalid(false).build()
-    );
-  }
-
-  // === HOJA DE POST SEGUIMIENTO ===
-  const postSeguimiento = ss.getSheetByName('Post Seguimiento');
-  if (postSeguimiento) {
-    // Estado Laboral (columna I)
-    postSeguimiento.getRange('I2:I500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ESTADOS_LABORALES).setAllowInvalid(false).build()
-    );
-    // Cohorte (columna G)
-    const todasCohortes = obtenerCohortesActuales();
-    postSeguimiento.getRange('G2:G500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(todasCohortes).setAllowInvalid(true).build()
     );
   }
 
@@ -1088,20 +1019,6 @@ function guardarResponsables(responsables) {
 function aplicarFormatos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  const seleccionadas = ss.getSheetByName('Seleccionadas');
-  if (seleccionadas) {
-    const rangoEstado = seleccionadas.getRange('L2:L500');
-
-    const reglaActiva = SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo('Activa').setBackground('#c8e6c9').setRanges([rangoEstado]).build();
-    const reglaGraduada = SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo('Graduada').setBackground('#bbdefb').setRanges([rangoEstado]).build();
-    const reglaDesercion = SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo('Deserción').setBackground('#ffcdd2').setRanges([rangoEstado]).build();
-
-    seleccionadas.setConditionalFormatRules([reglaActiva, reglaGraduada, reglaDesercion]);
-  }
-
   // Formato para Entrevistas - Estado (columna I)
   const entrevistas = ss.getSheetByName('Entrevistas');
   if (entrevistas) {
@@ -1117,6 +1034,28 @@ function aplicarFormatos() {
       .whenTextContains('No asistió').setBackground('#ffcdd2').setRanges([rangoEstadoEnt]).build();
 
     entrevistas.setConditionalFormatRules([reglaAprobada, reglaPendiente, reglaNoAprobada, reglaNoAsistio]);
+  }
+
+  // Formato condicional para Cohortes - Cupo lleno (Inscritas >= Cupo Máximo)
+  const cohortesSheet = ss.getSheetByName('Cohortes');
+  if (cohortesSheet) {
+    const rangoInscritas = cohortesSheet.getRange('G2:G50');
+    const reglaCupoLleno = SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=AND(G2>=F2,F2>0)')
+      .setBackground('#ffcdd2')
+      .setFontColor('#b71c1c')
+      .setBold(true)
+      .setRanges([rangoInscritas])
+      .build();
+
+    const rangoDisponible = cohortesSheet.getRange('G2:G50');
+    const reglaCupoDisponible = SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=AND(G2<F2,F2>0)')
+      .setBackground('#c8e6c9')
+      .setRanges([rangoDisponible])
+      .build();
+
+    cohortesSheet.setConditionalFormatRules([reglaCupoLleno, reglaCupoDisponible]);
   }
 
   Logger.log('✅ Formatos aplicados');
@@ -1160,9 +1099,9 @@ function alEditar(e) {
   }
 
   // === SELECCIONADAS ===
-  // "Enviar a Cohorte" está en columna K (11) - al seleccionar cohorte se envía
+  // "Enviar a Cohorte" está en columna J (10) - al seleccionar cohorte se envía
   if (hoja === 'Seleccionadas') {
-    if (columna === 11 && val !== '') {
+    if (columna === 10 && val !== '') {
       procesarEnvioACohorte(sheet, fila, val);
     }
   }
@@ -1287,15 +1226,14 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
 
     // Mover a Seleccionadas
     const seleccionadas = ss.getSheetByName('Seleccionadas');
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'E');
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
-    // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
+    // Orden: No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
     // Entrevistas: [0]Fecha, [1]Hora, [2]CreamosID, [3]Nombre, [4]Tel, [5]Entrevistador, [6]Calif, [7]Obs, [8]Estado
     const registroSeleccionadas = [
-      new Date(),
       nuevaFila - 1,
       creamosId,
-      datosInteres ? datosInteres[3] : '',
+      datosInteres ? datosInteres[3] : '',          // DPI
       datos[3],                                     // Nombre
       datosInteres ? datosInteres[5] : '',          // Edad
       datos[4],                                     // Teléfono
@@ -1305,7 +1243,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       ''                                            // Enviar a Cohorte (vacío)
     ];
 
-    seleccionadas.getRange(nuevaFila, 1, 1, 11).setValues([registroSeleccionadas]);
+    seleccionadas.getRange(nuevaFila, 1, 1, 10).setValues([registroSeleccionadas]);
 
     // Eliminar de Hoja de Interés
     if (filaInteres) {
@@ -1421,20 +1359,53 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
  * - Agrega a la hoja individual de la Cohorte
  * - ELIMINA de Seleccionadas
  */
+/**
+ * Procesa envío a cohorte desde Seleccionadas (columna J - Enviar a Cohorte)
+ * - Verifica cupo disponible
+ * - Agrega a la hoja individual de la Cohorte
+ * - ELIMINA de Seleccionadas
+ */
 function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Seleccionadas tiene 11 columnas
-  const datos = sheet.getRange(fila, 1, 1, 11).getValues()[0];
-  const creamosId = datos[2];
-  const nombre = datos[4];
+  // Seleccionadas tiene 10 columnas: No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
+  const datos = sheet.getRange(fila, 1, 1, 10).getValues()[0];
+  const creamosId = datos[1];
+  const nombre = datos[3];
 
   // Verificar que la cohorte existe
   const hojaCohorte = ss.getSheetByName(cohorteDestino);
   if (!hojaCohorte) {
     ss.toast('⚠️ La cohorte "' + cohorteDestino + '" no existe. Créela primero.', 'Error', 4);
-    sheet.getRange(fila, 11).setValue(''); // Limpiar selección
+    sheet.getRange(fila, 10).setValue(''); // Limpiar selección
     return;
+  }
+
+  // Verificar cupo disponible
+  const cohortesSheet = ss.getSheetByName('Cohortes');
+  if (cohortesSheet) {
+    const datosCohortes = cohortesSheet.getDataRange().getValues();
+    for (let i = 1; i < datosCohortes.length; i++) {
+      if (datosCohortes[i][0] === cohorteDestino) {
+        const cupoMax = datosCohortes[i][5];
+        const inscritas = datosCohortes[i][6];
+        if (cupoMax && inscritas >= cupoMax) {
+          const ui = SpreadsheetApp.getUi();
+          const resp = ui.alert(
+            '⚠️ CUPO LLENO',
+            'La cohorte "' + cohorteDestino + '" tiene el cupo lleno.\n\n' +
+            'Inscritas: ' + inscritas + ' / ' + cupoMax + ' (Cupo Máximo)\n\n' +
+            '¿Desea enviar de todas formas?',
+            ui.ButtonSet.YES_NO
+          );
+          if (resp !== ui.Button.YES) {
+            sheet.getRange(fila, 10).setValue(''); // Limpiar selección
+            return;
+          }
+        }
+        break;
+      }
+    }
   }
 
   // Agregar a la hoja individual de la Cohorte
@@ -1444,11 +1415,11 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
     new Date(),
     nuevaFilaCohorte - 1,
     creamosId,
-    datos[3],           // DPI
+    datos[2],           // DPI
     nombre,
-    datos[5],           // Edad
-    datos[6],           // Teléfono
-    datos[7],           // Nivel Educativo
+    datos[4],           // Edad
+    datos[5],           // Teléfono
+    datos[6],           // Nivel Educativo
     ''                  // Estado (vacío - opciones: Graduada/Deserción)
   ];
   hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, 9).setValues([registroCohorte]);
@@ -1527,12 +1498,10 @@ function procesarFinalizacionCohorte(sheet, fila) {
 
 /**
  * Gradúa a todas las participantes de una cohorte
- * También las envía a Post Seguimiento automáticamente
  */
 function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const graduadas = ss.getSheetByName('Graduadas');
-  const postSeguimiento = ss.getSheetByName('Post Seguimiento');
 
   const datosCohorte = hojaCohorte.getDataRange().getValues();
   const fechaGraduacion = new Date();
@@ -1544,7 +1513,7 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
     if (fila[4] && (!fila[8] || fila[8] === '')) {
       const nuevaFilaGrad = obtenerPrimeraFilaVacia(graduadas, 'D');
 
-      // Orden Graduadas: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, Calif, Empresa, FechaContacto, Notas, Estado
+      // Orden Graduadas: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, Notas, Estado
       const registroGraduada = [
         fechaGraduacion,
         fila[2],           // Creamos ID
@@ -1553,37 +1522,11 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
         fila[6],           // Teléfono
         fila[7],           // Nivel Educativo
         nombreCohorte,
-        '',                // Calificación Final
-        '',                // Empresa/Ocupación
-        '',                // Fecha Último Contacto
         '',                // Notas Seguimiento
         ''                 // Estado Seguimiento
       ];
 
-      graduadas.getRange(nuevaFilaGrad, 1, 1, 12).setValues([registroGraduada]);
-
-      // También enviar a Post Seguimiento
-      if (postSeguimiento) {
-        const nuevaFilaPS = obtenerPrimeraFilaVacia(postSeguimiento, 'D');
-        // Orden Post Seguimiento: FechaIngreso, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, FechaGrad, EstadoLaboral, Empresa, Salario, FechaContacto, Notas, ProxContacto
-        const registroPS = [
-          fechaGraduacion,   // Fecha Ingreso
-          fila[2],           // Creamos ID
-          fila[3],           // DPI
-          fila[4],           // Nombre
-          fila[6],           // Teléfono
-          fila[7],           // Nivel Educativo
-          nombreCohorte,     // Cohorte
-          fechaGraduacion,   // Fecha Graduación
-          'Pendiente de contactar', // Estado Laboral
-          '',                // Empresa/Ocupación
-          '',                // Salario
-          '',                // Fecha Último Contacto
-          '',                // Notas
-          ''                 // Próximo Contacto
-        ];
-        postSeguimiento.getRange(nuevaFilaPS, 1, 1, 14).setValues([registroPS]);
-      }
+      graduadas.getRange(nuevaFilaGrad, 1, 1, 9).setValues([registroGraduada]);
 
       // Eliminar de la hoja de cohorte
       hojaCohorte.deleteRow(i + 1);
@@ -1593,18 +1536,17 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
 
 /**
  * Procesa graduación individual desde hoja de cohorte
- * También envía a Post Seguimiento automáticamente
  */
 function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const graduadas = ss.getSheetByName('Graduadas');
-  const postSeguimiento = ss.getSheetByName('Post Seguimiento');
 
   const datos = sheet.getRange(fila, 1, 1, 9).getValues()[0];
   const fechaGraduacion = new Date();
 
   const nuevaFilaGrad = obtenerPrimeraFilaVacia(graduadas, 'D');
 
+  // Orden Graduadas: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, Notas, Estado
   const registroGraduada = [
     fechaGraduacion,
     datos[2],           // Creamos ID
@@ -1613,41 +1555,16 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
     datos[6],           // Teléfono
     datos[7],           // Nivel Educativo
     nombreCohorte,
-    '',                 // Calificación Final
-    '',                 // Empresa/Ocupación
-    '',                 // Fecha Último Contacto
     '',                 // Notas Seguimiento
     ''                  // Estado Seguimiento
   ];
 
-  graduadas.getRange(nuevaFilaGrad, 1, 1, 12).setValues([registroGraduada]);
-
-  // También enviar a Post Seguimiento
-  if (postSeguimiento) {
-    const nuevaFilaPS = obtenerPrimeraFilaVacia(postSeguimiento, 'D');
-    const registroPS = [
-      fechaGraduacion,   // Fecha Ingreso
-      datos[2],          // Creamos ID
-      datos[3],          // DPI
-      datos[4],          // Nombre
-      datos[6],          // Teléfono
-      datos[7],          // Nivel Educativo
-      nombreCohorte,     // Cohorte
-      fechaGraduacion,   // Fecha Graduación
-      'Pendiente de contactar', // Estado Laboral
-      '',                // Empresa/Ocupación
-      '',                // Salario
-      '',                // Fecha Último Contacto
-      '',                // Notas
-      ''                 // Próximo Contacto
-    ];
-    postSeguimiento.getRange(nuevaFilaPS, 1, 1, 14).setValues([registroPS]);
-  }
+  graduadas.getRange(nuevaFilaGrad, 1, 1, 9).setValues([registroGraduada]);
 
   // Eliminar de la hoja de cohorte
   sheet.deleteRow(fila);
 
-  ss.toast('🎓 ' + datos[4] + ' graduada y enviada a Post Seguimiento', 'Completado', 3);
+  ss.toast('🎓 ' + datos[4] + ' graduada exitosamente', 'Completado', 3);
 }
 
 // Función procesarCambioEstadoParticipante eliminada - ya no hay Estado en Seleccionadas
@@ -1693,11 +1610,10 @@ function procesarReenvioDesdeNoSeleccionadas(sheet, fila, accion) {
 
   if (accion === 'Reenviar a Seleccionadas') {
     const seleccionadas = ss.getSheetByName('Seleccionadas');
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'E');
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
-    // Columnas: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
+    // Columnas: No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
     const registro = [
-      new Date(),
       nuevaFila - 1,
       creamosId,
       '',               // DPI
@@ -1710,7 +1626,7 @@ function procesarReenvioDesdeNoSeleccionadas(sheet, fila, accion) {
       ''                // Enviar a Cohorte
     ];
 
-    seleccionadas.getRange(nuevaFila, 1, 1, 11).setValues([registro]);
+    seleccionadas.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
     sheet.deleteRow(fila);
 
     ss.toast('✅ ' + nombre + ' reenviada a Seleccionadas', 'Reenvío', 4);
@@ -1734,11 +1650,10 @@ function procesarReenvioDesdeDeserciones(sheet, fila) {
   const notas = datos[8];
 
   const seleccionadas = ss.getSheetByName('Seleccionadas');
-  const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'E');
+  const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
-  // Columnas: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
+  // Columnas: No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
   const registro = [
-    new Date(),
     nuevaFila - 1,
     creamosId,
     dpi,
@@ -1751,7 +1666,7 @@ function procesarReenvioDesdeDeserciones(sheet, fila) {
     ''                // Enviar a Cohorte
   ];
 
-  seleccionadas.getRange(nuevaFila, 1, 1, 11).setValues([registro]);
+  seleccionadas.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
 
   // NO ELIMINAR - Mantener registro histórico de deserción
   // Solo marcar que reingresó y limpiar la acción
@@ -2767,8 +2682,8 @@ function crearNuevaCohorte() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   const respNombre = ui.prompt(
-    '➕ Crear Nueva Cohorte - Paso 1/4',
-    'Ingresa el NOMBRE de la nueva cohorte:\n\nEjemplos: "SAC Cohorte III", "Computación Cohorte II"',
+    '➕ Crear Nueva Cohorte - Paso 1/3',
+    'Ingresa el NOMBRE de la nueva cohorte:\n\nEjemplos: "Cocina Cohorte III", "Barismo Cohorte II"',
     ui.ButtonSet.OK_CANCEL
   );
   if (respNombre.getSelectedButton() !== ui.Button.OK) return;
@@ -2781,35 +2696,43 @@ function crearNuevaCohorte() {
     return;
   }
 
-  const responsables = obtenerResponsablesActuales();
-  let listaResponsables = '';
-  responsables.forEach((resp, idx) => { listaResponsables += (idx + 1) + '. ' + resp + '\n'; });
-
-  const respResp = ui.prompt(
-    '➕ Crear Nueva Cohorte - Paso 2/4',
-    'Selecciona el RESPONSABLE:\n\n' + listaResponsables + '\nIngresa el número:',
-    ui.ButtonSet.OK_CANCEL
-  );
-  if (respResp.getSelectedButton() !== ui.Button.OK) return;
-  const numResp = parseInt(respResp.getResponseText().trim());
-  const responsable = (numResp >= 1 && numResp <= responsables.length) ? responsables[numResp - 1] : '';
-
   const respCupo = ui.prompt(
-    '➕ Crear Nueva Cohorte - Paso 3/4',
+    '➕ Crear Nueva Cohorte - Paso 2/3',
     'Ingresa el CUPO MÁXIMO:',
     ui.ButtonSet.OK_CANCEL
   );
   if (respCupo.getSelectedButton() !== ui.Button.OK) return;
   const cupo = parseInt(respCupo.getResponseText().trim()) || 20;
 
+  const respFechaFin = ui.prompt(
+    '➕ Crear Nueva Cohorte - Paso 3/3',
+    'Ingresa la FECHA DE FIN (dd/mm/aaaa):',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (respFechaFin.getSelectedButton() !== ui.Button.OK) return;
+  const fechaFinTexto = respFechaFin.getResponseText().trim();
+  let fechaFin = '';
+  if (fechaFinTexto) {
+    const partes = fechaFinTexto.split('/');
+    if (partes.length === 3) {
+      fechaFin = new Date(partes[2], partes[1] - 1, partes[0]);
+    } else {
+      fechaFin = fechaFinTexto;
+    }
+  }
+
+  // Responsable automático: Eva
+  const responsable = 'Eva';
+  // Fecha inicio automática: hoy
+  const fechaInicio = new Date();
   // Todas las cohortes nuevas empiezan como "Activa"
   const estadoInicial = 'Activa';
 
   const cohortes = ss.getSheetByName('Cohortes');
   const nuevaFila = obtenerPrimeraFilaVacia(cohortes, 'A');
 
-  // Orden: Nombre, Área, FechaInicio, FechaFin, Responsable, Cupo, Inscritas(formula), Graduadas(formula), Deserciones(formula), Ubicación, Horario, Notas, Estado
-  const datosCohorte = [nombre, 'Alimentos y Bebidas', '', '', responsable, cupo, '', '', '', '', '', '', estadoInicial];
+  // Orden: Nombre, Proyecto, FechaInicio, FechaFin, Responsable, Cupo, Inscritas(formula), Graduadas(formula), Deserciones(formula), Ubicación, Horario, Notas, Estado
+  const datosCohorte = [nombre, 'Alimentos y Bebidas', fechaInicio, fechaFin, responsable, cupo, '', '', '', '', '', '', estadoInicial];
   cohortes.getRange(nuevaFila, 1, 1, 13).setValues([datosCohorte]);
 
   // Fórmulas: Inscritas cuenta en la hoja individual de la cohorte
@@ -2891,8 +2814,8 @@ function enviarParticipantesACohorte() {
 
   const cohortesActivas = [];
   for (let i = 1; i < datosCohortes.length; i++) {
-    // Estado ahora está en columna N (índice 13)
-    if (datosCohortes[i][13] === 'Activa') {
+    // Estado está en columna M (índice 12)
+    if (datosCohortes[i][12] === 'Activa') {
       cohortesActivas.push({
         nombre: datosCohortes[i][0],
         cupo: datosCohortes[i][5],
@@ -2936,7 +2859,7 @@ function enviarParticipantesACohorte() {
 
   const idsSeleccionados = new Set();
   for (let i = 1; i < datosSeleccionadas.length; i++) {
-    if (datosSeleccionadas[i][2]) idsSeleccionados.add(datosSeleccionadas[i][2].toString().trim());
+    if (datosSeleccionadas[i][1]) idsSeleccionados.add(datosSeleccionadas[i][1].toString().trim());
   }
 
   const pendientes = [];
@@ -2977,17 +2900,19 @@ function enviarParticipantesACohorte() {
 
   pendientes.forEach(p => {
     const datosInteres = buscarPorCreamosID(interes, p.creamosId);
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'E');
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
+    // Columnas: No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
     const registro = [
-      new Date(), nuevaFila - 1, p.creamosId,
+      nuevaFila - 1, p.creamosId,
       datosInteres ? datosInteres[3] : '', p.nombre,
       datosInteres ? datosInteres[5] : '', p.datos[4],
       datosInteres ? datosInteres[7] : '', datosInteres ? datosInteres[8] : '',
-      cohorteDestino, p.datos[5] || '', 'Activa', p.datos[8] || ''
+      p.datos[8] || '',
+      ''                // Enviar a Cohorte (vacío)
     ];
 
-    seleccionadas.getRange(nuevaFila, 1, 1, 13).setValues([registro]);
+    seleccionadas.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
     entrevistas.getRange(p.fila, 1, 1, 11).setBackground('#c8e6c9');
     entrevistas.getRange(p.fila, 11).setValue('Enviado ✓');
     enviados++;
@@ -3011,13 +2936,17 @@ function estadisticasCohorte() {
   let mensaje = '📊 ESTADÍSTICAS:\n\n';
   for (let i = 1; i < datos.length; i++) {
     if (datos[i][0]) {
+      const cupo = datos[i][5] || 0;
+      const inscritas = datos[i][6] || 0;
+      const graduadas = datos[i][7] || 0;
+      const deserciones = datos[i][8] || 0;
+      const disponibles = cupo - inscritas;
       mensaje += '━━━━━━━━━━━━━━━━━━\n';
       mensaje += '📚 ' + datos[i][0] + '\n';
-      mensaje += '   Estado: ' + (datos[i][10] || 'N/A') + '\n';
-      mensaje += '   Inscritas: ' + (datos[i][6] || 0) + '\n';
-      mensaje += '   Activas: ' + (datos[i][7] || 0) + '\n';
-      mensaje += '   Graduadas: ' + (datos[i][8] || 0) + '\n';
-      mensaje += '   Deserciones: ' + (datos[i][9] || 0) + '\n';
+      mensaje += '   Estado: ' + (datos[i][12] || 'N/A') + '\n';
+      mensaje += '   Cupo: ' + inscritas + ' / ' + cupo + (disponibles <= 0 ? ' (LLENO)' : ' (' + disponibles + ' disponibles)') + '\n';
+      mensaje += '   Graduadas: ' + graduadas + '\n';
+      mensaje += '   Deserciones: ' + deserciones + '\n';
     }
   }
   SpreadsheetApp.getUi().alert('Estadísticas', mensaje, SpreadsheetApp.getUi().ButtonSet.OK);
@@ -3212,11 +3141,10 @@ function repararFormulas() {
   const cohortes = ss.getSheetByName('Cohortes');
   if (cohortes) {
     for (let i = 2; i <= 20; i++) {
-      cohortes.getRange('G' + i).setFormula('=IFERROR(COUNTIF(Seleccionadas!J:J,A' + i + '),0)');
-      // Estado de Seleccionadas ahora en columna M
-      cohortes.getRange('H' + i).setFormula('=IFERROR(COUNTIFS(Seleccionadas!J:J,A' + i + ',Seleccionadas!M:M,"Activa"),0)');
-      cohortes.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + i + '),0)');
-      cohortes.getRange('J' + i).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + i + '),0)');
+      // Inscritas: cuenta participantes en la hoja individual de la cohorte
+      cohortes.getRange('G' + i).setFormula('=IFERROR(COUNTA(INDIRECT("\'"&A' + i + '&"\'!D:D"))-1,0)');
+      cohortes.getRange('H' + i).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + i + '),0)');
+      cohortes.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + i + '),0)');
     }
   }
 
