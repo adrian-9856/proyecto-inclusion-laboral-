@@ -190,6 +190,9 @@ function onOpen() {
     .addSeparator()
     .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
     .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
+    .addSeparator()
+    .addItem('🔒 Configurar Hoja CREAMOS ID', 'configurarHojaCreamosID')
+    .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
     .addToUi();
 
   try {
@@ -205,6 +208,8 @@ function mantenimientoAutomatico() {
     Logger.log('🔧 Iniciando mantenimiento automático...');
     actualizarReportes();
     Logger.log('✅ Reportes actualizados');
+    protegerHojaCreamosIDSiExiste();
+    Logger.log('✅ Hoja CREAMOS ID verificada');
   } catch (error) {
     Logger.log('❌ Error en mantenimiento: ' + error.message);
   }
@@ -1960,6 +1965,13 @@ function importarDesdeKobo() {
 
     // Buscar índices de columnas - Mapeo específico para tu formulario Kobo
     const colIndices = {
+      // Fecha de registro (campo 'today' del formulario Kobo)
+      fechaRegistro: buscarIndiceColumnaExacto(headers, [
+        'today',
+        'Fecha de registro',
+        'Fecha registro'
+      ]),
+
       // Creamos ID
       creamosId: buscarIndiceColumnaExacto(headers, [
         'Inicio/Creamos ID',
@@ -2016,10 +2028,27 @@ function importarDesdeKobo() {
         'Zona'
       ]),
 
-      // Cómo se enteró
-      comoSeEntero: buscarIndiceColumnaExacto(headers, [
-        '¿Cómo te enteraste de Creamos?',
-        'Como te enteraste'
+      // Redes sociales (sub-columnas de "¿Cuáles son las redes sociales que más utilizas?")
+      // Estas se combinan para formar el valor de "Cómo se enteró"
+      redFacebook: buscarIndiceColumnaExacto(headers, [
+        'Inicio/¿Cuáles son las redes sociales que más utilizas?/Facebook',
+        '¿Cuáles son las redes sociales que más utilizas?/Facebook'
+      ]),
+      redInstagram: buscarIndiceColumnaExacto(headers, [
+        'Inicio/¿Cuáles son las redes sociales que más utilizas?/Instagram',
+        '¿Cuáles son las redes sociales que más utilizas?/Instagram'
+      ]),
+      redTikTok: buscarIndiceColumnaExacto(headers, [
+        'Inicio/¿Cuáles son las redes sociales que más utilizas?/TikTok',
+        '¿Cuáles son las redes sociales que más utilizas?/TikTok'
+      ]),
+      redTwitter: buscarIndiceColumnaExacto(headers, [
+        'Inicio/¿Cuáles son las redes sociales que más utilizas?/Twitter',
+        '¿Cuáles son las redes sociales que más utilizas?/Twitter'
+      ]),
+      redWhatsApp: buscarIndiceColumnaExacto(headers, [
+        'Inicio/¿Cuáles son las redes sociales que más utilizas?/WhatsApp',
+        '¿Cuáles son las redes sociales que más utilizas?/WhatsApp'
       ]),
 
       // === COLUMNA PRINCIPAL DE INTERÉS (contiene texto con las opciones) ===
@@ -2107,8 +2136,24 @@ function importarDesdeKobo() {
       // Obtener zona
       const zona = colIndices.zona >= 0 ? fila[colIndices.zona].toString().trim() : '';
 
-      // Obtener cómo se enteró
-      const comoSeEntero = colIndices.comoSeEntero >= 0 ? fila[colIndices.comoSeEntero].toString().trim() : 'KoboToolbox';
+      // Obtener fecha de registro desde campo 'today' de Kobo
+      let fechaRegistroKobo = '';
+      if (colIndices.fechaRegistro >= 0 && fila[colIndices.fechaRegistro]) {
+        const rawFecha = fila[colIndices.fechaRegistro].toString().trim();
+        if (rawFecha) {
+          const parsed = new Date(rawFecha);
+          fechaRegistroKobo = isNaN(parsed.getTime()) ? rawFecha : parsed;
+        }
+      }
+
+      // Construir "Cómo se enteró" desde las sub-columnas de redes sociales
+      const redesSociales = [];
+      if (verificarValorPositivo(fila, colIndices.redFacebook)) redesSociales.push('Facebook');
+      if (verificarValorPositivo(fila, colIndices.redInstagram)) redesSociales.push('Instagram');
+      if (verificarValorPositivo(fila, colIndices.redTikTok)) redesSociales.push('TikTok');
+      if (verificarValorPositivo(fila, colIndices.redTwitter)) redesSociales.push('Twitter');
+      if (verificarValorPositivo(fila, colIndices.redWhatsApp)) redesSociales.push('WhatsApp');
+      const comoSeEntero = redesSociales.length > 0 ? redesSociales.join(' ') : '';
 
       // Determinar programa de interés y notas
       let programasSeleccionados = [];
@@ -2141,9 +2186,9 @@ function importarDesdeKobo() {
 
       // Preparar registro
       const registro = [
-        '',                // A: Fecha (fórmula automática)
-        '',                // B: No. (fórmula automática)
-        creamosId,         // C: Creamos ID
+        fechaRegistroKobo || '',  // A: Fecha Registro (desde campo 'today' de Kobo)
+        '',                       // B: No. (fórmula automática)
+        creamosId,                // C: Creamos ID
         dpi,               // D: DPI
         nombreCompleto,    // E: Nombre Completo
         edad,              // F: Edad
@@ -3281,4 +3326,215 @@ function limpiarTodosLosDatos() {
 
   actualizarReportes();
   ss.toast('✅ Datos eliminados', 'OK', 4);
+}
+
+// =====================================================================
+// HOJA "Copy of CREAMOS ID nuevo" - DIRECTORIO MAESTRO DE PARTICIPANTES
+// Conectada con Salesforce. NUNCA eliminar. Siempre oculta y protegida.
+// Columnas: Nombre completo | Creamos ID | Año que entró Creamos | Age | Numero de DPI
+// =====================================================================
+
+const NOMBRE_HOJA_CREAMOS_ID = 'Copy of CREAMOS ID nuevo';
+
+/**
+ * Configura la hoja "Copy of CREAMOS ID nuevo":
+ * - La crea si no existe (con los headers correctos)
+ * - La oculta para usuarios regulares
+ * - La protege contra edición y eliminación accidental
+ * Llamar desde el menú o desde instalarSistema()
+ */
+function configurarHojaCreamosID() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Buscar o crear la hoja
+  let hoja = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID);
+  if (!hoja) {
+    hoja = ss.insertSheet(NOMBRE_HOJA_CREAMOS_ID);
+    Logger.log('Hoja "' + NOMBRE_HOJA_CREAMOS_ID + '" creada.');
+
+    // Establecer headers
+    const headers = [
+      'Nombre completo',
+      'Creamos ID',
+      'Año que entró Creamos',
+      'Age',
+      'Numero de DPI'
+    ];
+    hoja.getRange(1, 1, 1, headers.length).setValues([headers])
+      .setBackground('#37474f')
+      .setFontColor('white')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center');
+
+    [200, 120, 120, 60, 150].forEach((w, i) => {
+      hoja.setColumnWidth(i + 1, w);
+    });
+  }
+
+  // Ocultar la hoja
+  hoja.hideSheet();
+
+  // Proteger la hoja completa (solo advertencia para editores, sin permitir borrar hoja)
+  const protecciones = hoja.getProtections(SpreadsheetApp.ProtectionType.SHEET);
+  // Eliminar protecciones anteriores para reinstalar limpiamente
+  protecciones.forEach(p => p.remove());
+
+  const proteccion = hoja.protect();
+  proteccion.setDescription('Hoja maestra CREAMOS ID - conectada con Salesforce. NO ELIMINAR.');
+  proteccion.setWarningOnly(true); // Advertencia al editar, no bloqueo total (para scripts)
+
+  ss.toast('✅ Hoja "' + NOMBRE_HOJA_CREAMOS_ID + '" configurada: oculta y protegida', 'CREAMOS ID', 5);
+  Logger.log('Hoja CREAMOS ID configurada correctamente.');
+}
+
+/**
+ * Autocompleta información faltante en la Hoja de Interés usando la hoja maestra
+ * "Copy of CREAMOS ID nuevo" como fuente de verdad.
+ *
+ * Rellena automáticamente los campos vacíos:
+ * - Creamos ID (col C) → buscando por Nombre completo o DPI
+ * - DPI (col D) → buscando por Creamos ID o Nombre completo
+ * - Edad (col F) → calculada desde 'Age' en la hoja maestra, buscando por Creamos ID o DPI
+ *
+ * También actualiza el directorio maestro con datos nuevos que no estén en él.
+ */
+function autocompletarDesdeCreamosID() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const hojaInteres = ss.getSheetByName('Hoja de Interés');
+  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID);
+
+  if (!hojaDirectorio) {
+    ui.alert('⚠️ Hoja no encontrada',
+      'La hoja "' + NOMBRE_HOJA_CREAMOS_ID + '" no existe.\nEjecuta primero "Configurar Hoja CREAMOS ID" desde el menú.',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  if (!hojaInteres) {
+    ui.alert('⚠️ Error', 'No se encontró la Hoja de Interés.', ui.ButtonSet.OK);
+    return;
+  }
+
+  const datosInteres = hojaInteres.getDataRange().getValues();
+  const datosDirectorio = hojaDirectorio.getDataRange().getValues();
+
+  if (datosDirectorio.length < 2) {
+    ui.alert('ℹ️ Directorio vacío',
+      'La hoja "' + NOMBRE_HOJA_CREAMOS_ID + '" no tiene datos.\nImporta los datos desde Salesforce primero.',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  // Construir índices de búsqueda desde el directorio maestro
+  // Directorio: col 0=Nombre, 1=CreamosID, 2=Año, 3=Age, 4=DPI
+  const mapPorCreamosId = new Map();  // creamosId → fila directorio
+  const mapPorDpi = new Map();        // dpi → fila directorio
+  const mapPorNombre = new Map();     // nombre normalizado → fila directorio
+
+  for (let i = 1; i < datosDirectorio.length; i++) {
+    const fila = datosDirectorio[i];
+    const nombre = fila[0] ? fila[0].toString().trim() : '';
+    const creamosId = fila[1] ? fila[1].toString().trim() : '';
+    const age = fila[3] ? fila[3].toString().trim() : '';
+    const dpi = fila[4] ? fila[4].toString().trim() : '';
+
+    if (creamosId) mapPorCreamosId.set(creamosId.toUpperCase(), fila);
+    if (dpi) mapPorDpi.set(dpi, fila);
+    if (nombre) mapPorNombre.set(nombre.toLowerCase(), fila);
+  }
+
+  let completados = 0;
+  let sinCoincidencia = 0;
+
+  // Hoja de Interés: A=FechaRegistro, B=No, C=CreamosID, D=DPI, E=NombreCompleto, F=Edad
+  for (let i = 1; i < datosInteres.length; i++) {
+    const fila = datosInteres[i];
+    const creamosIdActual = fila[2] ? fila[2].toString().trim() : '';
+    const dpiActual = fila[3] ? fila[3].toString().trim() : '';
+    const nombreActual = fila[4] ? fila[4].toString().trim() : '';
+    const edadActual = fila[5] ? fila[5].toString().trim() : '';
+
+    if (!nombreActual) continue; // Fila vacía
+
+    // Buscar en directorio por CreamosID → DPI → Nombre
+    let filaDirectorio = null;
+    if (creamosIdActual) {
+      filaDirectorio = mapPorCreamosId.get(creamosIdActual.toUpperCase()) || null;
+    }
+    if (!filaDirectorio && dpiActual) {
+      filaDirectorio = mapPorDpi.get(dpiActual) || null;
+    }
+    if (!filaDirectorio && nombreActual) {
+      filaDirectorio = mapPorNombre.get(nombreActual.toLowerCase()) || null;
+    }
+
+    if (!filaDirectorio) {
+      sinCoincidencia++;
+      continue;
+    }
+
+    const creamosIdDirectorio = filaDirectorio[1] ? filaDirectorio[1].toString().trim() : '';
+    const dpiDirectorio = filaDirectorio[4] ? filaDirectorio[4].toString().trim() : '';
+    const ageDirectorio = filaDirectorio[3] ? filaDirectorio[3].toString().trim() : '';
+
+    let actualizado = false;
+    const filaNum = i + 1;
+
+    // Rellenar Creamos ID si está vacío
+    if (!creamosIdActual && creamosIdDirectorio) {
+      hojaInteres.getRange(filaNum, 3).setValue(creamosIdDirectorio);
+      actualizado = true;
+    }
+
+    // Rellenar DPI si está vacío
+    if (!dpiActual && dpiDirectorio) {
+      hojaInteres.getRange(filaNum, 4).setValue(dpiDirectorio);
+      actualizado = true;
+    }
+
+    // Rellenar Edad si está vacía
+    if (!edadActual && ageDirectorio) {
+      hojaInteres.getRange(filaNum, 6).setValue(ageDirectorio);
+      actualizado = true;
+    }
+
+    if (actualizado) completados++;
+  }
+
+  const mensaje = '✅ Autocompletado finalizado\n\n' +
+    '📝 Registros actualizados: ' + completados + '\n' +
+    '❓ Sin coincidencia en directorio: ' + sinCoincidencia;
+
+  ui.alert('Autocompletar desde CREAMOS ID', mensaje, ui.ButtonSet.OK);
+  Logger.log(mensaje);
+}
+
+/**
+ * Asegura que la hoja CREAMOS ID esté oculta y protegida al abrir el archivo.
+ * Se llama desde mantenimientoAutomatico().
+ */
+function protegerHojaCreamosIDSiExiste() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const hoja = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID);
+    if (!hoja) return;
+
+    // Ocultar si está visible
+    if (!hoja.isSheetHidden()) {
+      hoja.hideSheet();
+    }
+
+    // Asegurar protección
+    const protecciones = hoja.getProtections(SpreadsheetApp.ProtectionType.SHEET);
+    if (protecciones.length === 0) {
+      const p = hoja.protect();
+      p.setDescription('Hoja maestra CREAMOS ID - conectada con Salesforce. NO ELIMINAR.');
+      p.setWarningOnly(true);
+    }
+  } catch (e) {
+    Logger.log('protegerHojaCreamosIDSiExiste: ' + e.message);
+  }
 }
