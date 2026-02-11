@@ -727,43 +727,46 @@ function crearHojaReporte() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.insertSheet('Reporte');
 
+  // Columnas actualizadas:
+  // Seleccionadas: A-No, B-CreamosID, C-DPI, D-Nombre, E-Edad, F-Tel, G-NivelEdu, H-Zona, I-Notas, J-EnviarACohorte
+  // Graduadas: A-Fecha, B-CreamosID, C-DPI, D-Nombre, E-Tel, F-NivelEdu, G-Cohorte, H-Notas, I-Estado
   const data = [
-    ['REPORTE - INCLUSIÓN LABORAL TECNOLOGÍA', '', '', ''],
-    ['Última actualización:', '=TEXT(NOW(),"DD/MM/YYYY HH:MM")', 'Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")'],
-    ['', '', '', ''],
+    ['REPORTE - INCLUSIÓN LABORAL TECNOLOGÍA', '', '', ''],                                    // 1
+    ['Última actualización:', '=TEXT(NOW(),"DD/MM/YYYY HH:MM")', 'Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")'], // 2
+    ['', '', '', ''],                                                                           // 3
 
-    ['PERSONAS INTERESADAS', 'Total', 'Este mes', ''],
-    ['Registros en Hoja de Interés', '=IFERROR(COUNTA(\'Hoja de Interés\'!E:E)-1,0)', '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', ''],
-    ['', '', '', ''],
+    ['PERSONAS INTERESADAS', 'Total', 'Este mes', ''],                                         // 4
+    ['Registros en Hoja de Interés', '=IFERROR(COUNTA(\'Hoja de Interés\'!E:E)-1,0)', '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', ''], // 5
+    ['', '', '', ''],                                                                           // 6
 
-    ['ENTREVISTAS', 'Total', 'Aprobadas', ''],
-    ['Entrevistas realizadas', '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)', '=IFERROR(COUNTIF(Entrevistas!G:G,"Aprobada"),0)', ''],
-    ['', '', '', ''],
+    ['ENTREVISTAS', 'Total', 'Pendientes', ''],                                                // 7
+    ['Entrevistas', '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)', '=IFERROR(COUNTIF(Entrevistas!I:I,""),0)', ''], // 8
+    ['', '', '', ''],                                                                           // 9
 
-    ['SELECCIONADAS', 'Total', '', ''],
-    ['Personas pendientes de asignar cohorte', '=IFERROR(COUNTA(Seleccionadas!E:E)-1,0)', '', ''],
-    ['', '', '', ''],
+    ['SELECCIONADAS', 'Total', '', ''],                                                         // 10
+    ['Personas pendientes de asignar cohorte', '=IFERROR(COUNTA(Seleccionadas!D:D)-1,0)', '', ''], // 11
+    ['', '', '', ''],                                                                           // 12
 
-    ['PARTICIPANTES POR COHORTE', 'Ver hoja Cohortes', '', ''],
-    ['(Los datos por cohorte se ven en la hoja Cohortes)', '', '', ''],
-    ['', '', '', ''],
+    ['PARTICIPANTES POR COHORTE', 'Ver hoja Cohortes', '', ''],                                 // 13
+    ['(Los datos por cohorte se ven en la hoja Cohortes)', '', '', ''],                         // 14
+    ['', '', '', ''],                                                                           // 15
 
-    ['GRADUADAS', 'Total', 'Este mes', ''],
-    ['Personas graduadas', '=IFERROR(COUNTA(Graduadas!D:D)-1,0)', '=IFERROR(COUNTIFS(Graduadas!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', ''],
-    ['', '', '', ''],
+    ['GRADUADAS', 'Total', 'Este mes', ''],                                                     // 16
+    ['Personas graduadas', '=IFERROR(COUNTA(Graduadas!D:D)-1,0)', '=IFERROR(COUNTIFS(Graduadas!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', ''], // 17
+    ['', '', '', ''],                                                                           // 18
 
-    ['DESERCIONES', 'Total', 'Este mes', 'Tasa'],
-    ['Personas que desertaron', '=IFERROR(COUNTA(Deserciones!D:D)-1,0)', '=IFERROR(COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', '=IFERROR(IF((B20+B23)>0,ROUND(B23/(B20+B23)*100,1)&"%","0%"),"0%")'],
-    ['', '', '', ''],
+    ['DESERCIONES', 'Total', 'Este mes', 'Tasa'],                                              // 19
+    ['Personas que desertaron', '=IFERROR(COUNTA(Deserciones!D:D)-1,0)', '=IFERROR(COUNTIFS(Deserciones!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', '=IFERROR(IF((B17+B20)>0,ROUND(B20/(B17+B20)*100,1)&"%","0%"),"0%")'], // 20
+    ['', '', '', ''],                                                                           // 21
 
-    ['NO SELECCIONADAS', 'Total', 'Este mes', ''],
-    ['Personas no seleccionadas', '=IFERROR(COUNTA(\'No Seleccionadas\'!C:C)-1,0)', '=IFERROR(COUNTIFS(\'No Seleccionadas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', ''],
-    ['', '', '', ''],
+    ['NO SELECCIONADAS', 'Total', 'Este mes', ''],                                             // 22
+    ['Personas no seleccionadas', '=IFERROR(COUNTA(\'No Seleccionadas\'!C:C)-1,0)', '=IFERROR(COUNTIFS(\'No Seleccionadas\'!A:A,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)', ''], // 23
+    ['', '', '', ''],                                                                           // 24
 
-    ['RESUMEN GENERAL', 'Valor', '', ''],
-    ['Total personas atendidas', '=B5+B8+B11+B26', '', ''],
-    ['Tasa de éxito (graduadas/seleccionadas)', '=IFERROR(IF(B11>0,ROUND(B20/B11*100,1)&"%","0%"),"0%")', '', ''],
-    ['Participantes activas actualmente', '=C11', '', '']
+    ['RESUMEN GENERAL', 'Valor', '', ''],                                                       // 25
+    ['Total personas atendidas', '=B5+B17+B20+B23', '', ''],                                   // 26
+    ['Tasa de éxito (graduadas/total)', '=IFERROR(IF((B17+B20)>0,ROUND(B17/(B17+B20)*100,1)&"%","0%"),"0%")', '', ''], // 27
+    ['Participantes activas en cohortes', '=B11', '', '']                                       // 28
   ];
 
   sheet.getRange(1, 1, data.length, 4).setValues(data);
@@ -782,7 +785,8 @@ function crearHojaReporte() {
     .setBackground('#e3f2fd')
     .setFontSize(10);
 
-  const headerRows = [4, 7, 10, 13, 19, 22, 25, 28];
+  // Filas de encabezado de sección (azul)
+  const headerRows = [4, 7, 10, 13, 16, 19, 22, 25];
   headerRows.forEach(row => {
     sheet.getRange('A' + row + ':D' + row)
       .setBackground('#1565c0')
@@ -791,7 +795,8 @@ function crearHojaReporte() {
       .setHorizontalAlignment('center');
   });
 
-  const totalRows = [17, 29, 30, 31];
+  // Filas de resumen (azul claro)
+  const totalRows = [26, 27, 28];
   totalRows.forEach(row => {
     sheet.getRange('A' + row + ':D' + row)
       .setBackground('#bbdefb')
