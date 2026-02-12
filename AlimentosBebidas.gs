@@ -601,7 +601,7 @@ function crearHojaCohortes() {
   // Las fórmulas se actualizan cuando se crea la cohorte individual
   for (let i = 2; i <= 20; i++) {
     // Inscritas: cuenta participantes en la hoja individual de la cohorte
-    sheet.getRange('G' + i).setFormula('=IFERROR(COUNTA(INDIRECT("\'"&A' + i + '&"\'!D:D"))-1,0)');
+    sheet.getRange('G' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTA(INDIRECT("\'"&A' + i + '&"\'!A:A"))-1,0))');
     sheet.getRange('H' + i).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + i + '),0)');
     sheet.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + i + '),0)');
   }
@@ -1194,7 +1194,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
 
   if (estado === 'Entrevista agendada') {
     const entrevistas = ss.getSheetByName('Entrevistas');
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'D');
+    const nuevaFila = entrevistas.getLastRow() + 1;
 
     // Entrevistas: Fecha, Hora, CreamosID, Nombre, Tel, Entrevistador, Calificación, Observaciones, Estado
     const registro = [
@@ -1421,7 +1421,7 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   }
 
   // Agregar a la hoja individual de la Cohorte
-  const nuevaFilaCohorte = obtenerPrimeraFilaVacia(hojaCohorte, 'E');
+  const nuevaFilaCohorte = hojaCohorte.getLastRow() + 1;
   // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Estado
   const registroCohorte = [
     new Date(),
@@ -1599,7 +1599,7 @@ function procesarReenvioDesdeNoSeleccionadas(sheet, fila, accion) {
 
   if (accion === 'Reenviar a Entrevistas') {
     const entrevistas = ss.getSheetByName('Entrevistas');
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'D');
+    const nuevaFila = entrevistas.getLastRow() + 1;
 
     // Columnas: Fecha, Hora, CreamosID, Nombre, Tel, Entrevistador, Calif, Obs, Estado
     const registro = [
@@ -2798,7 +2798,7 @@ function crearNuevaCohorte() {
   cohortes.getRange(nuevaFila, 1, 1, 13).setValues([datosCohorte]);
 
   // Fórmulas: Inscritas cuenta en la hoja individual de la cohorte
-  cohortes.getRange('G' + nuevaFila).setFormula('=IFERROR(COUNTA(INDIRECT("\'"&A' + nuevaFila + '&"\'!D:D"))-1,0)');
+  cohortes.getRange('G' + nuevaFila).setFormula('=IF(A' + nuevaFila + '="",0,IFERROR(COUNTA(INDIRECT("\'"&A' + nuevaFila + '&"\'!A:A"))-1,0))');
   cohortes.getRange('H' + nuevaFila).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + nuevaFila + '),0)');
   cohortes.getRange('I' + nuevaFila).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + nuevaFila + '),0)');
 
@@ -3204,7 +3204,7 @@ function repararFormulas() {
   if (cohortes) {
     for (let i = 2; i <= 20; i++) {
       // Inscritas: cuenta participantes en la hoja individual de la cohorte
-      cohortes.getRange('G' + i).setFormula('=IFERROR(COUNTA(INDIRECT("\'"&A' + i + '&"\'!D:D"))-1,0)');
+      cohortes.getRange('G' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTA(INDIRECT("\'"&A' + i + '&"\'!A:A"))-1,0))');
       cohortes.getRange('H' + i).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + i + '),0)');
       cohortes.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + i + '),0)');
     }
