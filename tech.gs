@@ -2077,11 +2077,16 @@ function importarDesdeKobo() {
     // Obtener IDs existentes para evitar duplicados
     const idsExistentes = new Set();
     const dpisExistentes = new Set();
+    const nombresExistentes = new Set();
     const datosExistentes = hojaInteres.getDataRange().getValues();
     for (let i = 1; i < datosExistentes.length; i++) {
-      if (datosExistentes[i][2]) idsExistentes.add(datosExistentes[i][2].toString().trim());
+      if (datosExistentes[i][2]) idsExistentes.add(datosExistentes[i][2].toString().trim().toUpperCase());
       if (datosExistentes[i][3]) dpisExistentes.add(datosExistentes[i][3].toString().trim());
+      if (datosExistentes[i][4]) nombresExistentes.add(datosExistentes[i][4].toString().trim().toLowerCase());
     }
+
+    // Empezar siempre desde la última fila con datos para no sobrescribir filas parciales
+    let nuevaFila = hojaInteres.getLastRow() + 1;
 
     let importados = 0;
     let omitidosDuplicados = 0;
@@ -2112,16 +2117,19 @@ function importarDesdeKobo() {
       const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim() : '';
       const dpi = colIndices.dpi >= 0 ? fila[colIndices.dpi].toString().trim() : '';
 
-      // Verificar duplicados por ID o DPI
-      if ((creamosId && idsExistentes.has(creamosId)) || (dpi && dpisExistentes.has(dpi))) {
-        omitidosDuplicados++;
-        continue;
-      }
-
-      // Construir nombre completo
+      // Construir nombre completo (necesario para la verificación de duplicados)
       const nombres = colIndices.nombres >= 0 ? fila[colIndices.nombres].toString().trim() : '';
       const apellidos = colIndices.apellidos >= 0 ? fila[colIndices.apellidos].toString().trim() : '';
       const nombreCompleto = (nombres + ' ' + apellidos).trim();
+
+      // Verificar duplicados por CreamosID, DPI o Nombre (como último recurso)
+      const esDuplicadoId = creamosId && idsExistentes.has(creamosId.toUpperCase());
+      const esDuplicadoDpi = dpi && dpisExistentes.has(dpi);
+      const esDuplicadoNombre = !creamosId && !dpi && nombreCompleto && nombresExistentes.has(nombreCompleto.toLowerCase());
+      if (esDuplicadoId || esDuplicadoDpi || esDuplicadoNombre) {
+        omitidosDuplicados++;
+        continue;
+      }
 
       // Calcular edad desde fecha de nacimiento
       let edad = '';
@@ -2179,9 +2187,6 @@ function importarDesdeKobo() {
 
       const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
 
-      // Obtener primera fila vacía
-      const nuevaFila = obtenerPrimeraFilaVacia(hojaInteres, 'E');
-
       // IMPORTANTE: Limpiar validaciones de la fila antes de insertar
       // Esto evita errores cuando los valores de Kobo no coinciden con las listas
       hojaInteres.getRange(nuevaFila, 1, 1, 14).clearDataValidations();
@@ -2206,8 +2211,10 @@ function importarDesdeKobo() {
 
       hojaInteres.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
 
-      if (creamosId) idsExistentes.add(creamosId);
+      if (creamosId) idsExistentes.add(creamosId.toUpperCase());
       if (dpi) dpisExistentes.add(dpi);
+      if (nombreCompleto) nombresExistentes.add(nombreCompleto.toLowerCase());
+      nuevaFila++;
       importados++;
     }
 
