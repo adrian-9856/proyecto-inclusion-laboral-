@@ -210,6 +210,8 @@ function mantenimientoAutomatico() {
     Logger.log('✅ Reportes actualizados');
     protegerHojaCreamosIDSiExiste();
     Logger.log('✅ Hoja CREAMOS ID verificada');
+    autocompletarDesdeCreamosID(true);
+    Logger.log('✅ Autocompletado desde CREAMOS ID ejecutado');
   } catch (error) {
     Logger.log('❌ Error en mantenimiento: ' + error.message);
   }
@@ -2217,6 +2219,9 @@ function importarDesdeKobo() {
     ss.toast(mensaje, 'Importación', 10);
     Logger.log(mensaje);
 
+    // Autocompletar Nombre, Creamos ID, DPI y Edad desde directorio maestro
+    autocompletarDesdeCreamosID(true);
+
   } catch (error) {
     ss.toast('❌ Error: ' + error.message, 'Error de Importación', 5);
     Logger.log('❌ Error importando desde Kobo: ' + error.message);
@@ -3399,22 +3404,26 @@ function configurarHojaCreamosID() {
  *
  * También actualiza el directorio maestro con datos nuevos que no estén en él.
  */
-function autocompletarDesdeCreamosID() {
+/**
+ * silencioso=false → muestra ui.alert con el resumen (llamada manual desde menú)
+ * silencioso=true  → solo hace Logger.log, sin alertas (llamada automática)
+ */
+function autocompletarDesdeCreamosID(silencioso) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
+  const ui = silencioso ? null : SpreadsheetApp.getUi();
 
   const hojaInteres = ss.getSheetByName('Hoja de Interés');
   const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID);
 
   if (!hojaDirectorio) {
-    ui.alert('⚠️ Hoja no encontrada',
+    if (!silencioso) ui.alert('⚠️ Hoja no encontrada',
       'La hoja "' + NOMBRE_HOJA_CREAMOS_ID + '" no existe.\nEjecuta primero "Configurar Hoja CREAMOS ID" desde el menú.',
       ui.ButtonSet.OK);
     return;
   }
 
   if (!hojaInteres) {
-    ui.alert('⚠️ Error', 'No se encontró la Hoja de Interés.', ui.ButtonSet.OK);
+    if (!silencioso) ui.alert('⚠️ Error', 'No se encontró la Hoja de Interés.', ui.ButtonSet.OK);
     return;
   }
 
@@ -3422,7 +3431,7 @@ function autocompletarDesdeCreamosID() {
   const datosDirectorio = hojaDirectorio.getDataRange().getValues();
 
   if (datosDirectorio.length < 2) {
-    ui.alert('ℹ️ Directorio vacío',
+    if (!silencioso) ui.alert('ℹ️ Directorio vacío',
       'La hoja "' + NOMBRE_HOJA_CREAMOS_ID + '" no tiene datos.\nImporta los datos desde Salesforce primero.',
       ui.ButtonSet.OK);
     return;
@@ -3438,7 +3447,6 @@ function autocompletarDesdeCreamosID() {
     const fila = datosDirectorio[i];
     const nombre = fila[0] ? fila[0].toString().trim() : '';
     const creamosId = fila[1] ? fila[1].toString().trim() : '';
-    const age = fila[3] ? fila[3].toString().trim() : '';
     const dpi = fila[4] ? fila[4].toString().trim() : '';
 
     if (creamosId) mapPorCreamosId.set(creamosId.toUpperCase(), fila);
@@ -3457,7 +3465,8 @@ function autocompletarDesdeCreamosID() {
     const nombreActual = fila[4] ? fila[4].toString().trim() : '';
     const edadActual = fila[5] ? fila[5].toString().trim() : '';
 
-    if (!nombreActual) continue; // Fila vacía
+    // Fila vacía: no hay nombre ni Creamos ID ni DPI
+    if (!nombreActual && !creamosIdActual && !dpiActual) continue;
 
     // Buscar en directorio por CreamosID → DPI → Nombre
     let filaDirectorio = null;
@@ -3476,12 +3485,19 @@ function autocompletarDesdeCreamosID() {
       continue;
     }
 
+    const nombreDirectorio = filaDirectorio[0] ? filaDirectorio[0].toString().trim() : '';
     const creamosIdDirectorio = filaDirectorio[1] ? filaDirectorio[1].toString().trim() : '';
-    const dpiDirectorio = filaDirectorio[4] ? filaDirectorio[4].toString().trim() : '';
     const ageDirectorio = filaDirectorio[3] ? filaDirectorio[3].toString().trim() : '';
+    const dpiDirectorio = filaDirectorio[4] ? filaDirectorio[4].toString().trim() : '';
 
     let actualizado = false;
     const filaNum = i + 1;
+
+    // Rellenar Nombre Completo si está vacío
+    if (!nombreActual && nombreDirectorio) {
+      hojaInteres.getRange(filaNum, 5).setValue(nombreDirectorio);
+      actualizado = true;
+    }
 
     // Rellenar Creamos ID si está vacío
     if (!creamosIdActual && creamosIdDirectorio) {
@@ -3508,7 +3524,7 @@ function autocompletarDesdeCreamosID() {
     '📝 Registros actualizados: ' + completados + '\n' +
     '❓ Sin coincidencia en directorio: ' + sinCoincidencia;
 
-  ui.alert('Autocompletar desde CREAMOS ID', mensaje, ui.ButtonSet.OK);
+  if (!silencioso) ui.alert('Autocompletar desde CREAMOS ID', mensaje, ui.ButtonSet.OK);
   Logger.log(mensaje);
 }
 
