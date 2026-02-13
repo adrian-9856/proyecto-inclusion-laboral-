@@ -193,6 +193,7 @@ function onOpen() {
     .addSeparator()
     .addItem('🔒 Configurar Hoja CREAMOS ID', 'configurarHojaCreamosID')
     .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
+    .addItem('🔁 Actualizar TODO desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
     .addToUi();
 
   try {
@@ -210,8 +211,8 @@ function mantenimientoAutomatico() {
     Logger.log('✅ Reportes actualizados');
     protegerHojaCreamosIDSiExiste();
     Logger.log('✅ Hoja CREAMOS ID verificada');
-    autocompletarDesdeCreamosID(true);
-    Logger.log('✅ Autocompletado desde CREAMOS ID ejecutado');
+    actualizarTodosDesdeDirectorio(true);
+    Logger.log('✅ Datos actualizados en todas las hojas desde CREAMOS ID');
   } catch (error) {
     Logger.log('❌ Error en mantenimiento: ' + error.message);
   }
@@ -2226,8 +2227,8 @@ function importarDesdeKobo() {
     ss.toast(mensaje, 'Importación', 10);
     Logger.log(mensaje);
 
-    // Autocompletar Nombre, Creamos ID, DPI y Edad desde directorio maestro
-    autocompletarDesdeCreamosID(true);
+    // Actualizar datos faltantes en todas las hojas desde directorio maestro
+    actualizarTodosDesdeDirectorio(true);
 
   } catch (error) {
     ss.toast('❌ Error: ' + error.message, 'Error de Importación', 5);
@@ -3532,6 +3533,136 @@ function autocompletarDesdeCreamosID(silencioso) {
     '❓ Sin coincidencia en directorio: ' + sinCoincidencia;
 
   if (!silencioso) ui.alert('Autocompletar desde CREAMOS ID', mensaje, ui.ButtonSet.OK);
+  Logger.log(mensaje);
+}
+
+/**
+ * Actualiza datos faltantes desde el directorio CREAMOS ID en TODAS las hojas.
+ * Solo rellena celdas vacías — no borra ni sobreescribe nada existente.
+ * silencioso=true  → solo Logger.log (para llamadas automáticas)
+ * silencioso=false → muestra resumen en pantalla (botón del menú)
+ */
+function actualizarTodosDesdeDirectorio(silencioso) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = silencioso ? null : SpreadsheetApp.getUi();
+
+  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID);
+  if (!hojaDirectorio) {
+    if (!silencioso) ui.alert('⚠️ Directorio no encontrado',
+      'La hoja "' + NOMBRE_HOJA_CREAMOS_ID + '" no existe.',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  const datosDirectorio = hojaDirectorio.getDataRange().getValues();
+  if (datosDirectorio.length < 2) {
+    if (!silencioso) ui.alert('ℹ️ Directorio vacío',
+      'Importa los datos desde Salesforce primero.',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  // Construir mapas de búsqueda: Directorio col 0=Nombre, 1=CreamosID, 2=Año, 3=Age, 4=DPI
+  const mapPorCreamosId = new Map();
+  const mapPorDpi = new Map();
+  const mapPorNombre = new Map();
+
+  for (let i = 1; i < datosDirectorio.length; i++) {
+    const f = datosDirectorio[i];
+    const nombre   = f[0] ? f[0].toString().trim() : '';
+    const creamosId = f[1] ? f[1].toString().trim() : '';
+    const dpi       = f[4] ? f[4].toString().trim() : '';
+    if (creamosId) mapPorCreamosId.set(creamosId.toUpperCase(), f);
+    if (dpi)       mapPorDpi.set(dpi, f);
+    if (nombre)    mapPorNombre.set(nombre.toLowerCase(), f);
+  }
+
+  /**
+   * Recorre una hoja y rellena celdas vacías desde el directorio.
+   * colMap (números de columna 0-indexados):
+   *   creamosId, dpi, nombre, edad  → -1 si esa columna no existe en la hoja
+   */
+  function completarHoja(sheet, colMap) {
+    if (!sheet) return 0;
+    const datos = sheet.getDataRange().getValues();
+    let actualizados = 0;
+
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+
+      const cId = colMap.creamosId >= 0 ? (fila[colMap.creamosId] || '').toString().trim() : '';
+      const dpi = colMap.dpi      >= 0 ? (fila[colMap.dpi]      || '').toString().trim() : '';
+      const nom = colMap.nombre   >= 0 ? (fila[colMap.nombre]   || '').toString().trim() : '';
+      const ed  = colMap.edad     >= 0 ? (fila[colMap.edad]     || '').toString().trim() : '';
+
+      // Fila completamente vacía → saltar
+      if (!cId && !dpi && !nom) continue;
+
+      // Buscar en directorio: CreamosID → DPI → Nombre
+      let filaDir = null;
+      if (cId) filaDir = mapPorCreamosId.get(cId.toUpperCase()) || null;
+      if (!filaDir && dpi) filaDir = mapPorDpi.get(dpi) || null;
+      if (!filaDir && nom) filaDir = mapPorNombre.get(nom.toLowerCase()) || null;
+      if (!filaDir) continue;
+
+      const nombreDir  = filaDir[0] ? filaDir[0].toString().trim() : '';
+      const cIdDir     = filaDir[1] ? filaDir[1].toString().trim() : '';
+      const edadDir    = filaDir[3] ? filaDir[3].toString().trim() : '';
+      const dpiDir     = filaDir[4] ? filaDir[4].toString().trim() : '';
+
+      const filaNum = i + 1;
+      let actualizado = false;
+
+      if (colMap.nombre   >= 0 && !nom && nombreDir) { sheet.getRange(filaNum, colMap.nombre   + 1).setValue(nombreDir);  actualizado = true; }
+      if (colMap.creamosId >= 0 && !cId && cIdDir)  { sheet.getRange(filaNum, colMap.creamosId + 1).setValue(cIdDir);     actualizado = true; }
+      if (colMap.dpi      >= 0 && !dpi && dpiDir)   { sheet.getRange(filaNum, colMap.dpi      + 1).setValue(dpiDir);      actualizado = true; }
+      if (colMap.edad     >= 0 && !ed  && edadDir)  { sheet.getRange(filaNum, colMap.edad     + 1).setValue(edadDir);     actualizado = true; }
+
+      if (actualizado) actualizados++;
+    }
+    return actualizados;
+  }
+
+  let total = 0;
+
+  // Hoja de Interés: C[2]=CreamosID, D[3]=DPI, E[4]=Nombre, F[5]=Edad
+  ss.toast('🔄 Actualizando Hoja de Interés...', 'Actualizando', 4);
+  total += completarHoja(ss.getSheetByName('Hoja de Interés'),
+    { creamosId: 2, dpi: 3, nombre: 4, edad: 5 });
+
+  // Entrevistas: C[2]=CreamosID, D[3]=Nombre (sin DPI ni Edad en esa hoja)
+  ss.toast('🔄 Actualizando Entrevistas...', 'Actualizando', 4);
+  total += completarHoja(ss.getSheetByName('Entrevistas'),
+    { creamosId: 2, dpi: -1, nombre: 3, edad: -1 });
+
+  // Seleccionadas: B[1]=CreamosID, C[2]=DPI, D[3]=Nombre, E[4]=Edad
+  ss.toast('🔄 Actualizando Seleccionadas...', 'Actualizando', 4);
+  total += completarHoja(ss.getSheetByName('Seleccionadas'),
+    { creamosId: 1, dpi: 2, nombre: 3, edad: 4 });
+
+  // No Seleccionadas: B[1]=CreamosID, C[2]=Nombre (sin DPI ni Edad)
+  ss.toast('🔄 Actualizando No Seleccionadas...', 'Actualizando', 4);
+  total += completarHoja(ss.getSheetByName('No Seleccionadas'),
+    { creamosId: 1, dpi: -1, nombre: 2, edad: -1 });
+
+  // Hojas individuales de cada cohorte: C[2]=CreamosID, D[3]=DPI, E[4]=Nombre, F[5]=Edad
+  const cohortesSheet = ss.getSheetByName('Cohortes');
+  if (cohortesSheet) {
+    const datosCohortes = cohortesSheet.getDataRange().getValues();
+    for (let i = 1; i < datosCohortes.length; i++) {
+      const nombreCohorte = datosCohortes[i][0] ? datosCohortes[i][0].toString().trim() : '';
+      if (!nombreCohorte) continue;
+      const hojaCohorte = ss.getSheetByName(nombreCohorte);
+      if (!hojaCohorte) continue;
+      ss.toast('🔄 Actualizando cohorte "' + nombreCohorte + '"...', 'Actualizando', 4);
+      total += completarHoja(hojaCohorte, { creamosId: 2, dpi: 3, nombre: 4, edad: 5 });
+    }
+  }
+
+  const mensaje = '✅ Actualización completa\n\n' +
+    '📝 Celdas rellenadas: ' + total + '\n\n' +
+    '(Solo se rellenaron celdas vacías, no se borró nada)';
+  if (!silencioso) ui.alert('Actualizar Todo desde CREAMOS ID', mensaje, ui.ButtonSet.OK);
   Logger.log(mensaje);
 }
 
