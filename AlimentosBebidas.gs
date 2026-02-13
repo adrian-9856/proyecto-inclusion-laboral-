@@ -632,8 +632,7 @@ function crearHojaGraduadas() {
     'Teléfono',             // E
     'Nivel Educativo',      // F
     'Cohorte',              // G
-    'Notas Seguimiento',    // H
-    'Estado Seguimiento'    // I - Última columna (acción)
+    'Notas'                 // H
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -642,7 +641,7 @@ function crearHojaGraduadas() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 100, 130, 200, 120, 150, 180, 300, 180].forEach((w, i) => {
+  [120, 100, 130, 200, 120, 150, 180, 300].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -1524,9 +1523,9 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
     const fila = datosCohorte[i];
     // Solo procesar si tiene nombre y no tiene estado (o estado vacío)
     if (fila[4] && (!fila[8] || fila[8] === '')) {
-      const nuevaFilaGrad = obtenerPrimeraFilaVacia(graduadas, 'D');
+      const nuevaFilaGrad = graduadas.getLastRow() + 1;
 
-      // Orden Graduadas: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, Notas, Estado
+      // Orden Graduadas: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, Notas
       const registroGraduada = [
         fechaGraduacion,
         fila[2],           // Creamos ID
@@ -1535,11 +1534,13 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
         fila[6],           // Teléfono
         fila[7],           // Nivel Educativo
         nombreCohorte,
-        '',                // Notas Seguimiento
-        ''                 // Estado Seguimiento
+        ''                 // Notas
       ];
 
-      graduadas.getRange(nuevaFilaGrad, 1, 1, 9).setValues([registroGraduada]);
+      graduadas.getRange(nuevaFilaGrad, 1, 1, 8).setValues([registroGraduada]);
+
+      // Enviar automáticamente al archivo externo de seguimiento
+      enviarAArchivoSeguimiento(fila[2], fila[4], fila[6], fila[7], nombreCohorte);
 
       // Eliminar de la hoja de cohorte
       hojaCohorte.deleteRow(i + 1);
@@ -1557,9 +1558,9 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   const datos = sheet.getRange(fila, 1, 1, 9).getValues()[0];
   const fechaGraduacion = new Date();
 
-  const nuevaFilaGrad = obtenerPrimeraFilaVacia(graduadas, 'D');
+  const nuevaFilaGrad = graduadas.getLastRow() + 1;
 
-  // Orden Graduadas: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, Notas, Estado
+  // Orden Graduadas: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, Notas
   const registroGraduada = [
     fechaGraduacion,
     datos[2],           // Creamos ID
@@ -1568,11 +1569,13 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
     datos[6],           // Teléfono
     datos[7],           // Nivel Educativo
     nombreCohorte,
-    '',                 // Notas Seguimiento
-    ''                  // Estado Seguimiento
+    ''                  // Notas
   ];
 
-  graduadas.getRange(nuevaFilaGrad, 1, 1, 9).setValues([registroGraduada]);
+  graduadas.getRange(nuevaFilaGrad, 1, 1, 8).setValues([registroGraduada]);
+
+  // Enviar automáticamente al archivo externo de seguimiento
+  enviarAArchivoSeguimiento(datos[2], datos[4], datos[6], datos[7], nombreCohorte);
 
   // Eliminar de la hoja de cohorte
   sheet.deleteRow(fila);
@@ -1710,59 +1713,59 @@ function eliminarPorCreamosID(sheet, creamosId) {
 }
 
 /**
- * Envía graduada a archivo externo de Seguimiento
+ * Envía una graduada al archivo externo de seguimiento.
+ * Se llama automáticamente al graduarse — no requiere acción manual.
+ * Columnas destino (hoja "Graduados"):
+ *   ID Kobo | Nombre | Teléfono | Email | Formación | Cohorte |
+ *   Fecha entrevista | Entrevistador | Resultado entrevista |
+ *   Siguiente paso | Clasificación | Fecha clasificación |
+ *   Empleado | Próxima llamada | Notas
  */
-function enviarGraduadaAArchivoExterno(datos) {
-  const ui = SpreadsheetApp.getUi();
-
-  // Obtener URL del archivo de seguimiento
-  let urlSeguimiento = PropertiesService.getScriptProperties().getProperty('URL_SEGUIMIENTO');
-
-  if (!urlSeguimiento) {
-    const resp = ui.prompt(
-      'Archivo de Seguimiento',
-      'Ingrese la URL del Google Sheet de Seguimiento:\n\n' +
-      '(Esta URL se guardará para futuras graduaciones)',
-      ui.ButtonSet.OK_CANCEL
-    );
-
-    if (resp.getSelectedButton() !== ui.Button.OK) return false;
-
-    urlSeguimiento = resp.getResponseText().trim();
-    if (!urlSeguimiento) return false;
-
-    // Guardar para futuro uso
-    PropertiesService.getScriptProperties().setProperty('URL_SEGUIMIENTO', urlSeguimiento);
-  }
+function enviarAArchivoSeguimiento(creamosId, nombre, telefono, formacion, cohorte) {
+  const ID_SEGUIMIENTO = '1_596FX6yr8tX93UyIks4emSeE2_vxLJMDyw9Zncsnzs';
+  const GID_GRADUADOS  = 676353499;
 
   try {
-    const archivoExterno = SpreadsheetApp.openByUrl(urlSeguimiento);
-    const hojaSeguimiento = archivoExterno.getSheetByName('Seguimiento') || archivoExterno.getSheets()[0];
+    const archivoExterno = SpreadsheetApp.openById(ID_SEGUIMIENTO);
 
-    const nuevaFila = hojaSeguimiento.getLastRow() + 1;
+    // Buscar por nombre primero, luego por GID
+    let hoja = archivoExterno.getSheetByName('Graduados');
+    if (!hoja) {
+      for (const s of archivoExterno.getSheets()) {
+        if (s.getSheetId() === GID_GRADUADOS) { hoja = s; break; }
+      }
+    }
+    if (!hoja) {
+      Logger.log('❌ No se encontró la hoja "Graduados" en el archivo externo');
+      return;
+    }
 
-    // Datos a enviar: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, FechaGraduacion
+    const nuevaFila = hoja.getLastRow() + 1;
     const registro = [
-      new Date(),           // Fecha de registro en seguimiento
-      datos[2],             // Creamos ID
-      datos[3],             // DPI
-      datos[4],             // Nombre
-      datos[6],             // Teléfono
-      datos[7],             // Nivel Educativo
-      datos[9],             // Cohorte
-      new Date(),           // Fecha Graduación
-      'Pendiente contacto'  // Estado de seguimiento
+      creamosId || '',  // ID Kobo
+      nombre    || '',  // Nombre completo
+      telefono  || '',  // Número de teléfono
+      '',               // Email
+      formacion || '',  // Formación
+      cohorte   || '',  // Cohorte
+      '',               // Fecha de entrevista
+      '',               // Entrevistador
+      '',               // Resultado entrevista
+      '',               // Siguiente paso
+      '',               // Clasificación
+      '',               // Fecha clasificación
+      '',               // Empleado
+      '',               // Próxima llamada
+      ''                // Notas
     ];
 
-    hojaSeguimiento.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
-
-    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Enviada a archivo de Seguimiento', 'Éxito', 3);
-    return true;
+    hoja.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
+    SpreadsheetApp.getActiveSpreadsheet()
+      .toast('✅ ' + (nombre || 'Graduada') + ' enviada al archivo de seguimiento', 'Seguimiento', 4);
 
   } catch (e) {
-    ui.alert('❌ Error al acceder al archivo de Seguimiento:\n\n' + e.message +
-             '\n\nVerifique que tiene permisos de edición.');
-    return false;
+    Logger.log('❌ Error al enviar a archivo externo: ' + e.message);
+    // Error silencioso — no bloquea el flujo de graduación
   }
 }
 
