@@ -37,6 +37,7 @@ const CONFIG = {
 
   // Responsables del programa
   RESPONSABLES: [
+    'Eva',
     'Adrian Torres',
     'Paola Ortiz'
   ],
@@ -148,47 +149,47 @@ const CONFIG = {
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('🍽️ Alimentos y Bebidas')
-    .addItem('🚀 Instalar Sistema', 'instalarSistema')
-    .addItem('✅ Verificar Instalación', 'verificarInstalacion')
-    .addSeparator()
-    .addSubMenu(ui.createMenu('📥 Importar Datos')
-      .addItem('📋 Importar Registros (Hoja Interés)', 'importarDesdeKobo')
+    .addSubMenu(ui.createMenu('📥 Importar / Actualizar')
+      .addItem('📋 Importar Registros Nuevos', 'importarDesdeKobo')
       .addItem('📝 Importar Entrevistas (Detalle)', 'importarEntrevistasDesdeKobo')
       .addSeparator()
-      .addItem('🔗 Configurar URL Registros', 'configurarKoboURL')
-      .addItem('🔗 Configurar URL Entrevistas', 'configurarKoboEntrevistasURL')
-      .addSeparator()
-      .addItem('🔍 Probar Conexión Kobo', 'probarConexionKobo')
-      .addItem('📊 Ver Columnas Kobo', 'verColumnasKobo')
-      .addItem('🔄 Importación Automática', 'configurarImportacionAutomatica'))
+      .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
+      .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID'))
     .addSeparator()
-    .addSubMenu(ui.createMenu('📋 Gestión de Cohortes')
+    .addSubMenu(ui.createMenu('📊 Reportes')
+      .addItem('📊 Actualizar Reportes', 'actualizarReportes')
+      .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual'))
+    .addSubMenu(ui.createMenu('📋 Cohortes')
       .addItem('➕ Crear Nueva Cohorte', 'crearNuevaCohorte')
       .addItem('📝 Ver/Editar Cohortes', 'verCohortes')
       .addItem('📊 Estadísticas por Cohorte', 'estadisticasCohorte')
       .addItem('👥 Enviar Participantes a Cohorte', 'enviarParticipantesACohorte'))
+    .addSubMenu(ui.createMenu('⚙️ Configuración')
+      .addItem('🔗 URL Registros Kobo', 'configurarKoboURL')
+      .addItem('🔗 URL Entrevistas Kobo', 'configurarKoboEntrevistasURL')
+      .addItem('🔄 Importación Automática', 'configurarImportacionAutomatica')
+      .addSeparator()
+      .addItem('📧 Configurar Email', 'configurarEmail')
+      .addItem('✉️ Probar Email', 'probarEmail')
+      .addSeparator()
+      .addItem('⏰ Instalar Triggers', 'instalarTriggers')
+      .addItem('🔒 Configurar CREAMOS ID', 'configurarHojaCreamosID'))
+    .addSubMenu(ui.createMenu('🛠️ Herramientas')
+      .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
+      .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
+      .addSeparator()
+      .addSubMenu(ui.createMenu('👤 Responsables')
+        .addItem('➕ Agregar Responsable', 'agregarResponsable')
+        .addItem('📝 Ver Responsables', 'verResponsables'))
+      .addSeparator()
+      .addItem('🔍 Probar Conexión Kobo', 'probarConexionKobo')
+      .addItem('📊 Ver Columnas Kobo', 'verColumnasKobo')
+      .addSeparator()
+      .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
+      .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos'))
     .addSeparator()
-    .addSubMenu(ui.createMenu('👤 Gestión de Responsables')
-      .addItem('➕ Agregar Responsable', 'agregarResponsable')
-      .addItem('📝 Ver Responsables', 'verResponsables'))
-    .addSeparator()
-    .addItem('📊 Actualizar Reportes', 'actualizarReportes')
-    .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
-    .addSeparator()
-    .addItem('📧 Configurar Email Notificaciones', 'configurarEmail')
-    .addItem('✉️ Probar Envío de Email', 'probarEmail')
-    .addSeparator()
-    .addItem('⏰ Instalar Triggers Automáticos', 'instalarTriggers')
-    .addSeparator()
-    .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
-    .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
-    .addSeparator()
-    .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
-    .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos')
-    .addSeparator()
-    .addItem('🔒 Configurar Hoja CREAMOS ID', 'configurarHojaCreamosID')
-    .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
-    .addItem('🔁 Actualizar TODO desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
+    .addItem('🚀 Instalar Sistema', 'instalarSistema')
+    .addItem('✅ Verificar Instalación', 'verificarInstalacion')
     .addToUi();
 
   try {
@@ -1203,7 +1204,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       datos[2],             // C: Creamos ID
       datos[4],             // D: Nombre
       datos[6],             // E: Teléfono
-      '',                   // F: Entrevistador
+      'Eva',                // F: Entrevistador (por defecto)
       '',                   // G: Calificación
       '',                   // H: Observaciones
       ''                    // I: Estado (vacío hasta que se complete)
@@ -1612,7 +1613,7 @@ function procesarReenvioDesdeNoSeleccionadas(sheet, fila, accion) {
       creamosId,
       nombre,
       telefono,
-      '',               // Entrevistador
+      'Eva',            // Entrevistador (por defecto)
       '',               // Calificación
       'Reingreso desde No Seleccionadas - ' + notas,
       ''                // Estado
@@ -2192,6 +2193,13 @@ function importarDesdeKobo() {
       ];
 
       hojaInteres.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
+
+      // Restaurar fórmula de No. (columna B) que setValues sobreescribe
+      hojaInteres.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",COUNTA($E$2:E' + nuevaFila + '),"")');
+      // Si no vino fecha de Kobo, restaurar fórmula de Fecha (columna A)
+      if (!fechaRegistroKobo) {
+        hojaInteres.getRange('A' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",TODAY(),"")');
+      }
 
       if (creamosId) idsExistentes.add(creamosId.toUpperCase());
       if (dpi) dpisExistentes.add(dpi);
@@ -3194,27 +3202,55 @@ function repararValidaciones() {
 
 function repararFormulas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast('🔧 Reparando fórmulas...', 'Reparando', 2);
+  ss.toast('🔧 Reparando fórmulas...', 'Reparando', 3);
 
-  const interes = ss.getSheetByName('Hoja de Interés');
-  if (interes) {
-    for (let i = 2; i <= 500; i++) {
-      interes.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
-      interes.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
+  // Repara columna B (No.) con batch y columna A (Fecha) solo en celdas vacías
+  function repararNumerosYFechas(sheet, maxFila) {
+    if (!sheet) return;
+    // Columna B: siempre fórmula (batch)
+    const fmB = [];
+    for (let r = 2; r <= maxFila; r++) {
+      fmB.push(['=IF(E' + r + '<>"",COUNTA($E$2:E' + r + '),"")']);
     }
+    sheet.getRange(2, 2, maxFila - 1, 1).setFormulas(fmB);
+    // Columna A: solo celdas vacías (preserva fechas reales de Kobo)
+    const colA = sheet.getRange(2, 1, maxFila - 1, 1).getValues();
+    colA.forEach((row, idx) => {
+      if (row[0] === '' || row[0] === null) {
+        const fila = idx + 2;
+        sheet.getRange(fila, 1).setFormula('=IF(E' + fila + '<>"",TODAY(),"")');
+      }
+    });
   }
 
+  // Hoja de Interés
+  repararNumerosYFechas(ss.getSheetByName('Hoja de Interés'), 500);
+
+  // Hojas individuales de cada cohorte
   const cohortes = ss.getSheetByName('Cohortes');
   if (cohortes) {
-    for (let i = 2; i <= 20; i++) {
-      // Inscritas: cuenta participantes en la hoja individual de la cohorte
-      cohortes.getRange('G' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTA(INDIRECT("\'"&A' + i + '&"\'!A:A"))-1,0))');
-      cohortes.getRange('H' + i).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + i + '),0)');
-      cohortes.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + i + '),0)');
+    // Fórmulas de conteo en hoja Cohortes
+    const MAX_COH = 20;
+    const fG = [], fH = [], fI = [];
+    for (let i = 2; i <= MAX_COH; i++) {
+      fG.push(['=IF(A' + i + '="",0,IFERROR(COUNTA(INDIRECT("\'"&A' + i + '&"\'!A:A"))-1,0))']);
+      fH.push(['=IFERROR(COUNTIF(Graduadas!G:G,A' + i + '),0)']);
+      fI.push(['=IFERROR(COUNTIF(Deserciones!G:G,A' + i + '),0)']);
+    }
+    cohortes.getRange(2, 7, MAX_COH - 1, 1).setFormulas(fG);
+    cohortes.getRange(2, 8, MAX_COH - 1, 1).setFormulas(fH);
+    cohortes.getRange(2, 9, MAX_COH - 1, 1).setFormulas(fI);
+
+    // Reparar hojas individuales de cohorte
+    const datosCohortes = cohortes.getDataRange().getValues();
+    for (let i = 1; i < datosCohortes.length; i++) {
+      const nombreCohorte = datosCohortes[i][0] ? datosCohortes[i][0].toString().trim() : '';
+      if (!nombreCohorte) continue;
+      repararNumerosYFechas(ss.getSheetByName(nombreCohorte), 100);
     }
   }
 
-  ss.toast('✅ Fórmulas reparadas', 'OK', 4);
+  ss.toast('✅ Fórmulas reparadas en todas las hojas', 'OK', 4);
 }
 
 // =====================================================================
