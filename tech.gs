@@ -1230,10 +1230,10 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
 
     entrevistas.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
 
-    // Marcar en amarillo (mantener para datos adicionales)
-    sheet.getRange(fila, 1, 1, 14).setBackground('#fff9c4');
+    // Eliminar de Hoja de Interés (igual que "No interesado")
+    sheet.deleteRow(fila);
 
-    ss.toast('📋 Entrevista creada. Complete en hoja Entrevistas.', 'Entrevista Agendada', 4);
+    ss.toast('📋 Entrevista creada en hoja Entrevistas.', 'Entrevista Agendada', 4);
   }
 }
 
