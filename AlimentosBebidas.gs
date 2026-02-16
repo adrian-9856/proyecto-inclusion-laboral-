@@ -2193,6 +2193,11 @@ function importarDesdeKobo() {
 
       const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
 
+      // Extender la hoja si nuevaFila supera el número de filas disponibles
+      if (nuevaFila > hojaInteres.getMaxRows()) {
+        hojaInteres.insertRowsAfter(hojaInteres.getMaxRows(), 200);
+      }
+
       // IMPORTANTE: Limpiar validaciones de la fila antes de insertar
       // Esto evita errores cuando los valores de Kobo no coinciden con las listas
       hojaInteres.getRange(nuevaFila, 1, 1, 14).clearDataValidations();
@@ -3230,14 +3235,17 @@ function repararFormulas() {
   // Repara columna B (No.) con batch y columna A (Fecha) solo en celdas vacías
   function repararNumerosYFechas(sheet, maxFila) {
     if (!sheet) return;
+    // Limitar a filas reales de la hoja para evitar error de coordenadas
+    const limite = Math.min(maxFila, sheet.getMaxRows());
+    if (limite < 2) return;
     // Columna B: siempre fórmula (batch)
     const fmB = [];
-    for (let r = 2; r <= maxFila; r++) {
+    for (let r = 2; r <= limite; r++) {
       fmB.push(['=IF(E' + r + '<>"",COUNTA($E$2:E' + r + '),"")']);
     }
-    sheet.getRange(2, 2, maxFila - 1, 1).setFormulas(fmB);
+    sheet.getRange(2, 2, limite - 1, 1).setFormulas(fmB);
     // Columna A: solo celdas vacías (preserva fechas reales de Kobo)
-    const colA = sheet.getRange(2, 1, maxFila - 1, 1).getValues();
+    const colA = sheet.getRange(2, 1, limite - 1, 1).getValues();
     colA.forEach((row, idx) => {
       if (row[0] === '' || row[0] === null) {
         const fila = idx + 2;
