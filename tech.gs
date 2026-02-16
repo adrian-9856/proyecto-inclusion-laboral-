@@ -1742,7 +1742,7 @@ function enviarAArchivoSeguimiento(creamosId, nombre, telefono, formacion, cohor
   try {
     const archivoExterno = SpreadsheetApp.openById(ID_SEGUIMIENTO);
 
-    // Buscar por nombre primero, luego por GID
+    // Buscar hoja por nombre primero, luego por GID
     let hoja = archivoExterno.getSheetByName('Graduados');
     if (!hoja) {
       for (const s of archivoExterno.getSheets()) {
@@ -1754,23 +1754,48 @@ function enviarAArchivoSeguimiento(creamosId, nombre, telefono, formacion, cohor
       return;
     }
 
+    // Intentar obtener datos de entrevista desde hoja local "Entrevistas"
+    // (puede estar vacío si el registro ya fue eliminado al aprobar)
+    let fechaEntrevista = '';
+    let entrevistador   = '';
+    if (creamosId) {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const hEnt = ss.getSheetByName('Entrevistas');
+      if (hEnt && hEnt.getLastRow() > 1) {
+        const datosEnt = hEnt.getDataRange().getValues();
+        for (let i = 1; i < datosEnt.length; i++) {
+          if (datosEnt[i][2] && datosEnt[i][2].toString().trim() === creamosId.toString().trim()) {
+            fechaEntrevista = datosEnt[i][0] || '';   // Columna A: Fecha Entrevista
+            entrevistador   = datosEnt[i][5] || '';   // Columna F: Entrevistador
+            break;
+          }
+        }
+      }
+    }
+
     const nuevaFila = hoja.getLastRow() + 1;
+
+    // Columnas destino (16 columnas):
+    // No. | Fecha de envío | Creamos ID | Nombre completo | Número de teléfono |
+    // Formación | Cohorte | Fecha de entrevista | Entrevistador | Resultado entrevista |
+    // Siguiente paso | Clasificación | Empleado | Próxima llamada | Notas | Etapa
     const registro = [
-      creamosId || '',  // ID Kobo
-      nombre    || '',  // Nombre completo
-      telefono  || '',  // Número de teléfono
-      '',               // Email
-      formacion || '',  // Formación
-      cohorte   || '',  // Cohorte
-      '',               // Fecha de entrevista
-      '',               // Entrevistador
-      '',               // Resultado entrevista
-      '',               // Siguiente paso
-      '',               // Clasificación
-      '',               // Fecha clasificación
-      '',               // Empleado
-      '',               // Próxima llamada
-      ''                // Notas
+      nuevaFila - 1,            //  1: No. (auto)
+      new Date(),               //  2: Fecha de envío
+      creamosId   || '',        //  3: Creamos ID
+      nombre      || '',        //  4: Nombre completo
+      telefono    || '',        //  5: Número de teléfono
+      formacion   || '',        //  6: Formación
+      cohorte     || '',        //  7: Cohorte
+      fechaEntrevista,          //  8: Fecha de entrevista
+      entrevistador,            //  9: Entrevistador
+      'Aprobada',               // 10: Resultado entrevista
+      '',                       // 11: Siguiente paso
+      '',                       // 12: Clasificación
+      '',                       // 13: Empleado
+      '',                       // 14: Próxima llamada
+      '',                       // 15: Notas
+      'Graduada'                // 16: Etapa
     ];
 
     hoja.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
