@@ -2221,15 +2221,18 @@ function importarDesdeKobo() {
         hojaInteres.insertRowsAfter(hojaInteres.getMaxRows(), 200);
       }
 
-      // IMPORTANTE: Limpiar validaciones de la fila antes de insertar
-      // Esto evita errores cuando los valores de Kobo no coinciden con las listas
-      hojaInteres.getRange(nuevaFila, 1, 1, 14).clearDataValidations();
+      // Limpiar validaciones solo en columnas intermedias (C-M) para no borrar
+      // el dropdown de Estado (columna N) ni las protecciones de A y B
+      hojaInteres.getRange(nuevaFila, 3, 1, 11).clearDataValidations();
+
+      // Usar fecha de Kobo si existe; si no, poner fecha de hoy como valor fijo
+      const fechaParaHoja = fechaRegistroKobo || new Date();
 
       // Preparar registro
       const registro = [
-        fechaRegistroKobo || '',  // A: Fecha Registro (desde campo 'today' de Kobo)
-        '',                       // B: No. (fórmula automática)
-        creamosId,                // C: Creamos ID
+        fechaParaHoja,     // A: Fecha Registro (valor fijo, no fórmula dinámica)
+        '',                // B: No. (fórmula automática)
+        creamosId,         // C: Creamos ID
         dpi,               // D: DPI
         nombreCompleto,    // E: Nombre Completo
         edad,              // F: Edad
@@ -2240,17 +2243,21 @@ function importarDesdeKobo() {
         programaInteres,   // K: Programa Interés
         '',                // L: Responsable
         notasPrograma,     // M: Notas
-        'Nuevo'            // N: Estado (última columna)
+        ''                 // N: Estado (vacío para que el dropdown funcione)
       ];
 
       hojaInteres.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
 
       // Restaurar fórmula de No. (columna B) que setValues sobreescribe
       hojaInteres.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",COUNTA($E$2:E' + nuevaFila + '),"")');
-      // Si no vino fecha de Kobo, restaurar fórmula de Fecha (columna A)
-      if (!fechaRegistroKobo) {
-        hojaInteres.getRange('A' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",TODAY(),"")');
-      }
+
+      // Restaurar dropdown de Estado (columna N) para esta fila
+      hojaInteres.getRange(nuevaFila, 14).setDataValidation(
+        SpreadsheetApp.newDataValidation()
+          .requireValueInList(['Entrevista agendada', 'No interesado'])
+          .setAllowInvalid(false)
+          .build()
+      );
 
       if (creamosId) idsExistentes.add(creamosId.toUpperCase());
       if (dpi) dpisExistentes.add(dpi);
