@@ -2100,9 +2100,23 @@ function importarDesdeKobo() {
       if (datosExistentes[i][4]) nombresExistentes.add(datosExistentes[i][4].toString().trim().toLowerCase());
     }
 
-    // Buscar la primera fila vacía por columna E (Nombre), no por getLastRow(),
-    // ya que las columnas A y B tienen fórmulas que hacen que getLastRow() devuelva 500+
-    let nuevaFila = obtenerPrimeraFilaVacia(hojaInteres, 'E');
+    // Leer columna E una sola vez para rastrear filas vacías en memoria
+    // (evita huecos y sobreescrituras al usar getLastRow() que devuelve 500+ por fórmulas en A/B)
+    let maxFilasHoja = hojaInteres.getMaxRows();
+    const colESnapshot = hojaInteres.getRange(2, 5, maxFilasHoja - 1, 1).getValues().flat();
+    let filaVaciaIdx = 0;
+    function siguienteFilaVacia() {
+      while (filaVaciaIdx < colESnapshot.length &&
+             colESnapshot[filaVaciaIdx] !== '' && colESnapshot[filaVaciaIdx] !== null) {
+        filaVaciaIdx++;
+      }
+      if (filaVaciaIdx >= colESnapshot.length) {
+        hojaInteres.insertRowsAfter(maxFilasHoja, 200);
+        maxFilasHoja += 200;
+        for (let ext = 0; ext < 200; ext++) colESnapshot.push('');
+      }
+      return filaVaciaIdx + 2; // +2: array[0] corresponde a fila 2
+    }
 
     let importados = 0;
     let omitidosDuplicados = 0;
@@ -2194,10 +2208,10 @@ function importarDesdeKobo() {
 
       const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
 
-      // Extender la hoja si nuevaFila supera el número de filas disponibles
-      if (nuevaFila > hojaInteres.getMaxRows()) {
-        hojaInteres.insertRowsAfter(hojaInteres.getMaxRows(), 200);
-      }
+      // Obtener la siguiente fila realmente vacía (sin huecos ni sobreescrituras)
+      const nuevaFila = siguienteFilaVacia();
+      colESnapshot[filaVaciaIdx] = nombreCompleto; // marcar como ocupada en memoria
+      filaVaciaIdx++;
 
       // Limpiar validaciones solo en columnas intermedias (C-M) para no borrar
       // el dropdown de Estado (columna N) ni las protecciones de A y B
@@ -2240,7 +2254,6 @@ function importarDesdeKobo() {
       if (creamosId) idsExistentes.add(creamosId.toUpperCase());
       if (dpi) dpisExistentes.add(dpi);
       if (nombreCompleto) nombresExistentes.add(nombreCompleto.toLowerCase());
-      nuevaFila++;
       importados++;
     }
 

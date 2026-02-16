@@ -2113,9 +2113,26 @@ function importarDesdeKobo() {
       if (datosExistentes[i][4]) nombresExistentes.add(datosExistentes[i][4].toString().trim().toLowerCase());
     }
 
-    // Buscar la primera fila vacía por columna E (Nombre), no por getLastRow(),
-    // ya que las columnas A y B tienen fórmulas que hacen que getLastRow() devuelva 500+
-    let nuevaFila = obtenerPrimeraFilaVacia(hojaInteres, 'E');
+    // Leer columna E completa de una sola vez (evita llamadas individuales en el loop)
+    // y construir lista de filas vacías disponibles para insertar sin huecos ni sobreescrituras
+    let maxFilasHoja = hojaInteres.getMaxRows();
+    const colESnapshot = hojaInteres.getRange(2, 5, maxFilasHoja - 1, 1).getValues().flat();
+    // filaVaciaIdx: puntero al siguiente slot vacío en colESnapshot
+    let filaVaciaIdx = 0;
+    // Función que devuelve el número de fila (1-based) del siguiente slot vacío
+    function siguienteFilaVacia() {
+      while (filaVaciaIdx < colESnapshot.length &&
+             colESnapshot[filaVaciaIdx] !== '' && colESnapshot[filaVaciaIdx] !== null) {
+        filaVaciaIdx++;
+      }
+      if (filaVaciaIdx >= colESnapshot.length) {
+        // Ampliar hoja si se agotaron las filas
+        hojaInteres.insertRowsAfter(maxFilasHoja, 200);
+        maxFilasHoja += 200;
+        for (let ext = 0; ext < 200; ext++) colESnapshot.push('');
+      }
+      return filaVaciaIdx + 2; // +2: array[0] = fila 2
+    }
 
     let importados = 0;
     let omitidosDuplicados = 0;
@@ -2217,9 +2234,10 @@ function importarDesdeKobo() {
       const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
 
       // Extender la hoja si nuevaFila supera el número de filas disponibles
-      if (nuevaFila > hojaInteres.getMaxRows()) {
-        hojaInteres.insertRowsAfter(hojaInteres.getMaxRows(), 200);
-      }
+      // Obtener la siguiente fila realmente vacía (sin huecos ni sobreescrituras)
+      const nuevaFila = siguienteFilaVacia();
+      colESnapshot[filaVaciaIdx] = nombreCompleto; // marcar como ocupada en memoria
+      filaVaciaIdx++;
 
       // Limpiar validaciones solo en columnas intermedias (C-M) para no borrar
       // el dropdown de Estado (columna N) ni las protecciones de A y B
@@ -2262,7 +2280,6 @@ function importarDesdeKobo() {
       if (creamosId) idsExistentes.add(creamosId.toUpperCase());
       if (dpi) dpisExistentes.add(dpi);
       if (nombreCompleto) nombresExistentes.add(nombreCompleto.toLowerCase());
-      nuevaFila++;
       importados++;
     }
 
