@@ -24,7 +24,7 @@ const CONFIG = {
   KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esLPozzAX85W2xSv98r2AVM/data.csv',
 
   // URL de KoboToolbox para importar datos de ENTREVISTAS (IL_01_Entrevista)
-  KOBO_ENTREVISTAS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aF4nMQPqbHokM7rg2Vtf5w/export-settings/esLcNMQnD8q6r22gnpcYLQt/data.csv',
+  KOBO_ENTREVISTAS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aF4nMQPqbHokM7rg2Vtf5w/export-settings/esqKoJjmoR34panMLhM8j3Z/data.csv',
 
   // Cohortes disponibles (se llenan dinámicamente desde la hoja Cohortes)
   COHORTES: [],
@@ -483,12 +483,11 @@ function crearHojaDetalleEntrevistas() {
     'Formal o Informal',          // AW
     'Conoce Violencia Mujer',     // AX
 
-    // === COLUMNAS ADICIONALES ===
-    'Pregunta Adicional 1',       // AY
-    'Pregunta Adicional 2',       // AZ
+    // === PREGUNTA ADICIONAL CURSO ===
+    '¿Aprender para práctica en trabajo?', // AY - ¿Te interesa aprender para luego ponerlo en práctica?
 
     // === CONTROL ===
-    'Vinculado'                   // BA
+    'Vinculado'                   // AZ
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -2522,6 +2521,7 @@ function importarEntrevistasDesdeKobo() {
       dificultadesCurso: buscarIndiceColumna(headers, ['dificultades crees']),
       areasVida: buscarIndiceColumna(headers, ['áreas de tu vida']),
       porQueInteres: buscarIndiceColumna(headers, ['Por qué te interesa']),
+      aprenderPractica: buscarIndiceColumna(headers, ['aprender para luego ponerlo en práctica', 'aprender para luego', 'ponerlo en práctica en el trabajo']),
       firmarDocumento: buscarIndiceColumna(headers, ['firmar un documento']),
       disponibilidadPracticas: buscarIndiceColumna(headers, ['disponibilidad de tiempo para realizar prácticas']),
       trabajarSector: buscarIndiceColumna(headers, ['dispuesto/a a trabajar en el sector']),
@@ -2593,7 +2593,7 @@ function importarEntrevistasDesdeKobo() {
         '', getVal(colMap.conoceVBG), '', '', '', getVal(colMap.conflictosCasa), '',
         getVal(colMap.grupoMujeres), getVal(colMap.igualdadHM), getVal(colMap.familiaresCreamos),
         getVal(colMap.nombresFamiliares), getVal(colMap.formalInformal), getVal(colMap.conoceViolenciaMujer),
-        '', '', 'No'
+        getVal(colMap.aprenderPractica), 'No'
       ];
 
       const nuevaFila = detalleSheet.getLastRow() + 1;

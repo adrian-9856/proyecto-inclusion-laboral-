@@ -27,7 +27,7 @@ const CONFIG = {
   KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esLPozzAX85W2xSv98r2AVM/data.csv',
 
   // URL de KoboToolbox para importar datos de ENTREVISTAS (IL_01_Entrevista)
-  KOBO_ENTREVISTAS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aF4nMQPqbHokM7rg2Vtf5w/export-settings/esLcNMQnD8q6r22gnpcYLQt/data.csv',
+  KOBO_ENTREVISTAS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aF4nMQPqbHokM7rg2Vtf5w/export-settings/esqKoJjmoR34panMLhM8j3Z/data.csv',
 
   // Cohortes disponibles (se llenan dinámicamente desde la hoja Cohortes)
   COHORTES: [],
@@ -488,12 +488,11 @@ function crearHojaDetalleEntrevistas() {
     'Formal o Informal',          // AW
     'Conoce Violencia Mujer',     // AX
 
-    // === COLUMNAS ADICIONALES (para las 2 que van a agregar) ===
-    'Pregunta Adicional 1',       // AY
-    'Pregunta Adicional 2',       // AZ
+    // === PREGUNTA ADICIONAL CURSO ===
+    '¿Aprender para práctica en trabajo?', // AY - ¿Te interesa aprender para luego ponerlo en práctica?
 
     // === CONTROL ===
-    'Vinculado'                   // BA - Sí/No - Si ya está vinculado con Entrevistas
+    'Vinculado'                   // AZ - Sí/No - Si ya está vinculado con Entrevistas
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -2555,6 +2554,7 @@ function importarEntrevistasDesdeKobo() {
       dificultadesCurso: buscarIndiceColumna(headers, ['dificultades crees']),
       areasVida: buscarIndiceColumna(headers, ['áreas de tu vida']),
       porQueInteres: buscarIndiceColumna(headers, ['Por qué te interesa']),
+      aprenderPractica: buscarIndiceColumna(headers, ['aprender para luego ponerlo en práctica', 'aprender para luego', 'ponerlo en práctica en el trabajo']),
       firmarDocumento: buscarIndiceColumna(headers, ['firmar un documento']),
       disponibilidadPracticas: buscarIndiceColumna(headers, ['disponibilidad de tiempo para realizar prácticas']),
       trabajarSector: buscarIndiceColumna(headers, ['dispuesto/a a trabajar en el sector']),
@@ -2668,10 +2668,9 @@ function importarEntrevistasDesdeKobo() {
         getVal(colMap.familiaresCreamos),              // AU: Familiares Creamos
         getVal(colMap.nombresFamiliares),              // AV: Nombres Familiares
         getVal(colMap.formalInformal),                 // AW: Formal o Informal
-        getVal(colMap.conoceViolenciaMujer),           // AX: Conoce Violencia Mujer
-        '',                                            // AY: Pregunta Adicional 1
-        '',                                            // AZ: Pregunta Adicional 2
-        'No'                                           // BA: Vinculado
+        getVal(colMap.conoceViolenciaMujer),             // AX: Conoce Violencia Mujer
+        getVal(colMap.aprenderPractica),               // AY: ¿Te interesa aprender para práctica en trabajo?
+        'No'                                           // AZ: Vinculado
       ];
 
       const nuevaFila = detalleSheet.getLastRow() + 1;
