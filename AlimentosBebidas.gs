@@ -2100,8 +2100,9 @@ function importarDesdeKobo() {
       if (datosExistentes[i][4]) nombresExistentes.add(datosExistentes[i][4].toString().trim().toLowerCase());
     }
 
-    // Empezar siempre desde la última fila con datos para no sobrescribir filas parciales
-    let nuevaFila = hojaInteres.getLastRow() + 1;
+    // Buscar la primera fila vacía por columna E (Nombre), no por getLastRow(),
+    // ya que las columnas A y B tienen fórmulas que hacen que getLastRow() devuelva 500+
+    let nuevaFila = obtenerPrimeraFilaVacia(hojaInteres, 'E');
 
     let importados = 0;
     let omitidosDuplicados = 0;
