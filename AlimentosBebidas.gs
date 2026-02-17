@@ -492,6 +492,12 @@ function crearHojaDetalleEntrevistas() {
     'Vinculado'                   // AZ
   ];
 
+  // Expandir la hoja para acomodar todas las columnas (por defecto solo tiene 26)
+  const currentCols = sheet.getMaxColumns();
+  if (headers.length > currentCols) {
+    sheet.insertColumnsAfter(currentCols, headers.length - currentCols);
+  }
+
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground('#5e35b1')
     .setFontColor('white')
@@ -501,6 +507,7 @@ function crearHojaDetalleEntrevistas() {
 
   sheet.setFrozenRows(1);
 
+  // Anchos de columna (52 valores = 52 headers, A a AZ)
   const anchos = [
     100, 100, 180, 80,
     80, 80, 80,
@@ -511,8 +518,8 @@ function crearHojaDetalleEntrevistas() {
     80, 200, 80, 80, 150,
     80, 80, 80, 150,
     150, 80, 80, 80, 150, 80, 150, 150, 200, 80, 150, 100, 200,
-    150, 150,
-    80
+    150,  // Adicionales (AY)
+    80    // Vinculado (AZ)
   ];
   anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
@@ -528,7 +535,7 @@ function crearHojaDetalleEntrevistas() {
   sheet.getRange('AC1:AG1').setBackground('#4527a0');
   sheet.getRange('AH1:AK1').setBackground('#bf360c');
   sheet.getRange('AL1:AX1').setBackground('#ad1457');
-  sheet.getRange('AY1:BA1').setBackground('#37474f');
+  sheet.getRange('AY1:AZ1').setBackground('#37474f');
 }
 
 /**

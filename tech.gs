@@ -497,6 +497,12 @@ function crearHojaDetalleEntrevistas() {
     'Vinculado'                   // AZ - Sí/No - Si ya está vinculado con Entrevistas
   ];
 
+  // Expandir la hoja para acomodar todas las columnas (por defecto solo tiene 26)
+  const currentCols = sheet.getMaxColumns();
+  if (headers.length > currentCols) {
+    sheet.insertColumnsAfter(currentCols, headers.length - currentCols);
+  }
+
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground('#5e35b1')
     .setFontColor('white')
@@ -507,7 +513,7 @@ function crearHojaDetalleEntrevistas() {
   // Congelar fila de encabezados
   sheet.setFrozenRows(1);
 
-  // Anchos de columna
+  // Anchos de columna (52 valores = 52 headers, A a AZ)
   const anchos = [
     100,  // Fecha
     100,  // Creamos ID
@@ -521,8 +527,8 @@ function crearHojaDetalleEntrevistas() {
     80, 200, 80, 80, 150,  // Transporte
     80, 80, 80, 150,  // Operarios
     150, 80, 80, 80, 150, 80, 150, 150, 200, 80, 150, 100, 200,  // Género
-    150, 150,  // Adicionales
-    80  // Vinculado
+    150,  // Adicionales (AY)
+    80    // Vinculado (AZ)
   ];
   anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
@@ -538,7 +544,7 @@ function crearHojaDetalleEntrevistas() {
   sheet.getRange('AC1:AG1').setBackground('#4527a0'); // Transporte - Índigo
   sheet.getRange('AH1:AK1').setBackground('#bf360c'); // Operarios - Naranja oscuro
   sheet.getRange('AL1:AX1').setBackground('#ad1457'); // Género - Rosa
-  sheet.getRange('AY1:BA1').setBackground('#37474f'); // Adicionales - Gris
+  sheet.getRange('AY1:AZ1').setBackground('#37474f'); // Adicionales - Gris
 }
 
 /**
