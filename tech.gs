@@ -734,7 +734,7 @@ function crearHojaReporte() {
 
   // Columnas actualizadas:
   // Seleccionadas: A-No, B-CreamosID, C-DPI, D-Nombre, E-Edad, F-Tel, G-NivelEdu, H-Zona, I-Notas, J-EnviarACohorte
-  // Graduadas: A-Fecha, B-CreamosID, C-DPI, D-Nombre, E-Tel, F-NivelEdu, G-Cohorte, H-Notas, I-Estado
+  // Graduadas: A-Fecha, B-CreamosID, C-DPI, D-Nombre, E-Tel, F-NivelEdu, G-Cohorte, H-Notas
   const data = [
     ['REPORTE - INCLUSIÓN LABORAL TECNOLOGÍA', '', '', ''],                                    // 1
     ['Última actualización:', '=TEXT(NOW(),"DD/MM/YYYY HH:MM")', 'Mes actual:', '=TEXT(TODAY(),"MMMM YYYY")'], // 2
@@ -919,7 +919,7 @@ function configurarValidaciones() {
   }
 
   // === HOJA DE GRADUADAS ===
-  // Columnas: A-Fecha, B-CreamosID, C-DPI, D-Nombre, E-Tel, F-NivelEdu, G-Cohorte, H-Notas, I-Estado
+  // Columnas: A-Fecha, B-CreamosID, C-DPI, D-Nombre, E-Tel, F-NivelEdu, G-Cohorte, H-Notas
   const graduadas = ss.getSheetByName('Graduadas');
   if (graduadas) {
     graduadas.getRange('F2:F500').setDataValidation(
@@ -929,9 +929,7 @@ function configurarValidaciones() {
     graduadas.getRange('G2:G500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(todasCohortes).setAllowInvalid(false).build()
     );
-    graduadas.getRange('I2:I500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ESTADOS_SEGUIMIENTO).setAllowInvalid(false).build()
-    );
+    // Nota: No hay desplegable de Estado en Graduadas — el seguimiento se gestiona en el Archivo de Seguimiento externo
   }
 
   // === HOJA DE DESERCIONES ===
@@ -1380,6 +1378,14 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
   sheet.deleteRow(fila);
 
   ss.toast('📋 Deserción registrada: ' + motivo, 'Cohorte ' + nombreCohorte, 4);
+
+  // Recordatorio Salesforce: actualizar etapa en el CRM
+  ui.alert(
+    '⚠️ Recordatorio Salesforce',
+    'La deserción de ' + nombre + ' ha sido registrada.\n\n' +
+    'Recuerda cambiar la etapa en Salesforce a "Deserción" para mantener el CRM actualizado.',
+    ui.ButtonSet.OK
+  );
 }
 
 /**
