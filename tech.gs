@@ -381,6 +381,7 @@ function crearHojaInteres() {
  */
 function crearHojaEntrevistas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Entrevistas')) return;
   const sheet = ss.insertSheet('Entrevistas');
 
   const headers = [
@@ -417,6 +418,7 @@ function crearHojaEntrevistas() {
  */
 function crearHojaDetalleEntrevistas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Detalle Entrevistas')) return;
   const sheet = ss.insertSheet('Detalle Entrevistas');
 
   const headers = [
@@ -547,6 +549,7 @@ function crearHojaDetalleEntrevistas() {
  */
 function crearHojaSeleccionadas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Seleccionadas')) return;
   const sheet = ss.insertSheet('Seleccionadas');
 
   const headers = [
@@ -583,6 +586,7 @@ function crearHojaSeleccionadas() {
  */
 function crearHojaCohortes() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Cohortes')) return;
   const sheet = ss.insertSheet('Cohortes');
 
   const headers = [
@@ -630,6 +634,7 @@ function crearHojaCohortes() {
  */
 function crearHojaGraduadas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Graduadas')) return;
   const sheet = ss.insertSheet('Graduadas');
 
   const headers = [
@@ -659,6 +664,7 @@ function crearHojaGraduadas() {
  */
 function crearHojaDeserciones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Deserciones')) return;
   const sheet = ss.insertSheet('Deserciones');
 
   const headers = [
@@ -697,6 +703,7 @@ function crearHojaDeserciones() {
  */
 function crearHojaNoSeleccionadas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('No Seleccionadas')) return;
   const sheet = ss.insertSheet('No Seleccionadas');
 
   const headers = [
@@ -730,6 +737,7 @@ function crearHojaNoSeleccionadas() {
  */
 function crearHojaReporte() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Reporte')) return;
   const sheet = ss.insertSheet('Reporte');
 
   // Columnas actualizadas:
@@ -824,6 +832,7 @@ function crearHojaReporte() {
  */
 function crearHojaReportesMensuales() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Reportes Mensuales')) return;
   const sheet = ss.insertSheet('Reportes Mensuales');
 
   const headers = [
