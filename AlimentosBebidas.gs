@@ -264,8 +264,8 @@ function verificarInstalacion() {
 
   const hojasRequeridas = [
     'Hoja de Interés', 'Entrevistas', 'Seleccionadas',
-    'Cohortes', 'Asistencias', 'Graduadas',
-    'Deserciones', 'No Seleccionadas', 'Reporte', 'Reportes Mensuales'
+    'Cohortes', 'Graduadas', 'Deserciones',
+    'No Seleccionadas', 'Lista Definitiva', 'Reporte', 'Reportes Mensuales'
   ];
 
   let hojasOk = 0;
@@ -321,6 +321,7 @@ function crearTodasLasHojas() {
   crearHojaGraduadas();
   crearHojaDeserciones();
   crearHojaNoSeleccionadas();
+  crearHojaListaDefinitiva();
   crearHojaReporte();
   crearHojaReportesMensuales();
 }
@@ -611,7 +612,7 @@ function crearHojaCohortes() {
   // Las fórmulas se actualizan cuando se crea la cohorte individual
   for (let i = 2; i <= 20; i++) {
     // Inscritas: cuenta participantes en la hoja individual de la cohorte
-    sheet.getRange('G' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTA(INDIRECT("\'"&A' + i + '&"\'!A:A"))-1,0))');
+    sheet.getRange('G' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!E:E"),"<>")-1,0))');
     sheet.getRange('H' + i).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + i + '),0)');
     sheet.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + i + '),0)');
   }
@@ -727,6 +728,44 @@ function crearHojaNoSeleccionadas() {
 
   // Destacar columna Acción
   sheet.getRange('I1').setBackground('#4caf50');
+}
+
+/**
+ * HOJA LISTA DEFINITIVA - Registro histórico de todas las personas enviadas a cohorte
+ * Solo se agregan registros, nunca se eliminan — para reporte y seguimiento
+ */
+function crearHojaListaDefinitiva() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Lista Definitiva')) return;
+  const sheet = ss.insertSheet('Lista Definitiva');
+
+  const headers = [
+    'No.',              // A
+    'Fecha Envío',      // B
+    'Creamos ID',       // C
+    'DPI',              // D
+    'Nombre Completo',  // E
+    'Edad',             // F
+    'Teléfono',         // G
+    'Nivel Educativo',  // H
+    'Zona',             // I
+    'Cohorte'           // J
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#1a237e')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  [50, 120, 100, 130, 200, 60, 120, 150, 120, 180].forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+
+  sheet.setFrozenRows(1);
+
+  // Destacar columna Cohorte
+  sheet.getRange('J1').setBackground('#4caf50');
 }
 
 /**
@@ -1441,11 +1480,13 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   }
 
   // Agregar a la hoja individual de la Cohorte
-  const nuevaFilaCohorte = hojaCohorte.getLastRow() + 1;
+  // Usar obtenerPrimeraFilaVacia sobre columna E (Nombre) para evitar contar filas vacías
+  const nuevaFilaCohorte = obtenerPrimeraFilaVacia(hojaCohorte, 'E');
+  const noParticipante = nuevaFilaCohorte - 1; // No. secuencial (fila 2 = participante 1)
   // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Estado
   const registroCohorte = [
     new Date(),
-    nuevaFilaCohorte - 1,
+    noParticipante,
     creamosId,
     datos[2],           // DPI
     nombre,
@@ -1456,10 +1497,29 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   ];
   hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, 9).setValues([registroCohorte]);
 
+  // Agregar copia a Lista Definitiva (registro histórico permanente)
+  const listaDefinitiva = ss.getSheetByName('Lista Definitiva');
+  if (listaDefinitiva) {
+    const nuevaFilaLD = obtenerPrimeraFilaVacia(listaDefinitiva, 'E');
+    const registroLD = [
+      nuevaFilaLD - 1,    // No.
+      new Date(),         // Fecha Envío
+      creamosId,          // Creamos ID
+      datos[2],           // DPI
+      nombre,             // Nombre Completo
+      datos[4],           // Edad
+      datos[5],           // Teléfono
+      datos[6],           // Nivel Educativo
+      datos[7],           // Zona
+      cohorteDestino      // Cohorte
+    ];
+    listaDefinitiva.getRange(nuevaFilaLD, 1, 1, 10).setValues([registroLD]);
+  }
+
   // ELIMINAR de Seleccionadas
   sheet.deleteRow(fila);
 
-  ss.toast('✅ ' + nombre + ' enviada a cohorte "' + cohorteDestino + '"', 'Completado', 4);
+  ss.toast('✅ ' + nombre + ' enviada a cohorte "' + cohorteDestino + '" y registrada en Lista Definitiva', 'Completado', 4);
 }
 
 /**
@@ -2881,7 +2941,7 @@ function crearNuevaCohorte() {
   cohortes.getRange(nuevaFila, 1, 1, 13).setValues([datosCohorte]);
 
   // Fórmulas: Inscritas cuenta en la hoja individual de la cohorte
-  cohortes.getRange('G' + nuevaFila).setFormula('=IF(A' + nuevaFila + '="",0,IFERROR(COUNTA(INDIRECT("\'"&A' + nuevaFila + '&"\'!A:A"))-1,0))');
+  cohortes.getRange('G' + nuevaFila).setFormula('=IF(A' + nuevaFila + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!E:E"),"<>")-1,0))');
   cohortes.getRange('H' + nuevaFila).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + nuevaFila + '),0)');
   cohortes.getRange('I' + nuevaFila).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + nuevaFila + '),0)');
 
@@ -2925,12 +2985,6 @@ function crearHojaIndividualCohorte(nombreCohorte) {
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
-
-  // Fórmulas automáticas para Fecha y No.
-  for (let i = 2; i <= 100; i++) {
-    sheet.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
-    sheet.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
-  }
 
   // Anchos de columna
   [120, 50, 100, 130, 200, 60, 120, 150, 100].forEach((w, i) => {
@@ -3307,7 +3361,7 @@ function repararFormulas() {
     const MAX_COH = 20;
     const fG = [], fH = [], fI = [];
     for (let i = 2; i <= MAX_COH; i++) {
-      fG.push(['=IF(A' + i + '="",0,IFERROR(COUNTA(INDIRECT("\'"&A' + i + '&"\'!A:A"))-1,0))']);
+      fG.push(['=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!E:E"),"<>")-1,0))']);
       fH.push(['=IFERROR(COUNTIF(Graduadas!G:G,A' + i + '),0)']);
       fI.push(['=IFERROR(COUNTIF(Deserciones!G:G,A' + i + '),0)']);
     }
