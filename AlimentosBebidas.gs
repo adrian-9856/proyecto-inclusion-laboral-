@@ -187,7 +187,8 @@ function onOpen() {
       .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos'))
     .addSeparator()
     .addItem('🚀 Instalar Sistema', 'instalarSistema')
-    .addItem('🆕 Actualizar v2 (sin borrar datos)', 'instalarV2')
+    .addItem('🆕 Actualizar v3 (sin borrar datos)', 'instalarV3')
+    .addItem('🧹 Limpiar cohortes eliminadas', 'limpiarCohortesEliminadas')
     .addItem('✅ Verificar Instalación', 'verificarInstalacion')
     .addToUi();
 
@@ -261,16 +262,17 @@ function instalarSistema() {
  * Instalación v2 — Solo agrega funcionalidades nuevas SIN borrar datos existentes
  * Usar cuando el sistema ya está instalado y se quiere actualizar
  */
-function instalarV2() {
+function instalarV3() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
   const confirmacion = ui.alert(
-    '🆕 Actualización v2 — Sin borrar datos',
+    '🆕 Actualización v3 — Sin borrar datos',
     'Esta actualización agrega lo nuevo SIN eliminar hojas ni datos existentes:\n\n' +
     '• Hoja "Lista Definitiva" (si no existe)\n' +
     '• Actualiza validaciones de datos\n' +
-    '• Corrige fórmulas de Cohortes (Inscritas)\n\n' +
+    '• Corrige fórmulas de Cohortes (Inscritas)\n' +
+    '• Limpia cohortes eliminadas del desplegable\n\n' +
     '¿Deseas continuar?',
     ui.ButtonSet.YES_NO
   );
@@ -288,25 +290,79 @@ function instalarV2() {
       cambios.push('ℹ️ "Lista Definitiva" ya existía');
     }
 
-    // 2. Actualizar validaciones (no borra datos)
+    // 2. Limpiar cohortes cuyas hojas ya no existen
+    const eliminadas = limpiarCohortesEliminadas(true);
+    if (eliminadas > 0) {
+      cambios.push('✅ ' + eliminadas + ' cohorte(s) sin hoja eliminadas del registro');
+    } else {
+      cambios.push('ℹ️ No hay cohortes eliminadas pendientes');
+    }
+
+    // 3. Actualizar validaciones (no borra datos)
     configurarValidaciones();
     cambios.push('✅ Validaciones actualizadas');
 
-    // 3. Corregir fórmulas de Cohortes
+    // 4. Corregir fórmulas de Cohortes
     repararFormulas();
     cambios.push('✅ Fórmulas de Cohortes corregidas');
 
     ss.toast(
-      '🆕 ACTUALIZACIÓN v2 COMPLETADA\n\n' + cambios.join('\n') + '\n\nTus datos están intactos.',
+      '🆕 ACTUALIZACIÓN v3 COMPLETADA\n\n' + cambios.join('\n') + '\n\nTus datos están intactos.',
       'Actualización',
       10
     );
-    Logger.log('✅ Actualización v2: ' + cambios.join(', '));
+    Logger.log('✅ Actualización v3: ' + cambios.join(', '));
 
   } catch (error) {
     ss.toast('❌ Error en actualización: ' + error.message, 'ERROR', 10);
-    Logger.log('❌ Error v2: ' + error.message);
+    Logger.log('❌ Error v3: ' + error.message);
   }
+}
+
+/**
+ * Limpia del registro de Cohortes aquellas cuya hoja individual ya fue eliminada.
+ * También refresca los desplegables de "Enviar a Cohorte".
+ * @param {boolean} silencioso - si es true no muestra alert (para llamada interna desde instalarV3)
+ * @returns {number} cantidad de cohortes eliminadas
+ */
+function limpiarCohortesEliminadas(silencioso) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const cohortesSheet = ss.getSheetByName('Cohortes');
+  if (!cohortesSheet) {
+    if (!silencioso) ss.toast('⚠️ No se encontró la hoja "Cohortes"', 'Error', 4);
+    return 0;
+  }
+
+  const datos = cohortesSheet.getDataRange().getValues();
+  const filasAEliminar = [];
+
+  for (let i = 1; i < datos.length; i++) {
+    const nombreCohorte = datos[i][0] ? datos[i][0].toString().trim() : '';
+    if (nombreCohorte && !ss.getSheetByName(nombreCohorte)) {
+      filasAEliminar.push(i + 1); // +1 porque las filas son base 1
+    }
+  }
+
+  if (filasAEliminar.length === 0) {
+    if (!silencioso) ss.toast('✅ No hay cohortes eliminadas en el registro', 'Limpiar', 4);
+    return 0;
+  }
+
+  // Eliminar de abajo hacia arriba para no desplazar índices
+  for (let i = filasAEliminar.length - 1; i >= 0; i--) {
+    cohortesSheet.deleteRow(filasAEliminar[i]);
+  }
+
+  // Refrescar desplegables de cohorte
+  configurarValidaciones();
+
+  if (!silencioso) {
+    ui.alert('✅ Limpieza completada',
+      filasAEliminar.length + ' cohorte(s) sin hoja han sido eliminadas del registro.\nLos desplegables han sido actualizados.',
+      ui.ButtonSet.OK);
+  }
+  return filasAEliminar.length;
 }
 
 function verificarInstalacion() {
@@ -440,9 +496,8 @@ function crearHojaEntrevistas() {
     'Nombre Completo',    // D
     'Teléfono',           // E
     'Entrevistador',      // F - Desplegable (responsables)
-    'Calificación',       // G - 1-10
-    'Observaciones',      // H
-    'Estado'              // I - Desplegable (última columna - trigger)
+    'Observaciones',      // G
+    'Estado'              // H - Desplegable (última columna - trigger)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -452,12 +507,12 @@ function crearHojaEntrevistas() {
     .setHorizontalAlignment('center');
 
   // Anchos de columna
-  [120, 80, 100, 200, 120, 120, 100, 300, 150].forEach((w, i) => {
+  [120, 80, 100, 200, 120, 120, 300, 150].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
   // Destacar columna "Estado"
-  sheet.getRange('I1').setBackground('#4caf50');
+  sheet.getRange('H1').setBackground('#4caf50');
 }
 
 /**
@@ -980,20 +1035,15 @@ function configurarValidaciones() {
   }
 
   // === HOJA DE ENTREVISTAS ===
-  // Columnas: A-Fecha, B-Hora, C-CreamosID, D-Nombre, E-Tel, F-Entrevistador, G-Calificación, H-Observaciones, I-Estado
+  // Columnas: A-Fecha, B-Hora, C-CreamosID, D-Nombre, E-Tel, F-Entrevistador, G-Observaciones, H-Estado
   const entrevistas = ss.getSheetByName('Entrevistas');
   if (entrevistas) {
     // Entrevistador (F)
     entrevistas.getRange('F2:F500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(false).build()
     );
-    // Calificación (G)
-    const calificaciones = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
-    entrevistas.getRange('G2:G500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(calificaciones).setAllowInvalid(false).build()
-    );
-    // Estado (I) - Resultado de entrevista (última columna)
-    entrevistas.getRange('I2:I500').setDataValidation(
+    // Estado (H) - Resultado de entrevista (última columna)
+    entrevistas.getRange('H2:H500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.RESULTADO_FINAL).setAllowInvalid(false).build()
     );
   }
@@ -1135,10 +1185,10 @@ function guardarResponsables(responsables) {
 function aplicarFormatos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Formato para Entrevistas - Estado (columna I)
+  // Formato para Entrevistas - Estado (columna H)
   const entrevistas = ss.getSheetByName('Entrevistas');
   if (entrevistas) {
-    const rangoEstadoEnt = entrevistas.getRange('I2:I500');
+    const rangoEstadoEnt = entrevistas.getRange('H2:H500');
 
     const reglaAprobada = SpreadsheetApp.newConditionalFormatRule()
       .whenTextContains('Aprobada').setBackground('#c8e6c9').setRanges([rangoEstadoEnt]).build();
@@ -1207,9 +1257,9 @@ function alEditar(e) {
   }
 
   // === ENTREVISTAS ===
-  // Estado está en columna I (9) - triggers automáticos según resultado
+  // Estado está en columna H (8) - triggers automáticos según resultado
   if (hoja === 'Entrevistas') {
-    if (columna === 9) {
+    if (columna === 8) {
       procesarResultadoEntrevista(sheet, fila, val);
     }
   }
@@ -1300,7 +1350,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const nuevaFila = entrevistas.getLastRow() + 1;
 
-    // Entrevistas: Fecha, Hora, CreamosID, Nombre, Tel, Entrevistador, Calificación, Observaciones, Estado
+    // Entrevistas: Fecha, Hora, CreamosID, Nombre, Tel, Entrevistador, Observaciones, Estado
     const registro = [
       '',                   // A: Fecha Entrevista
       '',                   // B: Hora
@@ -1308,12 +1358,11 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       datos[4],             // D: Nombre
       datos[6],             // E: Teléfono
       'Eva',                // F: Entrevistador (por defecto)
-      '',                   // G: Calificación
-      '',                   // H: Observaciones
-      ''                    // I: Estado (vacío hasta que se complete)
+      '',                   // G: Observaciones
+      ''                    // H: Estado (vacío hasta que se complete)
     ];
 
-    entrevistas.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
+    entrevistas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
 
     // Eliminar de Hoja de Interés (igual que "No interesado")
     sheet.deleteRow(fila);
@@ -1330,7 +1379,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
  */
 function procesarResultadoEntrevista(sheet, fila, resultado) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const datos = sheet.getRange(fila, 1, 1, 9).getValues()[0];
+  const datos = sheet.getRange(fila, 1, 1, 8).getValues()[0];
   const creamosId = datos[2];
 
   if (resultado === 'Aprobada') {
@@ -1345,7 +1394,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
     // Orden: No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
-    // Entrevistas: [0]Fecha, [1]Hora, [2]CreamosID, [3]Nombre, [4]Tel, [5]Entrevistador, [6]Calif, [7]Obs, [8]Estado
+    // Entrevistas: [0]Fecha, [1]Hora, [2]CreamosID, [3]Nombre, [4]Tel, [5]Entrevistador, [6]Obs, [7]Estado
     const registroSeleccionadas = [
       nuevaFila - 1,
       creamosId,
@@ -1355,7 +1404,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       datos[4],                                     // Teléfono
       datosInteres ? datosInteres[7] : '',          // Nivel Educativo
       datosInteres ? datosInteres[8] : '',          // Zona
-      datos[7],                                     // Notas (Observaciones - columna H)
+      datos[6],                                     // Notas (Observaciones - columna G)
       ''                                            // Enviar a Cohorte (vacío)
     ];
 
@@ -1388,7 +1437,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       'Post-entrevista',    // Etapa
       motivo,
       'Entrevistas',        // Origen
-      datos[7],             // Notas (Observaciones - columna H)
+      datos[6],             // Notas (Observaciones - columna G)
       ''                    // Acción (vacío)
     ];
 
@@ -1551,6 +1600,10 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, 9).setValues([registroCohorte]);
 
   // Agregar copia a Lista Definitiva (registro histórico permanente)
+  // Crear automáticamente si no existe
+  if (!ss.getSheetByName('Lista Definitiva')) {
+    crearHojaListaDefinitiva();
+  }
   const listaDefinitiva = ss.getSheetByName('Lista Definitiva');
   if (listaDefinitiva) {
     const nuevaFilaLD = obtenerPrimeraFilaVacia(listaDefinitiva, 'E');
@@ -1761,7 +1814,7 @@ function procesarReenvioDesdeNoSeleccionadas(sheet, fila, accion) {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const nuevaFila = entrevistas.getLastRow() + 1;
 
-    // Columnas: Fecha, Hora, CreamosID, Nombre, Tel, Entrevistador, Calif, Obs, Estado
+    // Columnas: Fecha, Hora, CreamosID, Nombre, Tel, Entrevistador, Obs, Estado
     const registro = [
       '',               // Fecha
       '',               // Hora
@@ -1769,12 +1822,11 @@ function procesarReenvioDesdeNoSeleccionadas(sheet, fila, accion) {
       nombre,
       telefono,
       'Eva',            // Entrevistador (por defecto)
-      '',               // Calificación
       'Reingreso desde No Seleccionadas - ' + notas,
       ''                // Estado
     ];
 
-    entrevistas.getRange(nuevaFila, 1, 1, 9).setValues([registro]);
+    entrevistas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
     sheet.deleteRow(fila);
 
     ss.toast('✅ ' + nombre + ' reenviada a Entrevistas', 'Reenvío', 4);
