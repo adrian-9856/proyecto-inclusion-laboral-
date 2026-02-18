@@ -192,8 +192,9 @@ function onOpen() {
       .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos'))
     .addSeparator()
     .addItem('🚀 Instalar Sistema', 'instalarSistema')
-    .addItem('🆕 Actualizar v3 (sin borrar datos)', 'instalarV3')
+    .addItem('🆕 Actualizar v4 (sin borrar datos)', 'instalarV4')
     .addItem('🧹 Limpiar cohortes eliminadas', 'limpiarCohortesEliminadas')
+    .addItem('🔄 Reenviar graduadas al seguimiento', 'reenviarDesdeMenuCohorte')
     .addItem('✅ Verificar Instalación', 'verificarInstalacion')
     .addToUi();
 
@@ -1308,8 +1309,18 @@ function alEditar(e) {
 
   // === HOJAS DE COHORTES INDIVIDUALES ===
   const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Seleccionadas', 'Cohortes',
-                            'Graduadas', 'Deserciones', 'No Seleccionadas', 'Reporte', 'Reportes Mensuales'];
+                            'Graduadas', 'Deserciones', 'No Seleccionadas', 'Reporte', 'Reportes Mensuales',
+                            'Lista Definitiva', 'Detalle Entrevistas'];
   if (!hojasPrincipales.includes(hoja)) {
+    // Auto-rellenar Fecha (A) y No. (B) cuando se escribe el Nombre (E) manualmente
+    if (columna === 5 && val !== '') {
+      if (!sheet.getRange(fila, 1).getValue()) {
+        sheet.getRange(fila, 1).setValue(new Date());
+      }
+      if (!sheet.getRange(fila, 2).getValue()) {
+        sheet.getRange(fila, 2).setValue(fila - 1);
+      }
+    }
     // Estado está en columna I (9) - "Graduada" o "Deserción"
     if (columna === 9) {
       if (val === 'Graduada') {
@@ -1778,7 +1789,23 @@ function procesarFinalizacionCohorte(sheet, fila) {
   }
 
   if (participantesActivas === 0) {
-    ss.toast('✅ Cohorte finalizada (sin participantes pendientes)', 'Completado', 3);
+    // Todas ya fueron graduadas individualmente — ofrecer reenviar al seguimiento externo
+    const totalGraduadas = datosCohorte.slice(1).filter(f => f[4] && f[8] === 'Graduada').length;
+    if (totalGraduadas > 0) {
+      const reenviar = ui.alert(
+        '✅ Cohorte ya graduada',
+        'Todos los participantes ya tienen estado "Graduada".\n\n' +
+        totalGraduadas + ' participante(s) registradas en la cohorte.\n\n' +
+        '¿Reenviar al archivo externo de seguimiento las que falten?\n' +
+        '(Seguro hacerlo — no duplica si ya están registradas)',
+        ui.ButtonSet.YES_NO
+      );
+      if (reenviar === ui.Button.YES) {
+        reenviarCohorteAlSeguimiento(nombreCohorte, hojaCohorte);
+      }
+    } else {
+      ss.toast('✅ Cohorte finalizada (sin participantes)', 'Completado', 3);
+    }
     return;
   }
 
@@ -1828,19 +1855,27 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
     if (fila[4] && (!fila[8] || fila[8] === '')) {
       const nuevaFilaGrad = graduadas.getLastRow() + 1;
 
+      // Si no tiene Creamos ID, agregar nota
+      const notaID = fila[2] ? '' : '⚠️ Sin Creamos ID — verificar en Salesforce';
+
       // Orden Graduadas: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, Notas
       const registroGraduada = [
         fechaGraduacion,
-        fila[2],           // Creamos ID
+        fila[2] || '',     // Creamos ID (puede estar vacío)
         fila[3],           // DPI
         fila[4],           // Nombre
         fila[6],           // Teléfono
         fila[7],           // Nivel Educativo
         nombreCohorte,
-        ''                 // Notas
+        notaID             // Notas (alerta si falta ID)
       ];
 
       graduadas.getRange(nuevaFilaGrad, 1, 1, 8).setValues([registroGraduada]);
+
+      // Si falta Creamos ID, resaltar esa celda en naranja en la hoja de cohorte
+      if (!fila[2]) {
+        hojaCohorte.getRange(i + 1, 3).setBackground('#ffe0b2'); // Naranja claro
+      }
 
       // Enviar automáticamente al archivo externo de seguimiento
       enviarAArchivoSeguimiento(fila[2], fila[4], fila[6], fila[7], nombreCohorte);
@@ -1848,6 +1883,9 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
       // Marcar como Graduada en la hoja de cohorte (NO eliminar — la hoja queda como archivo)
       hojaCohorte.getRange(i + 1, 9).setValue('Graduada');
       hojaCohorte.getRange(i + 1, 1, 1, 9).setBackground('#e8f5e9'); // Verde claro = graduada
+      if (!fila[2]) {
+        hojaCohorte.getRange(i + 1, 3).setBackground('#ffe0b2'); // Restaurar naranja en col C
+      }
 
       graduadasCount++;
     }
@@ -1874,18 +1912,21 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   const datos = sheet.getRange(fila, 1, 1, 9).getValues()[0];
   const fechaGraduacion = new Date();
 
+  // Si no tiene Creamos ID, agregar nota
+  const notaID = datos[2] ? '' : '⚠️ Sin Creamos ID — verificar en Salesforce';
+
   const nuevaFilaGrad = graduadas.getLastRow() + 1;
 
   // Orden Graduadas: Fecha, CreamosID, DPI, Nombre, Tel, NivelEdu, Cohorte, Notas
   const registroGraduada = [
     fechaGraduacion,
-    datos[2],           // Creamos ID
+    datos[2] || '',     // Creamos ID (puede estar vacío)
     datos[3],           // DPI
     datos[4],           // Nombre
     datos[6],           // Teléfono
     datos[7],           // Nivel Educativo
     nombreCohorte,
-    ''                  // Notas
+    notaID              // Notas (alerta si falta ID)
   ];
 
   graduadas.getRange(nuevaFilaGrad, 1, 1, 8).setValues([registroGraduada]);
@@ -1897,6 +1938,11 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   sheet.getRange(fila, 9).setValue('Graduada');
   sheet.getRange(fila, 1, 1, 9).setBackground('#e8f5e9'); // Verde claro = graduada
 
+  // Si falta Creamos ID, resaltar esa celda en naranja
+  if (!datos[2]) {
+    sheet.getRange(fila, 3).setBackground('#ffe0b2'); // Naranja claro en col C (Creamos ID)
+  }
+
   ss.toast('🎓 ' + datos[4] + ' graduada exitosamente', 'Completado', 3);
 
   // Recordatorio Salesforce
@@ -1906,6 +1952,191 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
     'Recuerda cambiar la etapa en Salesforce a "Graduada" para mantener el CRM actualizado.',
     SpreadsheetApp.getUi().ButtonSet.OK
   );
+}
+
+/**
+ * Reenvía al archivo externo de seguimiento todos los participantes marcados como "Graduada"
+ * en una hoja de cohorte. Evita duplicados consultando el archivo externo.
+ * Llamable desde menú (reenviarDesdeMenuCohorte) o internamente.
+ */
+function reenviarCohorteAlSeguimiento(nombreCohorte, hojaCohorte) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Si no se pasa la hoja, usar la hoja activa
+  if (!hojaCohorte) {
+    hojaCohorte = ss.getActiveSheet();
+    nombreCohorte = hojaCohorte.getName();
+  }
+
+  const ID_SEGUIMIENTO = '1_596FX6yr8tX93UyIks4emSeE2_vxLJMDyw9Zncsnzs';
+  let hojaSeg;
+  try {
+    const archivoExterno = SpreadsheetApp.openById(ID_SEGUIMIENTO);
+    hojaSeg = archivoExterno.getSheetByName('Graduados');
+    if (!hojaSeg) {
+      for (const s of archivoExterno.getSheets()) {
+        if (s.getSheetId() === 676353499) { hojaSeg = s; break; }
+      }
+    }
+  } catch (e) {
+    ui.alert('❌ Error', 'No se pudo abrir el archivo externo:\n' + e.message, ui.ButtonSet.OK);
+    return;
+  }
+  if (!hojaSeg) {
+    ui.alert('❌ Error', 'No se encontró la hoja "Graduados" en el archivo externo.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Obtener nombres y CreamosIDs ya registrados en el seguimiento
+  const datosSeg = hojaSeg.getLastRow() > 1 ? hojaSeg.getRange(2, 1, hojaSeg.getLastRow() - 1, 7).getValues() : [];
+  const yaRegistrados = new Set();
+  datosSeg.forEach(r => {
+    if (r[2]) yaRegistrados.add(r[2].toString().trim()); // Creamos ID (col C = índice 2)
+    if (r[3]) yaRegistrados.add(r[3].toString().trim()); // Nombre (col D = índice 3)
+  });
+
+  const datosCohorte = hojaCohorte.getDataRange().getValues();
+  let enviadas = 0;
+  let omitidas = 0;
+
+  for (let i = 1; i < datosCohorte.length; i++) {
+    const fila = datosCohorte[i];
+    if (!fila[4] || fila[8] !== 'Graduada') continue; // Solo Graduadas con nombre
+
+    const creamosId = fila[2] ? fila[2].toString().trim() : '';
+    const nombre = fila[4].toString().trim();
+
+    // Verificar si ya está registrada (por Creamos ID o por Nombre)
+    const yaExiste = (creamosId && yaRegistrados.has(creamosId)) || yaRegistrados.has(nombre);
+    if (yaExiste) { omitidas++; continue; }
+
+    // Enviar al seguimiento
+    enviarAArchivoSeguimiento(fila[2], fila[4], fila[6], fila[7], nombreCohorte);
+    yaRegistrados.add(nombre);
+    if (creamosId) yaRegistrados.add(creamosId);
+    enviadas++;
+  }
+
+  ui.alert('✅ Reenvío completado',
+    'Cohorte: ' + nombreCohorte + '\n\n' +
+    '• ' + enviadas + ' participante(s) enviadas al archivo de seguimiento\n' +
+    '• ' + omitidas + ' ya estaban registradas (omitidas)',
+    ui.ButtonSet.OK);
+}
+
+/**
+ * Versión del menú — usa la hoja activa como cohorte
+ */
+function reenviarDesdeMenuCohorte() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hojaActiva = ss.getActiveSheet();
+  const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Seleccionadas', 'Cohortes',
+                            'Graduadas', 'Deserciones', 'No Seleccionadas', 'Reporte',
+                            'Reportes Mensuales', 'Lista Definitiva', 'Detalle Entrevistas'];
+  if (hojasPrincipales.includes(hojaActiva.getName())) {
+    SpreadsheetApp.getUi().alert('⚠️ Aviso',
+      'Esta función debe usarse estando en la hoja de la cohorte (ej. "Barismo Cohorte 1").\n\n' +
+      'Ve a la hoja de la cohorte y vuelve a ejecutar.',
+      SpreadsheetApp.getUi().ButtonSet.OK);
+    return;
+  }
+  reenviarCohorteAlSeguimiento(hojaActiva.getName(), hojaActiva);
+}
+
+/**
+ * Aplica formato condicional a una hoja de cohorte:
+ * - Resalta Creamos ID (col C) en naranja si Nombre (col E) está lleno y col C está vacío
+ */
+function aplicarFormatoCohorte(hojaCohorte) {
+  const rangoNombre = hojaCohorte.getRange('E2:E200');
+  const rangoID = hojaCohorte.getRange('C2:C200');
+
+  // Resaltar Creamos ID vacío cuando hay nombre: fórmula =AND(E2<>"",C2="")
+  const reglaIDVacio = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=AND($E2<>"",$C2="")')
+    .setBackground('#ffe0b2')  // Naranja claro
+    .setFontColor('#e65100')
+    .setRanges([rangoID])
+    .build();
+
+  const reglasActuales = hojaCohorte.getConditionalFormatRules().filter(
+    r => r.getRanges().every(rng => rng.getA1Notation() !== 'C2:C200')
+  );
+  reglasActuales.push(reglaIDVacio);
+  hojaCohorte.setConditionalFormatRules(reglasActuales);
+}
+
+/**
+ * Instalación v4 — Auto-fill, formatos en cohortes, reenvío de graduadas
+ */
+function instalarV4() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const confirmacion = ui.alert(
+    '🆕 Actualización v4 — Sin borrar datos',
+    'Esta actualización agrega:\n\n' +
+    '• Auto-rellenar Fecha y No. al escribir nombre en hojas de cohorte\n' +
+    '• Resaltar Creamos ID vacíos en hojas de cohorte (naranja)\n' +
+    '• Hoja "Lista Definitiva" (si no existe)\n' +
+    '• Limpia cohortes eliminadas del desplegable\n' +
+    '• Actualiza validaciones y fórmulas\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) return;
+
+  const cambios = [];
+
+  try {
+    // 1. Lista Definitiva
+    if (!ss.getSheetByName('Lista Definitiva')) {
+      crearHojaListaDefinitiva();
+      cambios.push('✅ Hoja "Lista Definitiva" creada');
+    } else {
+      cambios.push('ℹ️ "Lista Definitiva" ya existía');
+    }
+
+    // 2. Limpiar cohortes sin hoja
+    const eliminadas = limpiarCohortesEliminadas(true);
+    if (eliminadas > 0) {
+      cambios.push('✅ ' + eliminadas + ' cohorte(s) eliminadas del registro');
+    }
+
+    // 3. Validaciones
+    configurarValidaciones();
+    cambios.push('✅ Validaciones actualizadas');
+
+    // 4. Fórmulas
+    repararFormulas();
+    cambios.push('✅ Fórmulas de Cohortes corregidas');
+
+    // 5. Aplicar formato a todas las hojas de cohorte actuales
+    const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Seleccionadas', 'Cohortes',
+                              'Graduadas', 'Deserciones', 'No Seleccionadas', 'Reporte',
+                              'Reportes Mensuales', 'Lista Definitiva', 'Detalle Entrevistas'];
+    let cohortesFormateadas = 0;
+    ss.getSheets().forEach(s => {
+      if (!hojasPrincipales.includes(s.getName()) && s.getLastRow() > 1) {
+        try { aplicarFormatoCohorte(s); cohortesFormateadas++; } catch (e) {}
+      }
+    });
+    if (cohortesFormateadas > 0) {
+      cambios.push('✅ Formato de Creamos ID aplicado a ' + cohortesFormateadas + ' hojas de cohorte');
+    }
+
+    ss.toast(
+      '🆕 ACTUALIZACIÓN v4 COMPLETADA\n\n' + cambios.join('\n') + '\n\nTus datos están intactos.',
+      'Actualización',
+      12
+    );
+
+  } catch (error) {
+    ss.toast('❌ Error en actualización: ' + error.message, 'ERROR', 10);
+    Logger.log('❌ Error v4: ' + error.message);
+  }
 }
 
 // Función procesarCambioEstadoParticipante eliminada - ya no hay Estado en Seleccionadas
