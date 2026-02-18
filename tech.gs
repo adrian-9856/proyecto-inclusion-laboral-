@@ -171,7 +171,8 @@ function onOpen() {
       .addItem('🔄 Importación Automática', 'configurarImportacionAutomatica')
       .addItem('📝 Importar Entrevistas (Detalle)', 'importarEntrevistasDesdeKobo')
       .addSeparator()
-      .addItem('📧 Configurar Email', 'configurarEmail')
+      .addItem('📧 Configurar Email General', 'configurarEmail')
+      .addItem('📧 Configurar Email Eva', 'configurarEmailEva')
       .addItem('✉️ Probar Email', 'probarEmail')
       .addSeparator()
       .addItem('⏰ Instalar Triggers', 'instalarTriggers')
@@ -191,10 +192,12 @@ function onOpen() {
       .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
       .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos'))
     .addSeparator()
-    .addItem('🚀 Instalar Sistema', 'instalarSistema')
+    .addItem('🚀 INSTALAR TODO (Completo)', 'instalarTodo')
     .addItem('🆕 Actualizar v4 (sin borrar datos)', 'instalarV4')
+    .addItem('⚙️ Instalar Sistema (solo hojas)', 'instalarSistema')
     .addItem('🧹 Limpiar cohortes eliminadas', 'limpiarCohortesEliminadas')
     .addItem('🔄 Reenviar graduadas al seguimiento', 'reenviarDesdeMenuCohorte')
+    .addItem('📖 Ver Guía de Uso', 'verGuiaUso')
     .addItem('✅ Verificar Instalación', 'verificarInstalacion')
     .addToUi();
 
@@ -1543,6 +1546,9 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
 
   ss.toast('📋 Deserción registrada: ' + motivo, 'Cohorte ' + nombreCohorte, 4);
 
+  // Enviar email a Eva con recordatorio de Salesforce
+  enviarEmailDesercionEva(nombre, nombreCohorte, motivo, creamosId);
+
   // Recordatorio Salesforce: actualizar etapa en el CRM
   ui.alert(
     '⚠️ Recordatorio Salesforce',
@@ -1852,11 +1858,13 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
   const datosCohorte = hojaCohorte.getDataRange().getValues();
   const fechaGraduacion = new Date();
   let graduadasCount = 0;
+  const listaParaEmail = [];
 
   for (let i = 1; i < datosCohorte.length; i++) {
     const fila = datosCohorte[i];
     // Solo procesar si tiene nombre y no tiene estado (o estado vacío)
     if (fila[4] && (!fila[8] || fila[8] === '')) {
+      listaParaEmail.push({ nombre: fila[4], creamosId: fila[2] || '' });
       const nuevaFilaGrad = graduadas.getLastRow() + 1;
 
       // Si no tiene Creamos ID, agregar nota
@@ -1893,6 +1901,8 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
   // (evita fallos por cuota/caché al llamar openById múltiples veces)
   if (graduadasCount > 0) {
     reenviarCohorteAlSeguimiento(nombreCohorte, hojaCohorte, true); // silencioso = toast only
+    // Enviar email con lista completa de graduadas
+    enviarEmailListaGraduadas(nombreCohorte, listaParaEmail);
   }
 
   // Recordatorio Salesforce para toda la cohorte
@@ -3883,6 +3893,9 @@ function repararFormulas() {
     }
   }
 
+  // Reparar también las fórmulas del Reporte
+  repararFormulasReporte();
+
   ss.toast('✅ Fórmulas reparadas en todas las hojas', 'OK', 4);
 }
 
@@ -4254,6 +4267,502 @@ function actualizarTodosDesdeDirectorio(silencioso) {
     '(Solo se rellenaron celdas vacías, no se borró nada)';
   if (!silencioso) ui.alert('Actualizar Todo desde CREAMOS ID', mensaje, ui.ButtonSet.OK);
   Logger.log(mensaje);
+}
+
+// =====================================================================
+// EMAIL EVA — NOTIFICACIONES DESERCIÓN Y GRADUACIÓN
+// =====================================================================
+
+function obtenerEmailEva() {
+  const props = PropertiesService.getDocumentProperties();
+  return props.getProperty('EMAIL_EVA') || obtenerEmailConfiguracion();
+}
+
+function configurarEmailEva() {
+  const ui = SpreadsheetApp.getUi();
+  const emailActual = obtenerEmailEva();
+  const respuesta = ui.prompt(
+    '📧 Email de Eva',
+    'Email actual: ' + emailActual + '\n\nNuevo email de Eva para alertas de deserción y graduación:',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (respuesta.getSelectedButton() === ui.Button.OK) {
+    const nuevoEmail = respuesta.getResponseText().trim();
+    if (nuevoEmail && nuevoEmail.includes('@')) {
+      PropertiesService.getDocumentProperties().setProperty('EMAIL_EVA', nuevoEmail);
+      SpreadsheetApp.getActiveSpreadsheet().toast('✅ Email de Eva configurado: ' + nuevoEmail, 'OK', 4);
+    } else {
+      SpreadsheetApp.getActiveSpreadsheet().toast('❌ Email inválido. Ingresa un email válido.', 'Error', 4);
+    }
+  }
+}
+
+function enviarEmailDesercionEva(nombre, cohorte, motivo, creamosId) {
+  try {
+    const emailEva   = obtenerEmailEva();
+    const emailNotif = obtenerEmailConfiguracion();
+    const fecha = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+
+    const asunto = '⚠️ Deserción — ' + nombre + ' — Actualizar Salesforce';
+    const cuerpo =
+      'Hola Eva,\n\n' +
+      'Se registró la siguiente DESERCIÓN en el Sistema de Inclusión Laboral:\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+      'Nombre:      ' + nombre + '\n' +
+      (creamosId ? 'Creamos ID:  ' + creamosId + '\n' : '') +
+      'Cohorte:     ' + cohorte + '\n' +
+      'Motivo:      ' + motivo + '\n' +
+      'Fecha:       ' + fecha + '\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '⚠️ ACCIÓN REQUERIDA EN SALESFORCE:\n' +
+      'Por favor, cambia la etapa de esta participante a "Deserción"\n' +
+      'para mantener el CRM actualizado.\n\n' +
+      'Mensaje automático — Sistema de Inclusión Laboral Tecnología';
+
+    const destinatarios = [emailEva];
+    if (emailNotif && emailNotif !== emailEva) destinatarios.push(emailNotif);
+    MailApp.sendEmail(destinatarios.join(','), asunto, cuerpo);
+    Logger.log('✅ Email deserción enviado a: ' + destinatarios.join(', '));
+  } catch (e) {
+    Logger.log('Error email deserción Eva: ' + e.message);
+  }
+}
+
+function enviarEmailListaGraduadas(nombreCohorte, listaGraduadas) {
+  try {
+    if (!listaGraduadas || listaGraduadas.length === 0) return;
+    const emailEva   = obtenerEmailEva();
+    const emailNotif = obtenerEmailConfiguracion();
+    const fecha = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+
+    const asunto = '🎓 Graduación completada — ' + nombreCohorte + ' (' + listaGraduadas.length + ' participantes)';
+
+    let listaTexto = '';
+    listaGraduadas.forEach(function(p, idx) {
+      listaTexto += (idx + 1) + '. ' + p.nombre;
+      if (p.creamosId) listaTexto += '   |   Creamos ID: ' + p.creamosId;
+      listaTexto += '\n';
+    });
+
+    const cuerpo =
+      'Hola Eva,\n\n' +
+      'La cohorte "' + nombreCohorte + '" ha sido graduada exitosamente.\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+      'Fecha:            ' + fecha + '\n' +
+      'Cohorte:          ' + nombreCohorte + '\n' +
+      'Total graduadas:  ' + listaGraduadas.length + ' participantes\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      'LISTA DE GRADUADAS:\n\n' +
+      listaTexto +
+      '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '⚠️ ACCIÓN REQUERIDA EN SALESFORCE:\n' +
+      'Por favor, actualiza la etapa de TODAS las participantes listadas a "Graduada"\n' +
+      'para mantener el CRM al día.\n\n' +
+      'Mensaje automático — Sistema de Inclusión Laboral Tecnología';
+
+    const destinatarios = [emailEva];
+    if (emailNotif && emailNotif !== emailEva) destinatarios.push(emailNotif);
+    MailApp.sendEmail(destinatarios.join(','), asunto, cuerpo);
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      '📧 Email con ' + listaGraduadas.length + ' graduadas enviado a Eva', 'Email', 5);
+    Logger.log('✅ Email graduación enviado a: ' + destinatarios.join(', '));
+  } catch (e) {
+    Logger.log('Error email graduación: ' + e.message);
+    SpreadsheetApp.getActiveSpreadsheet().toast('⚠️ No se pudo enviar email de graduación: ' + e.message, 'Email', 4);
+  }
+}
+
+// =====================================================================
+// REPARAR FÓRMULAS DEL REPORTE
+// =====================================================================
+
+function repararFormulasReporte() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const reporte = ss.getSheetByName('Reporte');
+  if (!reporte) return;
+
+  // B28: Participantes activas en cohortes (antes era =B11, que solo mostraba Seleccionadas)
+  reporte.getRange('B28').setFormula(
+    '=IFERROR(SUMIF(Cohortes!A:A,"<>",Cohortes!G:G)' +
+    '-SUMIF(Cohortes!A:A,"<>",Cohortes!H:H)' +
+    '-SUMIF(Cohortes!A:A,"<>",Cohortes!I:I),0)'
+  );
+
+  // B26: Total personas atendidas (incluye todas las etapas activas + históricas)
+  reporte.getRange('B26').setFormula('=B5+B8+B11+B28+B17+B20+B23');
+
+  // C8: Entrevistas pendientes (solo filas con nombre Y sin resultado — evita contar celdas vacías)
+  reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(Entrevistas!D:D,"<>",Entrevistas!I:I,""),0)');
+
+  Logger.log('✅ Fórmulas del Reporte reparadas');
+}
+
+// =====================================================================
+// INSTALAR TODO — BOTÓN MAESTRO DE INSTALACIÓN COMPLETA
+// =====================================================================
+
+function instalarTodo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const confirmacion = ui.alert(
+    '🚀 Instalación Completa del Sistema',
+    'Esta función configurará TODO el sistema:\n\n' +
+    '✓ Crear todas las hojas necesarias\n' +
+    '✓ Configurar validaciones y formatos\n' +
+    '✓ Instalar fórmulas en todas las hojas\n' +
+    '✓ Instalar triggers automáticos\n' +
+    '✓ Importar datos de ambos Kobos\n' +
+    '✓ Reparar fórmulas del Reporte\n' +
+    '✓ Crear/actualizar Guía de Uso\n\n' +
+    '⚠️ NO se borrará "Copy of CREAMOS ID nuevo"\n' +
+    '⚠️ NO se borrarán datos existentes\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) return;
+
+  const cambios = [];
+
+  try {
+    // 1. Crear hojas del sistema (respeta las existentes y CREAMOS ID)
+    ss.toast('📋 Verificando hojas del sistema...', 'Instalando', 5);
+    crearTodasLasHojas();
+    cambios.push('✅ Hojas del sistema verificadas');
+
+    // 2. Lista Definitiva
+    if (!ss.getSheetByName('Lista Definitiva')) {
+      crearHojaListaDefinitiva();
+      cambios.push('✅ Hoja Lista Definitiva creada');
+    }
+
+    // 3. Guía de Uso
+    ss.toast('📖 Creando Guía de Uso...', 'Instalando', 5);
+    crearHojaGuiaUso();
+    cambios.push('✅ Guía de Uso creada/actualizada');
+
+    // 4. Validaciones
+    ss.toast('✅ Configurando validaciones...', 'Instalando', 5);
+    configurarValidaciones();
+    cambios.push('✅ Validaciones configuradas');
+
+    // 5. Formatos
+    ss.toast('🎨 Aplicando formatos...', 'Instalando', 5);
+    aplicarFormatos();
+    cambios.push('✅ Formatos aplicados');
+
+    // 6. Fórmulas
+    ss.toast('🔧 Instalando fórmulas...', 'Instalando', 5);
+    repararFormulas();
+    cambios.push('✅ Fórmulas instaladas y reparadas');
+
+    // 7. Formato en hojas de cohorte existentes
+    const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Seleccionadas', 'Cohortes',
+      'Graduadas', 'Deserciones', 'No Seleccionadas', 'Reporte',
+      'Reportes Mensuales', 'Lista Definitiva', 'Detalle Entrevistas', 'Guía de Uso'];
+    let cohortesFormateadas = 0;
+    ss.getSheets().forEach(function(s) {
+      const nombre = s.getName();
+      if (!hojasPrincipales.includes(nombre) &&
+          !nombre.startsWith('Copy of') &&
+          !nombre.includes('Auto Refresh') &&
+          s.getLastRow() > 1) {
+        try { aplicarFormatoCohorte(s); cohortesFormateadas++; } catch (e) {}
+      }
+    });
+    if (cohortesFormateadas > 0) {
+      cambios.push('✅ Formato aplicado a ' + cohortesFormateadas + ' cohorte(s)');
+    }
+
+    // 8. Limpiar cohortes huérfanas del desplegable
+    const eliminadas = limpiarCohortesEliminadas(true);
+    if (eliminadas > 0) cambios.push('✅ ' + eliminadas + ' cohorte(s) huérfanas limpiadas');
+
+    // 9. Triggers
+    ss.toast('⏰ Instalando triggers automáticos...', 'Instalando', 5);
+    instalarTriggers();
+    cambios.push('✅ Triggers automáticos instalados');
+
+    // 10. Importar desde Kobo — Hoja de Interés
+    ss.toast('📥 Importando Hoja de Interés desde Kobo...', 'Instalando', 8);
+    try {
+      importarDesdeKobo();
+      cambios.push('✅ Hoja de Interés importada desde Kobo');
+    } catch (e) {
+      cambios.push('⚠️ Kobo Registros: ' + e.message);
+    }
+
+    // 11. Importar desde Kobo — Entrevistas
+    ss.toast('📥 Importando Entrevistas desde Kobo...', 'Instalando', 8);
+    try {
+      importarEntrevistasDesdeKobo();
+      cambios.push('✅ Entrevistas importadas desde Kobo');
+    } catch (e) {
+      cambios.push('⚠️ Kobo Entrevistas: ' + e.message);
+    }
+
+    // 12. Actualizar reporte final
+    actualizarReportes();
+    cambios.push('✅ Reporte actualizado');
+
+    ss.toast(
+      '🚀 INSTALACIÓN COMPLETA\n\n' +
+      cambios.join('\n') +
+      '\n\n🎯 El sistema está listo para usar.',
+      'LISTO', 15
+    );
+
+    Logger.log('✅ instalarTodo completado: ' + cambios.join(' | '));
+
+  } catch (error) {
+    ss.toast('❌ Error en instalación: ' + error.message, 'ERROR', 10);
+    Logger.log('❌ Error en instalarTodo: ' + error.message);
+  }
+}
+
+function verGuiaUso() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let guia = ss.getSheetByName('Guía de Uso');
+  if (!guia) {
+    crearHojaGuiaUso();
+    guia = ss.getSheetByName('Guía de Uso');
+  }
+  if (guia) ss.setActiveSheet(guia);
+}
+
+// =====================================================================
+// GUÍA DE USO — HOJA DE DOCUMENTACIÓN
+// =====================================================================
+
+function crearHojaGuiaUso() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const existente = ss.getSheetByName('Guía de Uso');
+  if (existente) ss.deleteSheet(existente);
+  const sheet = ss.insertSheet('Guía de Uso');
+
+  const AZUL_OSCURO  = '#1565c0';
+  const AZUL_MEDIO   = '#1976d2';
+  const AZUL_CLARO   = '#e3f2fd';
+  const VERDE_CLARO  = '#e8f5e9';
+  const AMARILLO     = '#fff9c4';
+  const GRIS_CLARO   = '#f5f5f5';
+  const BLANCO       = '#ffffff';
+
+  const filas = [
+    // 1 — Título principal
+    ['GUÍA DE USO — SISTEMA DE INCLUSIÓN LABORAL TECNOLOGÍA', '', ''],
+    // 2 — Subtítulo
+    ['Versión 4  ·  Actualizada: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy'), '', ''],
+    // 3 — Espacio
+    ['', '', ''],
+    // 4 — Sección 1
+    ['1. ¿QUÉ ES ESTE SISTEMA?', '', ''],
+    // 5-7 — Descripción
+    ['Este sistema de Google Sheets gestiona todo el ciclo de vida de las participantes del programa de Inclusión Laboral – Tecnología de CREAMOS.', '', ''],
+    ['Desde que una persona se registra en KoboToolbox hasta que se gradúa, el sistema lleva el control de cada etapa y automatiza las notificaciones.', '', ''],
+    ['', '', ''],
+    // 8 — Sección 2
+    ['2. FLUJO DE TRABAJO (paso a paso)', '', ''],
+    // 9-17 — Pasos
+    ['①', 'La persona completa el formulario de registro en KoboToolbox'],
+    ['②', 'Usar menú: 📋 Importar Hoja de Interés (Kobo) → Los datos llegan a la hoja "Hoja de Interés"'],
+    ['③', 'En "Hoja de Interés": cambiar columna Estado a "Entrevista Programada" → pasa automáticamente a "Entrevistas"'],
+    ['④', 'En "Entrevistas": después de la entrevista, cambiar columna Resultado (col. I):'],
+    ['  →', '"Aprobada"  →  pasa a hoja "Seleccionadas" automáticamente'],
+    ['  →', '"No aprobada" / "No asistió"  →  pasa a "No Seleccionadas" automáticamente'],
+    ['⑤', 'En "Seleccionadas": usar menú Cohortes → Enviar Participantes a Cohorte'],
+    ['⑥', 'En la hoja de la cohorte: cambiar columna Estado (col. I):'],
+    ['  →', '"Graduada"  →  pasa a "Graduadas" + se envía email automático a Eva con lista'],
+    ['  →', '"Deserción"  →  pasa a "Deserciones" + se envía email automático a Eva con alerta Salesforce'],
+    ['', '', ''],
+    // 19 — Sección 3
+    ['3. DESCRIPCIÓN DE CADA HOJA', '', ''],
+    // 20 — Encabezado tabla
+    ['HOJA', 'QUÉ CONTIENE / PARA QUÉ SIRVE'],
+    // 21-33 — Hojas
+    ['Hoja de Interés',          'Personas que se registraron y aún no han tenido entrevista. Primera etapa del flujo.'],
+    ['Entrevistas',              'Personas con entrevista programada, pendientes de resultado. Segunda etapa.'],
+    ['Seleccionadas',            'Personas aprobadas en entrevista, esperando ser asignadas a una cohorte. Tercera etapa.'],
+    ['Cohortes',                 'Tabla resumen de todas las cohortes: nombre, programa, fechas, estadísticas automáticas.'],
+    ['[Nombre de Cohorte]',      'Hoja individual por cohorte con la lista de participantes activas. Se crea al crear la cohorte.'],
+    ['Graduadas',                'Registro histórico de todas las personas que completaron el programa.'],
+    ['Deserciones',              'Registro de personas que abandonaron con fecha, cohorte y motivo.'],
+    ['No Seleccionadas',         'Personas que no pasaron la entrevista o no quisieron continuar.'],
+    ['Lista Definitiva',         'Vista consolidada de todos los registros activos en el sistema.'],
+    ['Reporte',                  'Estadísticas generales del programa: totales por etapa, tasa de éxito, etc.'],
+    ['Reportes Mensuales',       'Histórico de reportes guardados mes a mes (usar "Guardar Reporte Mensual").'],
+    ['Detalle Entrevistas',      'Respuestas completas del formulario de entrevistas importadas desde Kobo.'],
+    ['Guía de Uso',              'Esta hoja — instrucciones y documentación del sistema.'],
+    ['Copy of CREAMOS ID nuevo', '⚠️ Hoja de Salesforce — sincronización automática. NO EDITAR NI BORRAR.'],
+    ['Auto Refresh Execution Log','⚠️ Registro automático de sincronizaciones de Salesforce. NO BORRAR.'],
+    ['', '', ''],
+    // Sección 4
+    ['4. OPCIONES DEL MENÚ  🎓 Inclusión Laboral', '', ''],
+    ['OPCIÓN DE MENÚ', 'QUÉ HACE'],
+    ['📋 Importar Hoja de Interés (Kobo)',    'Trae nuevos registros desde el formulario de registro de KoboToolbox. No duplica.'],
+    ['🔁 Actualizar desde CREAMOS ID',        'Rellena automáticamente los Creamos IDs consultando la hoja maestra de Salesforce.'],
+    ['📊 Actualizar Reportes',                'Recalcula todos los números del Reporte (también se actualiza automáticamente cada hora).'],
+    ['💾 Guardar Reporte Mensual',            'Guarda una copia del reporte actual en la hoja "Reportes Mensuales" con fecha.'],
+    ['➕ Crear Nueva Cohorte',               'Crea una nueva hoja de cohorte y la registra en la tabla Cohortes.'],
+    ['📝 Ver/Editar Cohortes',               'Muestra el resumen de todas las cohortes.'],
+    ['📊 Estadísticas por Cohorte',          'Estadísticas detalladas de una cohorte específica + opción para graduar toda la cohorte.'],
+    ['👥 Enviar Participantes a Cohorte',    'Mueve personas seleccionadas de "Seleccionadas" a la cohorte que elijas.'],
+    ['🚀 INSTALAR TODO (Completo)',          'Configura TODO el sistema de una sola vez: hojas, fórmulas, triggers, Kobo, guía.'],
+    ['🆕 Actualizar v4',                    'Solo actualiza validaciones, fórmulas y formatos SIN borrar datos.'],
+    ['🔧 Reparar Fórmulas',                 'Repara fórmulas de numeración, cohortes y el Reporte.'],
+    ['🔗 URL Registros Kobo',               'Cambia la URL del formulario de registro en KoboToolbox.'],
+    ['🔗 URL Entrevistas Kobo',             'Cambia la URL del formulario de entrevistas en KoboToolbox.'],
+    ['📧 Configurar Email General',         'Cambia el email para notificaciones generales del sistema.'],
+    ['📧 Configurar Email Eva',             'Configura el email específico de Eva para alertas de deserción y graduación.'],
+    ['✉️ Probar Email',                     'Envía un email de prueba para verificar que el correo funcione.'],
+    ['⏰ Instalar Triggers',               'Instala las automatizaciones que actualizan el sistema cada hora.'],
+    ['📖 Ver Guía de Uso',                 'Navega directamente a esta hoja.'],
+    ['', '', ''],
+    // Sección 5
+    ['5. ACCIONES EN HOJAS DE COHORTE', '', ''],
+    ['Cada hoja de cohorte tiene una columna "Estado" (columna I). Al cambiar ese valor el sistema actúa automáticamente:', '', ''],
+    ['ESTADO QUE SE ESCRIBE', 'QUÉ OCURRE AUTOMÁTICAMENTE'],
+    ['Graduada',     'La participante se mueve a la hoja "Graduadas" + la fila queda verde en la cohorte'],
+    ['Deserción',    'El sistema pide el motivo + la participante pasa a "Deserciones" + se envía email a Eva'],
+    ['Para graduar TODA la cohorte de una vez:', 'Menú → Cohortes → Estadísticas por Cohorte → botón "Graduar toda la cohorte"', ''],
+    ['', '', ''],
+    // Sección 6
+    ['6. CORREOS AUTOMÁTICOS', '', ''],
+    ['CUÁNDO', 'A QUIÉN', 'CONTENIDO'],
+    ['Al registrar una deserción',          'Eva + Email general',  'Nombre, cohorte, motivo + recordatorio de actualizar Salesforce'],
+    ['Al graduar toda la cohorte',          'Eva + Email general',  'Lista completa de graduadas con Creamos IDs + recordatorio Salesforce'],
+    ['Para configurar los emails:',         'Menú → ⚙️ Configuración → 📧 Configurar Email Eva', ''],
+    ['', '', ''],
+    // Sección 7
+    ['7. HOJAS DE SALESFORCE — NO TOCAR', '', ''],
+    ['"Copy of CREAMOS ID nuevo"',          'Reporte de Salesforce sincronizado automáticamente. El sistema usa esta hoja para rellenar Creamos IDs.'],
+    ['"Auto Refresh Execution Log"',        'Registro de cuándo se sincronizó. Es normal que aparezca. NO borrar ni editar.'],
+    ['⚠️ NUNCA borres estas hojas.',        'El sistema depende de ellas para los Creamos IDs y la integración con Salesforce.'],
+    ['', '', ''],
+    // Sección 8
+    ['8. PREGUNTAS FRECUENTES', '', ''],
+    ['PREGUNTA', 'RESPUESTA'],
+    ['¿Por qué "Entrevistas realizadas" muestra 0?',
+     '"Entrevistas" solo muestra entrevistas PENDIENTES. Al marcarlas Aprobada/No aprobada, se mueven y desaparecen. Es correcto.'],
+    ['¿Cómo actualizo los datos de Kobo?',
+     'Menú → 📋 Importar Hoja de Interés (Kobo). Solo trae registros nuevos, no duplica existentes.'],
+    ['¿Puedo borrar filas manualmente?',
+     'NO recomendado. Usa los botones del menú para mover personas entre etapas. Borrar manualmente omite emails y registros.'],
+    ['¿Qué significa la celda naranja en Creamos ID?',
+     'La participante no tiene Creamos ID asignado. Asígnalo en Salesforce y usa "Actualizar desde CREAMOS ID".'],
+    ['¿Cada cuánto se actualiza automáticamente?',
+     'Cada hora gracias a los triggers. También al abrir el archivo. Puedes forzarlo con "Actualizar Reportes".'],
+    ['¿El email no llega?',
+     'Verifica con Menú → ✉️ Probar Email. Si falla, revisa que el email esté bien configurado con 📧 Configurar Email Eva.'],
+    ['¿Puedo tener más de una cohorte activa?',
+     'Sí. Cada cohorte tiene su propia hoja. Puedes crear tantas como necesites con "Crear Nueva Cohorte".'],
+    ['', '', '']
+  ];
+
+  // Escribir todo el contenido
+  const maxCols = 3;
+  const numFilas = filas.length;
+  const data = filas.map(function(f) {
+    while (f.length < maxCols) f.push('');
+    return f.slice(0, maxCols);
+  });
+  sheet.getRange(1, 1, numFilas, maxCols).setValues(data);
+
+  // ── Formateo ──────────────────────────────────────────────────────
+
+  // Título principal
+  sheet.getRange('A1:C1').merge().setBackground(AZUL_OSCURO).setFontColor('white')
+    .setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
+  sheet.setRowHeight(1, 48);
+
+  // Subtítulo
+  sheet.getRange('A2:C2').merge().setBackground(AZUL_CLARO).setFontColor('#1a237e')
+    .setFontSize(10).setHorizontalAlignment('center');
+
+  // Función helper: marcar encabezado de sección
+  function seccion(fila) {
+    sheet.getRange('A' + fila + ':C' + fila)
+      .merge().setBackground(AZUL_OSCURO).setFontColor('white')
+      .setFontWeight('bold').setFontSize(12);
+    sheet.setRowHeight(fila, 30);
+  }
+
+  // Función helper: marcar encabezado de tabla (fondo azul medio)
+  function tablaHeader(fila) {
+    sheet.getRange('A' + fila + ':C' + fila)
+      .setBackground(AZUL_MEDIO).setFontColor('white').setFontWeight('bold');
+  }
+
+  // Marcar secciones
+  seccion(4);   // ¿Qué es este sistema?
+  seccion(8);   // Flujo de trabajo
+  seccion(19);  // Descripción de hojas
+  seccion(37);  // Opciones del menú
+  seccion(57);  // Acciones en cohortes
+  seccion(64);  // Correos automáticos
+  seccion(71);  // Hojas Salesforce
+  seccion(76);  // FAQ
+
+  // Encabezados de tablas
+  tablaHeader(20);  // Hojas
+  tablaHeader(38);  // Menú
+  tablaHeader(60);  // Cohortes-estado
+  tablaHeader(67);  // Emails
+  tablaHeader(78);  // FAQ
+
+  // Colores alternos para filas de contenido de hojas (21-35)
+  for (var r = 21; r <= 35; r++) {
+    var bg = (r % 2 === 0) ? AZUL_CLARO : BLANCO;
+    sheet.getRange('A' + r + ':C' + r).setBackground(bg);
+  }
+  // Alerta para las hojas de Salesforce
+  sheet.getRange('A34:C34').setBackground('#fff3e0');
+  sheet.getRange('A35:C35').setBackground('#fff3e0');
+
+  // Colores alternos para menú (39-55)
+  for (var rm = 39; rm <= 55; rm++) {
+    var bgm = (rm % 2 === 0) ? AZUL_CLARO : BLANCO;
+    sheet.getRange('A' + rm + ':C' + rm).setBackground(bgm);
+  }
+
+  // Sección correos
+  sheet.getRange('A68:C68').setBackground(VERDE_CLARO);
+  sheet.getRange('A69:C69').setBackground(VERDE_CLARO);
+
+  // Sección Salesforce — alertas
+  sheet.getRange('A72:C72').setBackground('#fff3e0');
+  sheet.getRange('A73:C73').setBackground('#fff3e0');
+  sheet.getRange('A74:C74').setBackground('#ffccbc').setFontWeight('bold');
+
+  // FAQ alternos
+  for (var rf = 79; rf <= 85; rf++) {
+    var bgf = (rf % 2 === 0) ? AMARILLO : BLANCO;
+    sheet.getRange('A' + rf + ':C' + rf).setBackground(bgf);
+  }
+
+  // Pasos del flujo (9-17) — fondo verde claro con ícono col A
+  for (var rp = 9; rp <= 17; rp++) {
+    sheet.getRange('A' + rp + ':C' + rp).setBackground(VERDE_CLARO);
+    sheet.getRange('A' + rp).setFontWeight('bold');
+  }
+
+  // Anchos de columna
+  sheet.setColumnWidth(1, 280);
+  sheet.setColumnWidth(2, 400);
+  sheet.setColumnWidth(3, 200);
+
+  // Wrap text
+  sheet.getRange(1, 1, numFilas, maxCols).setWrap(true);
+
+  // Borde general
+  sheet.getRange(1, 1, numFilas, maxCols)
+    .setBorder(true, true, true, true, true, true, '#bbdefb', SpreadsheetApp.BorderStyle.SOLID);
+
+  // Congelar primera fila
+  sheet.setFrozenRows(1);
+
+  Logger.log('✅ Guía de Uso creada');
 }
 
 /**
