@@ -497,8 +497,9 @@ function crearHojaEntrevistas() {
     'Nombre Completo',    // D
     'Teléfono',           // E
     'Entrevistador',      // F - Desplegable (responsables)
-    'Observaciones',      // G
-    'Estado'              // H - Desplegable (última columna - trigger)
+    'Calificación',       // G
+    'Observaciones',      // H
+    'Estado'              // I - Desplegable (última columna - trigger)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -508,12 +509,12 @@ function crearHojaEntrevistas() {
     .setHorizontalAlignment('center');
 
   // Anchos de columna
-  [120, 80, 100, 200, 120, 120, 300, 150].forEach((w, i) => {
+  [120, 80, 100, 200, 120, 120, 120, 300, 150].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
   // Destacar columna "Estado"
-  sheet.getRange('H1').setBackground('#4caf50');
+  sheet.getRange('I1').setBackground('#4caf50');
 }
 
 /**
@@ -1043,8 +1044,8 @@ function configurarValidaciones() {
     entrevistas.getRange('F2:F500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(false).build()
     );
-    // Estado (H) - Resultado de entrevista (última columna)
-    entrevistas.getRange('H2:H500').setDataValidation(
+    // Estado (I) - Resultado de entrevista (última columna)
+    entrevistas.getRange('I2:I500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.RESULTADO_FINAL).setAllowInvalid(false).build()
     );
   }
@@ -1186,10 +1187,10 @@ function guardarResponsables(responsables) {
 function aplicarFormatos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Formato para Entrevistas - Estado (columna H)
+  // Formato para Entrevistas - Estado (columna I)
   const entrevistas = ss.getSheetByName('Entrevistas');
   if (entrevistas) {
-    const rangoEstadoEnt = entrevistas.getRange('H2:H500');
+    const rangoEstadoEnt = entrevistas.getRange('I2:I500');
 
     const reglaAprobada = SpreadsheetApp.newConditionalFormatRule()
       .whenTextContains('Aprobada').setBackground('#c8e6c9').setRanges([rangoEstadoEnt]).build();
@@ -1258,9 +1259,9 @@ function alEditar(e) {
   }
 
   // === ENTREVISTAS ===
-  // Estado está en columna H (8) - triggers automáticos según resultado
+  // Estado está en columna I (9) - triggers automáticos según resultado
   if (hoja === 'Entrevistas') {
-    if (columna === 8) {
+    if (columna === 9) {
       procesarResultadoEntrevista(sheet, fila, val);
     }
   }
@@ -1390,7 +1391,9 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
  */
 function procesarResultadoEntrevista(sheet, fila, resultado) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const datos = sheet.getRange(fila, 1, 1, 8).getValues()[0];
+  // Lee 9 columnas: A=Fecha, B=Hora, C=CreamosID, D=Nombre, E=Tel,
+  //                 F=Entrevistador, G=Calificación, H=Observaciones, I=Estado
+  const datos = sheet.getRange(fila, 1, 1, 9).getValues()[0];
   const creamosId = datos[2];
 
   if (resultado === 'Aprobada') {
@@ -1405,7 +1408,8 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
     // Orden: No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
-    // Entrevistas: [0]Fecha, [1]Hora, [2]CreamosID, [3]Nombre, [4]Tel, [5]Entrevistador, [6]Obs, [7]Estado
+    // Entrevistas: [0]Fecha, [1]Hora, [2]CreamosID, [3]Nombre, [4]Tel,
+    //              [5]Entrevistador, [6]Calificación, [7]Observaciones, [8]Estado
     const registroSeleccionadas = [
       nuevaFila - 1,
       creamosId,
@@ -1415,7 +1419,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       datos[4],                                     // Teléfono
       datosInteres ? datosInteres[7] : '',          // Nivel Educativo
       datosInteres ? datosInteres[8] : '',          // Zona
-      datos[6],                                     // Notas (Observaciones - columna G)
+      datos[7],                                     // Notas (Observaciones - columna H)
       ''                                            // Enviar a Cohorte (vacío)
     ];
 
@@ -1448,7 +1452,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       'Post-entrevista',    // Etapa
       motivo,
       'Entrevistas',        // Origen
-      datos[6],             // Notas (Observaciones - columna G)
+      datos[7],             // Notas (Observaciones - columna H)
       ''                    // Acción (vacío)
     ];
 
