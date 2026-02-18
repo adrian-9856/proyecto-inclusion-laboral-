@@ -192,6 +192,7 @@ function onOpen() {
       .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos'))
     .addSeparator()
     .addItem('🚀 Instalar Sistema', 'instalarSistema')
+    .addItem('🆕 Actualizar v2 (sin borrar datos)', 'instalarV2')
     .addItem('✅ Verificar Instalación', 'verificarInstalacion')
     .addToUi();
 
@@ -258,6 +259,58 @@ function instalarSistema() {
   } catch (error) {
     ss.toast('❌ Error: ' + error.message, 'ERROR', 10);
     Logger.log('❌ Error en instalación: ' + error.message);
+  }
+}
+
+/**
+ * Instalación v2 — Solo agrega funcionalidades nuevas SIN borrar datos existentes
+ * Usar cuando el sistema ya está instalado y se quiere actualizar
+ */
+function instalarV2() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const confirmacion = ui.alert(
+    '🆕 Actualización v2 — Sin borrar datos',
+    'Esta actualización agrega lo nuevo SIN eliminar hojas ni datos existentes:\n\n' +
+    '• Hoja "Lista Definitiva" (si no existe)\n' +
+    '• Actualiza validaciones de datos\n' +
+    '• Corrige fórmulas de Cohortes (Inscritas)\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) return;
+
+  const cambios = [];
+
+  try {
+    // 1. Crear Lista Definitiva si no existe
+    if (!ss.getSheetByName('Lista Definitiva')) {
+      crearHojaListaDefinitiva();
+      cambios.push('✅ Hoja "Lista Definitiva" creada');
+    } else {
+      cambios.push('ℹ️ "Lista Definitiva" ya existía');
+    }
+
+    // 2. Actualizar validaciones (no borra datos)
+    configurarValidaciones();
+    cambios.push('✅ Validaciones actualizadas');
+
+    // 3. Corregir fórmulas de Cohortes
+    repararFormulas();
+    cambios.push('✅ Fórmulas de Cohortes corregidas');
+
+    ss.toast(
+      '🆕 ACTUALIZACIÓN v2 COMPLETADA\n\n' + cambios.join('\n') + '\n\nTus datos están intactos.',
+      'Actualización',
+      10
+    );
+    Logger.log('✅ Actualización v2: ' + cambios.join(', '));
+
+  } catch (error) {
+    ss.toast('❌ Error en actualización: ' + error.message, 'ERROR', 10);
+    Logger.log('❌ Error v2: ' + error.message);
   }
 }
 
@@ -1717,13 +1770,14 @@ function procesarFinalizacionCohorte(sheet, fila) {
  */
 function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
   const graduadas = ss.getSheetByName('Graduadas');
 
   const datosCohorte = hojaCohorte.getDataRange().getValues();
   const fechaGraduacion = new Date();
+  let graduadasCount = 0;
 
-  // Procesar de abajo hacia arriba para no afectar los índices
-  for (let i = datosCohorte.length - 1; i >= 1; i--) {
+  for (let i = 1; i < datosCohorte.length; i++) {
     const fila = datosCohorte[i];
     // Solo procesar si tiene nombre y no tiene estado (o estado vacío)
     if (fila[4] && (!fila[8] || fila[8] === '')) {
@@ -1746,9 +1800,22 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
       // Enviar automáticamente al archivo externo de seguimiento
       enviarAArchivoSeguimiento(fila[2], fila[4], fila[6], fila[7], nombreCohorte);
 
-      // Eliminar de la hoja de cohorte
-      hojaCohorte.deleteRow(i + 1);
+      // Marcar como Graduada en la hoja de cohorte (NO eliminar — la hoja queda como archivo)
+      hojaCohorte.getRange(i + 1, 9).setValue('Graduada');
+      hojaCohorte.getRange(i + 1, 1, 1, 9).setBackground('#e8f5e9'); // Verde claro = graduada
+
+      graduadasCount++;
     }
+  }
+
+  // Recordatorio Salesforce para toda la cohorte
+  if (graduadasCount > 0) {
+    ui.alert(
+      '⚠️ Recordatorio Salesforce',
+      graduadasCount + ' participante(s) de la cohorte "' + nombreCohorte + '" han sido graduadas.\n\n' +
+      'Recuerda cambiar la etapa en Salesforce a "Graduada" para mantener el CRM actualizado.',
+      ui.ButtonSet.OK
+    );
   }
 }
 
@@ -1781,10 +1848,19 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   // Enviar automáticamente al archivo externo de seguimiento
   enviarAArchivoSeguimiento(datos[2], datos[4], datos[6], datos[7], nombreCohorte);
 
-  // Eliminar de la hoja de cohorte
-  sheet.deleteRow(fila);
+  // Marcar como Graduada en la hoja de cohorte (NO eliminar — queda como archivo)
+  sheet.getRange(fila, 9).setValue('Graduada');
+  sheet.getRange(fila, 1, 1, 9).setBackground('#e8f5e9'); // Verde claro = graduada
 
   ss.toast('🎓 ' + datos[4] + ' graduada exitosamente', 'Completado', 3);
+
+  // Recordatorio Salesforce
+  SpreadsheetApp.getUi().alert(
+    '⚠️ Recordatorio Salesforce',
+    datos[4] + ' ha sido graduada.\n\n' +
+    'Recuerda cambiar la etapa en Salesforce a "Graduada" para mantener el CRM actualizado.',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
 }
 
 // Función procesarCambioEstadoParticipante eliminada - ya no hay Estado en Seleccionadas
