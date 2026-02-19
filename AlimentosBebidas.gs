@@ -1328,8 +1328,8 @@ function alEditar(e) {
 
 /**
  * Procesa cambio de estado en Hoja de Interés
- * - "No interesado" → Mueve a No Seleccionadas y ELIMINA de Hoja de Interés
- * - "Entrevista agendada" → Mueve a Entrevistas y ELIMINA de Hoja de Interés
+ * - "No interesado" → Copia a No Seleccionadas (conserva registro en Hoja de Interés)
+ * - "Entrevista agendada" → Copia a Entrevistas (conserva registro en Hoja de Interés)
  */
 function procesarCambioEstadoInteres(sheet, fila, estado) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1357,8 +1357,9 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     // COLOR AMARILLO: Vino de Hoja de Interés
     noSeleccionadas.getRange(nuevaFila, 1, 1, 9).setBackground('#fff9c4');
 
-    sheet.deleteRow(fila);
-    ss.toast('📋 Movido a "No Seleccionadas" (amarillo = de Interés)', 'Completado', 3);
+    // Marcar como procesado (NO eliminar - conservar registro)
+    sheet.getRange(fila, 1, 1, 14).setBackground('#fff9c4'); // Amarillo claro
+    ss.toast('📋 Copiado a "No Seleccionadas" (registro conservado)', 'Completado', 3);
   }
 
   if (estado === 'Entrevista agendada') {
@@ -1379,10 +1380,9 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
 
     entrevistas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
 
-    // Eliminar de Hoja de Interés (igual que "No interesado")
-    sheet.deleteRow(fila);
-
-    ss.toast('📋 Entrevista creada en hoja Entrevistas.', 'Entrevista Agendada', 4);
+    // Marcar como procesado (NO eliminar - conservar registro)
+    sheet.getRange(fila, 1, 1, 14).setBackground('#c8e6c9'); // Verde claro
+    ss.toast('📋 Entrevista creada en hoja Entrevistas (registro conservado).', 'Entrevista Agendada', 4);
   }
 }
 
@@ -1428,15 +1428,15 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
 
     seleccionadas.getRange(nuevaFila, 1, 1, 10).setValues([registroSeleccionadas]);
 
-    // Eliminar de Hoja de Interés
+    // Marcar en Hoja de Interés como procesado (NO eliminar)
     if (filaInteres) {
-      interes.deleteRow(filaInteres);
+      interes.getRange(filaInteres, 1, 1, 14).setBackground('#c8e6c9'); // Verde claro
     }
 
-    // Eliminar de Entrevistas
-    sheet.deleteRow(fila);
+    // Marcar en Entrevistas como procesado (NO eliminar)
+    sheet.getRange(fila, 1, 1, 9).setBackground('#c8e6c9'); // Verde claro
 
-    ss.toast('✅ Aprobada - movida a Seleccionadas. Asigne cohorte.', 'Entrevista', 4);
+    ss.toast('✅ Aprobada - copiada a Seleccionadas. Asigne cohorte.', 'Entrevista', 4);
     return;
   }
 
@@ -1464,9 +1464,10 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     // COLOR NARANJA: Vino de Entrevistas
     noSeleccionadas.getRange(nuevaFila, 1, 1, 9).setBackground('#ffe0b2');
 
-    sheet.deleteRow(fila);
+    // Marcar en Entrevistas como procesado (NO eliminar)
+    sheet.getRange(fila, 1, 1, 9).setBackground('#ffe0b2'); // Naranja claro
 
-    ss.toast('📋 Movido a "No Seleccionadas" (naranja = de Entrevistas)', 'Entrevista', 3);
+    ss.toast('📋 Copiado a "No Seleccionadas" (registro conservado)', 'Entrevista', 3);
   }
 
   // "Reprogramada" no hace nada automático
@@ -1531,8 +1532,8 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
 
   deserciones.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
 
-  // ELIMINAR de la hoja de Cohorte
-  sheet.deleteRow(fila);
+  // Marcar fila como Deserción (NO eliminar - conservar registro)
+  sheet.getRange(fila, 1, 1, 9).setBackground('#ffcdd2'); // Rojo claro
 
   ss.toast('📋 Deserción registrada: ' + motivo, 'Cohorte ' + nombreCohorte, 4);
 
@@ -1551,7 +1552,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
 /**
  * Procesa envío a cohorte desde Seleccionadas (columna K - Enviar a Cohorte)
  * - Agrega a la hoja individual de la Cohorte
- * - ELIMINA de Seleccionadas
+ * - Marca como enviada en Seleccionadas (conserva registro)
  */
 /**
  * Procesa envío a cohorte desde Seleccionadas (columna J - Enviar a Cohorte)
@@ -1643,8 +1644,10 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
     listaDefinitiva.getRange(nuevaFilaLD, 1, 1, 10).setValues([registroLD]);
   }
 
-  // ELIMINAR de Seleccionadas
-  sheet.deleteRow(fila);
+  // Marcar como enviada (NO eliminar - conservar registro)
+  sheet.getRange(fila, 9).setValue('Enviada a ' + cohorteDestino);
+  sheet.getRange(fila, 10).setValue(''); // Limpiar dropdown
+  sheet.getRange(fila, 1, 1, 10).setBackground('#e0e0e0'); // Gris claro
 
   ss.toast('✅ ' + nombre + ' enviada a cohorte "' + cohorteDestino + '" y registrada en Lista Definitiva', 'Completado', 4);
 }
@@ -2126,9 +2129,12 @@ function procesarReenvioDesdeNoSeleccionadas(sheet, fila, accion) {
     ];
 
     entrevistas.getRange(nuevaFila, 1, 1, 8).setValues([registro]);
-    sheet.deleteRow(fila);
 
-    ss.toast('✅ ' + nombre + ' reenviada a Entrevistas', 'Reenvío', 4);
+    // Marcar como reenviado (NO eliminar - conservar registro)
+    sheet.getRange(fila, 9).setValue(''); // Limpiar acción
+    sheet.getRange(fila, 1, 1, 9).setBackground('#e0e0e0'); // Gris claro
+
+    ss.toast('✅ ' + nombre + ' reenviada a Entrevistas (registro conservado)', 'Reenvío', 4);
   }
 
   if (accion === 'Reenviar a Seleccionadas') {
@@ -2150,9 +2156,12 @@ function procesarReenvioDesdeNoSeleccionadas(sheet, fila, accion) {
     ];
 
     seleccionadas.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
-    sheet.deleteRow(fila);
 
-    ss.toast('✅ ' + nombre + ' reenviada a Seleccionadas', 'Reenvío', 4);
+    // Marcar como reenviado (NO eliminar - conservar registro)
+    sheet.getRange(fila, 9).setValue(''); // Limpiar acción
+    sheet.getRange(fila, 1, 1, 9).setBackground('#e0e0e0'); // Gris claro
+
+    ss.toast('✅ ' + nombre + ' reenviada a Seleccionadas (registro conservado)', 'Reenvío', 4);
   }
 }
 
@@ -3319,12 +3328,16 @@ function crearNuevaCohorte() {
     ui.ButtonSet.OK_CANCEL
   );
   if (respNombre.getSelectedButton() !== ui.Button.OK) return;
-  const nombre = respNombre.getResponseText().trim();
-  if (!nombre) { ui.alert('Nombre vacío'); return; }
+  const nombreBase = respNombre.getResponseText().trim();
+  if (!nombreBase) { ui.alert('Nombre vacío'); return; }
+
+  // Agregar año actual automáticamente entre paréntesis
+  const anioActual = new Date().getFullYear();
+  const nombre = nombreBase + ' (' + anioActual + ')';
 
   const cohortesExistentes = obtenerCohortesActuales();
   if (cohortesExistentes.includes(nombre)) {
-    ui.alert('❌ Ya existe una cohorte con ese nombre.');
+    ui.alert('❌ Ya existe una cohorte con ese nombre: "' + nombre + '"');
     return;
   }
 
@@ -3367,8 +3380,8 @@ function crearNuevaCohorte() {
   const datosCohorte = [nombre, 'Alimentos y Bebidas', fechaInicio, fechaFin, responsable, cupo, '', '', '', '', '', '', estadoInicial];
   cohortes.getRange(nuevaFila, 1, 1, 13).setValues([datosCohorte]);
 
-  // Fórmulas: Inscritas cuenta en la hoja individual de la cohorte
-  cohortes.getRange('G' + nuevaFila).setFormula('=IF(A' + nuevaFila + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!E:E"),"<>")-1,0))');
+  // Fórmulas: Inscritas cuenta en la hoja individual de la cohorte (resta deserciones)
+  cohortes.getRange('G' + nuevaFila).setFormula('=IF(A' + nuevaFila + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!E:E"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!I:I"),"Deserción"),0))');
   cohortes.getRange('H' + nuevaFila).setFormula('=IFERROR(COUNTIF(Graduadas!G:G,A' + nuevaFila + '),0)');
   cohortes.getRange('I' + nuevaFila).setFormula('=IFERROR(COUNTIF(Deserciones!G:G,A' + nuevaFila + '),0)');
 

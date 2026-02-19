@@ -1501,13 +1501,17 @@ function crearNuevaCohorte() {
   );
 
   if (respNombre.getSelectedButton() !== ui.Button.OK) return;
-  const nombre = respNombre.getResponseText().trim();
-  if (!nombre) { ui.alert('Nombre vacío'); return; }
+  const nombreBase = respNombre.getResponseText().trim();
+  if (!nombreBase) { ui.alert('Nombre vacío'); return; }
+
+  // Agregar año actual automáticamente entre paréntesis
+  const anioActual = new Date().getFullYear();
+  const nombre = nombreBase + ' (' + anioActual + ')';
 
   // Verificar si ya existe
   const cohortesExistentes = obtenerCohortesActuales();
   if (cohortesExistentes.includes(nombre)) {
-    ui.alert('❌ Error', 'Ya existe una cohorte con ese nombre.', ui.ButtonSet.OK);
+    ui.alert('❌ Error', 'Ya existe una cohorte con ese nombre: "' + nombre + '"', ui.ButtonSet.OK);
     return;
   }
 
