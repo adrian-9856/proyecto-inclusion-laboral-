@@ -157,33 +157,50 @@ const CONFIG = {
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('🎓 Inclusión Laboral')
+    // ========== ACCIONES PRINCIPALES ==========
     .addItem('📋 Importar Hoja de Interés (Kobo)', 'importarDesdeKobo')
     .addItem('🔄 Actualizar Hoja de Interés (Nuevo Kobo)', 'actualizarHojaInteresDesdeNuevoKobo')
     .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
     .addSeparator()
+
+    // ========== REPORTES ==========
     .addSubMenu(ui.createMenu('📊 Reportes')
       .addItem('📊 Actualizar Reportes', 'actualizarReportes')
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual'))
+
+    // ========== COHORTES ==========
     .addSubMenu(ui.createMenu('📋 Cohortes')
       .addItem('➕ Crear Nueva Cohorte', 'crearNuevaCohorte')
       .addItem('📝 Ver/Editar Cohortes', 'verCohortes')
+      .addItem('👥 Enviar Participantes a Cohorte', 'enviarParticipantesACohorte')
+      .addSeparator()
       .addItem('📊 Estadísticas por Cohorte', 'estadisticasCohorte')
-      .addItem('👥 Enviar Participantes a Cohorte', 'enviarParticipantesACohorte'))
+      .addItem('🔄 Reenviar Graduadas al Seguimiento', 'reenviarDesdeMenuCohorte'))
+    .addSeparator()
+
+    // ========== CONFIGURACIÓN ==========
     .addSubMenu(ui.createMenu('⚙️ Configuración')
       .addItem('🔗 URL Registros Kobo', 'configurarKoboURL')
       .addItem('🔗 URL Entrevistas Kobo', 'configurarKoboEntrevistasURL')
-      .addItem('🔄 Importación Automática', 'configurarImportacionAutomatica')
       .addItem('📝 Importar Entrevistas (Detalle)', 'importarEntrevistasDesdeKobo')
       .addSeparator()
       .addItem('📧 Configurar Email General', 'configurarEmail')
       .addItem('📧 Configurar Email Eva', 'configurarEmailEva')
-      .addItem('✉️ Probar Email', 'probarEmail')
       .addSeparator()
+      .addItem('🔄 Importación Automática', 'configurarImportacionAutomatica')
       .addItem('⏰ Instalar Triggers', 'instalarTriggers')
-      .addItem('🔒 Configurar CREAMOS ID', 'configurarHojaCreamosID'))
+      .addItem('🔒 Configurar CREAMOS ID', 'configurarHojaCreamosID')
+      .addSeparator()
+      .addItem('⚙️ Instalar Sistema (solo hojas)', 'instalarSistema'))
+
+    // ========== HERRAMIENTAS ==========
     .addSubMenu(ui.createMenu('🛠️ Herramientas')
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
       .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
+      .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
+      .addSeparator()
+      .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
+      .addItem('✅ Verificar Instalación', 'verificarInstalacion')
       .addSeparator()
       .addSubMenu(ui.createMenu('👤 Responsables')
         .addItem('➕ Agregar Responsable', 'agregarResponsable')
@@ -191,18 +208,15 @@ function onOpen() {
       .addSeparator()
       .addItem('🔍 Probar Conexión Kobo', 'probarConexionKobo')
       .addItem('📊 Ver Columnas Kobo', 'verColumnasKobo')
-      .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
+      .addItem('✉️ Probar Email', 'probarEmail')
       .addSeparator()
       .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
       .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos'))
     .addSeparator()
-    .addItem('🚀 INSTALAR TODO (Completo)', 'instalarTodo')
-    .addItem('🆕 Actualizar v4 (sin borrar datos)', 'instalarV4')
-    .addItem('⚙️ Instalar Sistema (solo hojas)', 'instalarSistema')
-    .addItem('🧹 Limpiar cohortes eliminadas', 'limpiarCohortesEliminadas')
-    .addItem('🔄 Reenviar graduadas al seguimiento', 'reenviarDesdeMenuCohorte')
+
+    // ========== INSTALACIÓN Y AYUDA ==========
+    .addItem('🚀 Instalación Completa', 'instalarTodo')
     .addItem('📖 Ver Guía de Uso', 'verGuiaUso')
-    .addItem('✅ Verificar Instalación', 'verificarInstalacion')
     .addToUi();
 
   try {
