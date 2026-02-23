@@ -23,14 +23,11 @@
 // =====================================================================
 
 const CONFIG = {
-  // URL de KoboToolbox para importar datos de registro inicial
-  KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esLPozzAX85W2xSv98r2AVM/data.csv',
+  // URL de KoboToolbox para importar Hoja de Interés (formulario principal)
+  KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/eseYzEgWw6Tui9y2eppZy3L/data.csv',
 
   // URL de KoboToolbox para importar datos de ENTREVISTAS (IL_01_Entrevista)
   KOBO_ENTREVISTAS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aF4nMQPqbHokM7rg2Vtf5w/export-settings/esqKoJjmoR34panMLhM8j3Z/data.csv',
-
-  // URL de KoboToolbox para la NUEVA hoja de interés (históricos + nuevos)
-  KOBO_NUEVA_INTERES_URL: 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/eseYzEgWw6Tui9y2eppZy3L/data.csv',
 
   // Cohortes disponibles (se llenan dinámicamente desde la hoja Cohortes)
   COHORTES: [],
@@ -159,7 +156,6 @@ function onOpen() {
   ui.createMenu('🎓 Inclusión Laboral')
     // ========== ACCIONES PRINCIPALES ==========
     .addItem('📋 Importar Hoja de Interés (Kobo)', 'importarDesdeKobo')
-    .addItem('🔄 Actualizar Hoja de Interés (Nuevo Kobo)', 'actualizarHojaInteresDesdeNuevoKobo')
     .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
     .addSeparator()
 
@@ -3021,184 +3017,6 @@ function calcularEdad(fechaNacimiento) {
 
 
 /**
- * Actualiza la Hoja de Interés desde el nuevo formulario de Kobo
- * Combina históricos + nuevos datos sin eliminar registros existentes
- */
-function actualizarHojaInteresDesdeNuevoKobo() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-
-  const url = CONFIG.KOBO_NUEVA_INTERES_URL;
-
-  if (!url) {
-    ui.alert('⚠️ URL no configurada', 'La URL del nuevo Kobo no está configurada.', ui.ButtonSet.OK);
-    return;
-  }
-
-  try {
-    ss.toast('📥 Actualizando Hoja de Interés desde nuevo Kobo...', 'Importando', 5);
-
-    const response = UrlFetchApp.fetch(url, {
-      muteHttpExceptions: true,
-      followRedirects: true,
-      headers: { 'Accept': 'text/csv, application/csv, text/plain' }
-    });
-
-    const responseCode = response.getResponseCode();
-    if (responseCode !== 200) {
-      throw new Error('Error HTTP: ' + responseCode + '. Verifica que la URL sea correcta y pública.');
-    }
-
-    let csvData = response.getContentText('UTF-8');
-    if (!csvData || csvData.trim().length === 0) {
-      throw new Error('No se recibieron datos del servidor');
-    }
-
-    // Limpiar BOM si existe
-    if (csvData.charCodeAt(0) === 0xFEFF) {
-      csvData = csvData.substring(1);
-    }
-
-    // Detectar separador
-    const primeraLinea = csvData.split('\n')[0];
-    const countComas = (primeraLinea.match(/,/g) || []).length;
-    const countPuntoComa = (primeraLinea.match(/;/g) || []).length;
-    const countTabs = (primeraLinea.match(/\t/g) || []).length;
-
-    let separador = ';';
-    if (countComas > countPuntoComa && countComas > countTabs) {
-      separador = ',';
-    } else if (countTabs > countComas && countTabs > countPuntoComa) {
-      separador = '\t';
-    }
-
-    // Parsear CSV
-    let rows;
-    try {
-      if (separador === ';') {
-        rows = parsearCSVManual(csvData, separador);
-      } else {
-        rows = Utilities.parseCsv(csvData, separador);
-      }
-    } catch (parseError) {
-      rows = parsearCSVManual(csvData, separador);
-    }
-
-    if (!rows || rows.length < 2) {
-      ss.toast('⚠️ No hay datos nuevos para importar', 'Sin Datos', 3);
-      return;
-    }
-
-    const headers = rows[0];
-    const sheet = ss.getSheetByName('Hoja de Interés');
-
-    if (!sheet) {
-      throw new Error('La hoja "Hoja de Interés" no existe. Ejecuta primero la instalación del sistema.');
-    }
-
-    // Obtener datos existentes (excluyendo encabezados)
-    const datosExistentes = sheet.getLastRow() > 1 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues() : [];
-
-    // Crear un conjunto de registros existentes usando DPI o Nombre Completo como clave
-    const registrosExistentes = new Set();
-    datosExistentes.forEach(fila => {
-      const dpi = fila[3] ? String(fila[3]).trim() : ''; // Columna D (DPI)
-      const nombre = fila[4] ? String(fila[4]).trim() : ''; // Columna E (Nombre)
-      if (dpi) registrosExistentes.add(dpi);
-      if (nombre) registrosExistentes.add(nombre);
-    });
-
-    // Buscar índices de columnas en el CSV de Kobo
-    const colIndices = {
-      fechaRegistro: buscarIndiceColumnaExacto(headers, ['today', 'Fecha de registro', 'Fecha registro']),
-      creamosId: buscarIndiceColumnaExacto(headers, ['Inicio/Creamos ID', 'Creamos ID', 'creamos_id']),
-      dpi: buscarIndiceColumnaExacto(headers, ['Inicio/Número de DPI', 'Número de DPI', 'DPI']),
-      nombres: buscarIndiceColumnaExacto(headers, ['Inicio/Nombre(s)', 'Nombre(s)', 'Nombres']),
-      apellidos: buscarIndiceColumnaExacto(headers, ['Inicio/Apellido(s)', 'Apellido(s)', 'Apellidos']),
-      fechaNacimiento: buscarIndiceColumnaExacto(headers, ['Inicio/Fecha de nacimiento', 'Fecha de nacimiento']),
-      telefono: buscarIndiceColumnaExacto(headers, ['Inicio/Número de Teléfono', 'Número de Teléfono', 'Inicio/Número de Móvil/WhatsApp', 'Número de Móvil/WhatsApp', 'Teléfono']),
-      nivelEducativo: buscarIndiceColumnaExacto(headers, ['Inicio/¿Cuál es tu último nivel de estudios terminado?', '¿Cuál es tu último nivel de estudios terminado?', 'Nivel educativo']),
-      zona: buscarIndiceColumnaExacto(headers, ['Inicio/Zona', 'Zona']),
-      comoSeEntero: buscarIndiceColumnaExacto(headers, ['Inicio/¿Cómo se enteró del programa?', '¿Cómo se enteró del programa?', 'Como se entero']),
-      programaInteres: buscarIndiceColumnaExacto(headers, ['Inicio/¿Qué programa te interesa?', '¿Qué programa te interesa?', 'Programa interés'])
-    };
-
-    // Agregar solo registros nuevos
-    let nuevosRegistros = 0;
-    const nuevasFilas = [];
-
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-
-      const dpi = colIndices.dpi >= 0 ? String(row[colIndices.dpi] || '').trim() : '';
-      const nombres = colIndices.nombres >= 0 ? String(row[colIndices.nombres] || '').trim() : '';
-      const apellidos = colIndices.apellidos >= 0 ? String(row[colIndices.apellidos] || '').trim() : '';
-      const nombreCompleto = (nombres + ' ' + apellidos).trim();
-
-      // Verificar si el registro ya existe
-      const yaExiste = (dpi && registrosExistentes.has(dpi)) || registrosExistentes.has(nombreCompleto);
-
-      if (!yaExiste && nombreCompleto) {
-        // Construir la fila según el formato de la Hoja de Interés
-        const fechaRegistro = colIndices.fechaRegistro >= 0 ? row[colIndices.fechaRegistro] || '' : '';
-        const creamosId = colIndices.creamosId >= 0 ? row[colIndices.creamosId] || '' : '';
-        const fechaNac = colIndices.fechaNacimiento >= 0 ? row[colIndices.fechaNacimiento] || '' : '';
-        const edad = calcularEdadDesdeTexto(fechaNac);
-        const telefono = colIndices.telefono >= 0 ? row[colIndices.telefono] || '' : '';
-        const nivelEducativo = colIndices.nivelEducativo >= 0 ? row[colIndices.nivelEducativo] || '' : '';
-        const zona = colIndices.zona >= 0 ? row[colIndices.zona] || '' : '';
-        const comoSeEntero = colIndices.comoSeEntero >= 0 ? row[colIndices.comoSeEntero] || '' : '';
-        const programaInteres = colIndices.programaInteres >= 0 ? row[colIndices.programaInteres] || '' : '';
-
-        nuevasFilas.push([
-          fechaRegistro,    // A - Fecha Registro
-          '',               // B - No. (se calculará con fórmula)
-          creamosId,        // C - Creamos ID
-          dpi,              // D - DPI
-          nombreCompleto,   // E - Nombre Completo
-          edad,             // F - Edad
-          telefono,         // G - Teléfono
-          nivelEducativo,   // H - Nivel Educativo
-          zona,             // I - Zona
-          comoSeEntero,     // J - Cómo se enteró
-          programaInteres,  // K - Programa Interés
-          '',               // L - Responsable (vacío)
-          '',               // M - Notas (vacío)
-          ''                // N - Estado (vacío)
-        ]);
-
-        nuevosRegistros++;
-      }
-    }
-
-    if (nuevosRegistros > 0) {
-      const ultimaFila = sheet.getLastRow();
-      sheet.getRange(ultimaFila + 1, 1, nuevasFilas.length, nuevasFilas[0].length).setValues(nuevasFilas);
-
-      // Copiar fórmulas para las nuevas filas
-      for (let i = 0; i < nuevasFilas.length; i++) {
-        const fila = ultimaFila + 1 + i;
-        sheet.getRange('A' + fila).setFormula('=IF(E' + fila + '<>"",TODAY(),"")');
-        sheet.getRange('B' + fila).setFormula('=IF(E' + fila + '<>"",COUNTA($E$2:E' + fila + '),"")');
-      }
-
-      ss.toast('✅ ' + nuevosRegistros + ' registro(s) nuevo(s) agregado(s) a Hoja de Interés', 'Actualización Completa', 5);
-      Logger.log('✅ Actualización desde nuevo Kobo: ' + nuevosRegistros + ' registros agregados');
-    } else {
-      ss.toast('ℹ️ No hay registros nuevos para agregar', 'Sin Cambios', 3);
-      Logger.log('ℹ️ No hay registros nuevos desde el nuevo Kobo');
-    }
-
-  } catch (error) {
-    const mensaje = '❌ Error al actualizar desde nuevo Kobo: ' + error.message;
-    ss.toast(mensaje, 'ERROR', 10);
-    Logger.log(mensaje);
-    throw error;
-  }
-}
-
-
-/**
  * Importa datos de ENTREVISTAS desde KoboToolbox (IL_01_Entrevista)
  * Guarda en la hoja "Detalle Entrevistas" y vincula por Creamos ID
  */
@@ -4629,7 +4447,6 @@ function instalarTodo() {
     '✓ Instalar fórmulas en todas las hojas\n' +
     '✓ Instalar triggers automáticos\n' +
     '✓ Importar datos de ambos Kobos\n' +
-    '✓ Actualizar Hoja de Interés (históricos + nuevos)\n' +
     '✓ Reparar fórmulas del Reporte\n' +
     '✓ Crear/actualizar Guía de Uso\n\n' +
     '⚠️ NO se borrará "Copy of CREAMOS ID nuevo"\n' +
@@ -4717,15 +4534,6 @@ function instalarTodo() {
       cambios.push('✅ Entrevistas importadas desde Kobo');
     } catch (e) {
       cambios.push('⚠️ Kobo Entrevistas: ' + e.message);
-    }
-
-    // 11b. Actualizar Hoja de Interés desde Nuevo Kobo (históricos + nuevos)
-    ss.toast('🔄 Actualizando Hoja de Interés desde Nuevo Kobo...', 'Instalando', 8);
-    try {
-      actualizarHojaInteresDesdeNuevoKobo();
-      cambios.push('✅ Hoja de Interés actualizada desde Nuevo Kobo');
-    } catch (e) {
-      cambios.push('⚠️ Nuevo Kobo Interés: ' + e.message);
     }
 
     // 12. Actualizar reporte final
