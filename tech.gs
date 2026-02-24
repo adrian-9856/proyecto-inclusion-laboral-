@@ -437,26 +437,23 @@ function verificarInstalacion() {
 function crearTodasLasHojas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  const hojas = ss.getSheets();
-  const HOJAS_PROTEGIDAS = ['Copy of CREAMOS ID nuevo'];
+  // Solo crear hojas que no existan — NUNCA eliminar hojas existentes
+  // para preservar datos históricos
 
-  // Eliminar todas las hojas excepto la primera y las protegidas
-  for (let i = hojas.length - 1; i > 0; i--) {
-    const nombreHoja = hojas[i].getName();
-    // NO eliminar si es una hoja protegida
-    if (!HOJAS_PROTEGIDAS.includes(nombreHoja)) {
-      ss.deleteSheet(hojas[i]);
+  if (!ss.getSheetByName('Hoja de Interés')) {
+    const primera = ss.getSheets()[0];
+    if (primera.getLastRow() <= 1 && primera.getLastColumn() <= 1) {
+      primera.setName('Hoja de Interés');
+    } else {
+      ss.insertSheet('Hoja de Interés');
     }
   }
-
-  hojas[0].setName('Hoja de Interés');
 
   crearHojaInteres();
   crearHojaEntrevistas();
   crearHojaDetalleEntrevistas();
   crearHojaSeleccionadas();
   crearHojaCohortes();
-  // Asistencias eliminada - no se usa
   crearHojaGraduadas();
   crearHojaDeserciones();
   crearHojaNoSeleccionadas();
@@ -471,7 +468,14 @@ function crearTodasLasHojas() {
 function crearHojaInteres() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Hoja de Interés');
-  sheet.clear();
+
+  // Si la hoja ya tiene datos (más de solo encabezados), NO borrar
+  // Solo configurar encabezados y formato
+  const tieneData = sheet.getLastRow() > 1;
+
+  if (!tieneData) {
+    sheet.clear();
+  }
 
   const headers = [
     'Fecha Registro',  // A - Automático
@@ -490,15 +494,25 @@ function crearHojaInteres() {
     'Estado'           // N - Desplegable (última columna)
   ];
 
+  // Siempre asegurar que los encabezados estén correctos
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
     .setBackground('#1565c0')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  for (let i = 2; i <= 500; i++) {
-    sheet.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
+  // Solo instalar fórmulas en filas vacías (sin nombre en col E)
+  const ultimaFila = Math.max(sheet.getLastRow(), 2);
+  const maxFila = Math.max(ultimaFila + 50, 500);
+  for (let i = 2; i <= maxFila; i++) {
+    const valorE = sheet.getRange('E' + i).getValue();
+    const valorA = sheet.getRange('A' + i).getValue();
+    // Solo poner fórmula de No. si no hay valor fijo ya puesto
     sheet.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
+    // Solo poner fórmula de fecha si la celda está vacía y no hay nombre
+    if (!valorA && !valorE) {
+      sheet.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
+    }
   }
 
   [100, 50, 100, 130, 200, 60, 120, 150, 120, 150, 150, 120, 250, 120].forEach((w, i) => {
@@ -4536,7 +4550,16 @@ function instalarTodo() {
       cambios.push('⚠️ Kobo Entrevistas: ' + e.message);
     }
 
-    // 12. Actualizar reporte final
+    // 12. Autocompletar CREAMOS ID e información faltante en TODAS las hojas
+    ss.toast('🔄 Autocompletando información desde CREAMOS ID...', 'Instalando', 8);
+    try {
+      actualizarTodosDesdeDirectorio(true);
+      cambios.push('✅ Información autocompletada desde CREAMOS ID en todas las hojas');
+    } catch (e) {
+      cambios.push('⚠️ Autocompletar CREAMOS ID: ' + e.message);
+    }
+
+    // 13. Actualizar reporte final
     actualizarReportes();
     cambios.push('✅ Reporte actualizado');
 
