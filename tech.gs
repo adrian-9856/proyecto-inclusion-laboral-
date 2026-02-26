@@ -37,7 +37,8 @@ const CONFIG = {
     'Marketing Digital',
     'Programación',
     'Alfabetización Digital',
-    'Certificación Microsoft'
+    'Certificación Microsoft',
+    'Servicio al Cliente'
   ],
 
   // Responsables del programa
@@ -2604,7 +2605,12 @@ function importarDesdeKobo() {
       nivelEducativo: buscarIndiceColumnaExacto(headers, [
         'Inicio/¿Cuál es tu último nivel de estudios terminado?',
         '¿Cuál es tu último nivel de estudios terminado?',
-        'Nivel educativo'
+        'Nivel educativo',
+        'Inicio/¿Cuál es su último nivel de estudios terminado?',
+        '¿Cuál es su último nivel de estudios terminado?',
+        'Nivel de estudios',
+        'Estudios',
+        'Escolaridad'
       ]),
 
       // Zona
@@ -2703,19 +2709,20 @@ function importarDesdeKobo() {
         (fila[colIndices.servicioInteres] || '').toString().toLowerCase() : '';
 
       // Verificar si contiene algún programa de tecnología
-      const esMarketing = servicioTexto.includes('tecnología - marketing') || servicioTexto.includes('tecnologia - marketing');
-      const esProgramacion = servicioTexto.includes('tecnología - programación') || servicioTexto.includes('tecnologia - programacion');
+      const esMarketing = servicioTexto.includes('tecnología - marketing') || servicioTexto.includes('tecnologia - marketing') || servicioTexto.includes('marketing digital');
+      const esProgramacion = servicioTexto.includes('tecnología - programación') || servicioTexto.includes('tecnologia - programacion') || servicioTexto.includes('programación') || servicioTexto.includes('programacion');
       const esAlfabetizacion = servicioTexto.includes('alfabetización digital') || servicioTexto.includes('alfabetizacion digital');
       const esCertificacion = servicioTexto.includes('certificación microsoft') || servicioTexto.includes('certificacion microsoft');
+      const esServicioCliente = servicioTexto.includes('servicio al cliente') || servicioTexto.includes('atención al cliente') || servicioTexto.includes('atencion al cliente');
 
       // Si no tiene ningún programa de tecnología, omitir
-      if (!esMarketing && !esProgramacion && !esAlfabetizacion && !esCertificacion) {
+      if (!esMarketing && !esProgramacion && !esAlfabetizacion && !esCertificacion && !esServicioCliente) {
         omitidosNoTech++;
         continue; // Saltar si no es Tech
       }
 
-      // Obtener Creamos ID y DPI
-      const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim() : '';
+      // Obtener Creamos ID y DPI - CONVERTIR A MAYÚSCULAS
+      const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim().toUpperCase() : '';
       const dpi = colIndices.dpi >= 0 ? fila[colIndices.dpi].toString().trim() : '';
 
       // Construir nombre completo (necesario para la verificación de duplicados)
@@ -2772,6 +2779,7 @@ function importarDesdeKobo() {
       if (esProgramacion) programasSeleccionados.push('Programación');
       if (esAlfabetizacion) programasSeleccionados.push('Alfabetización Digital');
       if (esCertificacion) programasSeleccionados.push('Certificación Microsoft');
+      if (esServicioCliente) programasSeleccionados.push('Servicio al Cliente');
 
       // Asignar cohorte basado en el primer programa seleccionado
       // Programa de interés basado en la especialidad seleccionada
@@ -2784,6 +2792,8 @@ function importarDesdeKobo() {
         programaInteres = 'Alfabetización Digital';
       } else if (esCertificacion) {
         programaInteres = 'Certificación Microsoft';
+      } else if (esServicioCliente) {
+        programaInteres = 'Servicio al Cliente';
       }
 
       const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');

@@ -2588,7 +2588,12 @@ function importarDesdeKobo() {
       nivelEducativo: buscarIndiceColumnaExacto(headers, [
         'Inicio/¿Cuál es tu último nivel de estudios terminado?',
         '¿Cuál es tu último nivel de estudios terminado?',
-        'Nivel educativo'
+        'Nivel educativo',
+        'Inicio/¿Cuál es su último nivel de estudios terminado?',
+        '¿Cuál es su último nivel de estudios terminado?',
+        'Nivel de estudios',
+        'Estudios',
+        'Escolaridad'
       ]),
 
       // Zona
@@ -2693,8 +2698,8 @@ function importarDesdeKobo() {
         continue; // Saltar si no es Alimentos y Bebidas
       }
 
-      // Obtener Creamos ID y DPI
-      const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim() : '';
+      // Obtener Creamos ID y DPI - CONVERTIR A MAYÚSCULAS
+      const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim().toUpperCase() : '';
       const dpi = colIndices.dpi >= 0 ? fila[colIndices.dpi].toString().trim() : '';
 
       // Construir nombre completo (necesario para la verificación de duplicados)
