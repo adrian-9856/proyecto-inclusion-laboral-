@@ -1464,7 +1464,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       ''                    // Acción (vacío)
     ];
 
-    noInscritx.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
+    noInscritx.getRange(nuevaFila, 1, 1, 11).setValues([registro]);
 
     // COLOR AMARILLO: Vino de Hoja de Interés
     noInscritx.getRange(nuevaFila, 1, 1, 11).setBackground('#fff9c4');
@@ -1580,7 +1580,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       ''                    // Acción (vacío)
     ];
 
-    noInscritx.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
+    noInscritx.getRange(nuevaFila, 1, 1, 11).setValues([registro]);
 
     // COLOR NARANJA: Vino de Entrevistas
     noInscritx.getRange(nuevaFila, 1, 1, 11).setBackground('#ffe0b2');
