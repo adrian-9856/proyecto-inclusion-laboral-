@@ -1,0 +1,83 @@
+═══════════════════════════════════════════════════════════════
+  🔧 SOLUCIÓN RÁPIDA - EL CÓDIGO NO FUNCIONA
+═══════════════════════════════════════════════════════════════
+
+EL PROBLEMA:
+❌ Copiaste el código PERO los cambios NO se ejecutan automáticamente
+
+LA CAUSA:
+⚠️  FALTAN LOS TRIGGERS (disparadores automáticos)
+
+LA SOLUCIÓN (2 MINUTOS):
+✅ Instalar los triggers desde el menú de Google Sheets
+
+═══════════════════════════════════════════════════════════════
+
+PASOS EXACTOS:
+═══════════════════════════════════════════════════════════════
+
+1. Abre tu hoja de Google Sheets
+
+2. Busca el menú: 💻 Tecnología
+   (Si no lo ves, refresca la página con F5)
+
+3. Haz clic en: 💻 Tecnología → ⚙️ Configuración
+
+4. Haz clic en: ⏰ Instalar Triggers
+
+5. Si te pide autorización:
+   ✅ Autoriza TODOS los permisos
+   ✅ Acepta en todas las pantallas
+
+6. Espera el mensaje: "✅ Triggers instalados"
+
+7. VERIFICA que funcionó:
+   💻 Tecnología → 🛠️ Herramientas → ✅ Verificar Instalación
+
+   Debes ver:
+   ✅ Trigger al editar
+   ✅ Trigger de tiempo
+   🎉 TODO LISTO Y FUNCIONANDO
+
+═══════════════════════════════════════════════════════════════
+
+PRUEBA QUE FUNCIONA:
+═══════════════════════════════════════════════════════════════
+
+TEST 1: Fecha Automática
+  1. Ve a "Hoja de Interés"
+  2. En una fila con datos, columna "Estado", elige: "Entrevista agendada"
+  3. Ve a "Entrevistas"
+  4. ✅ La columna A debe tener la FECHA DE HOY
+
+TEST 2: Estado Inscritx
+  1. Ve a "Entrevistas"
+  2. En una fila, columna "Estado", pon: "Aprobada"
+  3. Ve a "Inscritx"
+  4. ✅ La columna K debe decir "Inscritx"
+
+═══════════════════════════════════════════════════════════════
+
+SI NO FUNCIONA:
+═══════════════════════════════════════════════════════════════
+
+Opción A: Instalar desde Apps Script
+  1. Extensiones → Apps Script
+  2. Arriba, selecciona: instalarTriggers
+  3. Haz clic en: Ejecutar (▶️)
+  4. Autoriza permisos
+  5. Espera "Ejecución completada"
+
+Opción B: Lee la guía completa
+  cat SOLUCION_NO_FUNCIONA.md
+
+═══════════════════════════════════════════════════════════════
+
+RESUMEN:
+═══════════════════════════════════════════════════════════════
+
+✅ Ya copiaste el código
+⚠️  FALTA: Instalar triggers
+📍 CÓMO: 💻 Tecnología → ⚙️ Configuración → ⏰ Instalar Triggers
+
+═══════════════════════════════════════════════════════════════
