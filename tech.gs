@@ -1129,7 +1129,7 @@ function configurarValidaciones() {
     );
     // Nivel Educativo (I)
     entrevistas.getRange('I2:I500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.NIVELES_EDUCATIVOS).setAllowInvalid(true).build()
     );
     // Zona (J)
     entrevistas.getRange('J2:J500').setDataValidation(
@@ -1137,7 +1137,7 @@ function configurarValidaciones() {
     );
     // Entrevistador (K)
     entrevistas.getRange('K2:K500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
     );
     // Estado (N) - Resultado de entrevista (última columna)
     entrevistas.getRange('N2:N500').setDataValidation(
@@ -1491,7 +1491,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       datos[7],             // H: Teléfono
       datos[8],             // I: Nivel Educativo
       datos[9],             // J: Zona
-      'Eva',                // K: Entrevistador (por defecto)
+      '',                   // K: Entrevistador (vacío para selección manual)
       '',                   // L: Calificación
       '',                   // M: Observaciones
       ''                    // N: Estado (vacío hasta que se complete)
