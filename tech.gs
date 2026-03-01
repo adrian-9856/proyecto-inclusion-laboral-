@@ -163,7 +163,11 @@ function onOpen() {
     // ========== REPORTES ==========
     .addSubMenu(ui.createMenu('📊 Reportes')
       .addItem('📊 Actualizar Reportes', 'actualizarReportes')
-      .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual'))
+      .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
+      .addSeparator()
+      .addItem('🔄 Reconstruir Histórico Completo', 'reconstruirHistoricoCompleto')
+      .addItem('📥 Exportar Histórico Completo', 'exportarHistoricoCompleto')
+      .addItem('📥 Exportar Solo Datos Nuevos', 'exportarDatosNuevos'))
 
     // ========== COHORTES ==========
     .addSubMenu(ui.createMenu('📋 Cohortes')
@@ -4845,4 +4849,322 @@ function protegerHojaCreamosIDSiExiste() {
   } catch (e) {
     Logger.log('protegerHojaCreamosIDSiExiste: ' + e.message);
   }
+}
+
+// =====================================================================
+// FUNCIONES DE EXPORTACIÓN E HISTÓRICO
+// =====================================================================
+
+/**
+ * Reconstruye la hoja "Lista Definitiva" con todos los datos históricos
+ * Escanea todas las hojas de cohortes y agrega registros faltantes
+ */
+function reconstruirHistoricoCompleto() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const confirmacion = ui.alert(
+    '🔄 Reconstruir Histórico Completo',
+    'Esta función escaneará todas las hojas de cohortes y agregará a "Lista Definitiva" ' +
+    'todos los registros que falten.\n\n' +
+    '⚠️ NO eliminará datos existentes, solo agregará lo que falte.\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) return;
+
+  ss.toast('🔄 Reconstruyendo histórico...', 'Procesando', 30);
+
+  // Crear Lista Definitiva si no existe
+  if (!ss.getSheetByName('Lista Definitiva')) {
+    crearHojaListaDefinitiva();
+  }
+
+  const listaDefinitiva = ss.getSheetByName('Lista Definitiva');
+  const datosActuales = listaDefinitiva.getDataRange().getValues();
+
+  // Crear un Set con los Creamos ID ya existentes en Lista Definitiva
+  const idsExistentes = new Set();
+  for (let i = 1; i < datosActuales.length; i++) {
+    const creamosId = datosActuales[i][2]; // Columna C
+    const cohorte = datosActuales[i][9]; // Columna J
+    if (creamosId && cohorte) {
+      idsExistentes.add(creamosId + '|' + cohorte); // Clave única: ID + Cohorte
+    }
+  }
+
+  const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
+                            'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte',
+                            'Reportes Mensuales', 'Lista Definitiva', 'Detalle Entrevistas',
+                            'Guía de Uso'];
+
+  let registrosAgregados = 0;
+  const nuevosRegistros = [];
+
+  // Escanear todas las hojas de cohortes
+  ss.getSheets().forEach(function(hoja) {
+    const nombreHoja = hoja.getName();
+
+    // Saltar hojas principales y hojas de sistema
+    if (hojasPrincipales.includes(nombreHoja) ||
+        nombreHoja.startsWith('Copy of') ||
+        nombreHoja === 'Auto Refresh Execution Log') {
+      return;
+    }
+
+    // Esta es una hoja de cohorte
+    const datos = hoja.getDataRange().getValues();
+
+    // Saltar si no tiene datos (solo encabezados)
+    if (datos.length <= 1) return;
+
+    // Procesar cada fila de la cohorte
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+
+      // Columnas de hoja de cohorte: A-No, B-Fecha, C-CreamosID, D-DPI, E-Nombre, F-Edad, G-Tel, H-NivelEdu, I-Estado
+      const creamosId = fila[2] ? fila[2].toString().trim() : '';
+      const nombre = fila[4] ? fila[4].toString().trim() : '';
+
+      // Saltar filas vacías
+      if (!nombre || nombre === '') continue;
+
+      // Crear clave única
+      const clave = creamosId + '|' + nombreHoja;
+
+      // Si ya existe en Lista Definitiva, saltar
+      if (idsExistentes.has(clave)) continue;
+
+      // Agregar a la lista de nuevos registros
+      const nuevoRegistro = [
+        '', // No. - se calculará después
+        fila[1] || new Date(), // Fecha Envío (usar fecha de la cohorte o hoy)
+        creamosId,              // Creamos ID
+        fila[3] || '',          // DPI
+        nombre,                 // Nombre Completo
+        fila[5] || '',          // Edad
+        fila[6] || '',          // Teléfono
+        fila[7] || '',          // Nivel Educativo
+        fila[8] || '',          // Zona
+        nombreHoja              // Cohorte
+      ];
+
+      nuevosRegistros.push(nuevoRegistro);
+      idsExistentes.add(clave);
+      registrosAgregados++;
+    }
+  });
+
+  // Agregar todos los nuevos registros
+  if (nuevosRegistros.length > 0) {
+    const primeraFilaVacia = listaDefinitiva.getLastRow() + 1;
+
+    // Calcular números para cada registro
+    for (let i = 0; i < nuevosRegistros.length; i++) {
+      nuevosRegistros[i][0] = primeraFilaVacia + i - 1;
+    }
+
+    listaDefinitiva.getRange(primeraFilaVacia, 1, nuevosRegistros.length, 10)
+      .setValues(nuevosRegistros);
+  }
+
+  ss.toast('✅ Histórico reconstruido: ' + registrosAgregados + ' registros agregados', 'Completado', 5);
+
+  ui.alert(
+    '✅ Histórico Reconstruido',
+    'Se agregaron ' + registrosAgregados + ' registros a "Lista Definitiva".\n\n' +
+    'Total de registros en histórico: ' + (listaDefinitiva.getLastRow() - 1),
+    ui.ButtonSet.OK
+  );
+}
+
+/**
+ * Exporta todo el histórico de "Lista Definitiva" como archivo CSV
+ */
+function exportarHistoricoCompleto() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Verificar que existe Lista Definitiva
+  const listaDefinitiva = ss.getSheetByName('Lista Definitiva');
+  if (!listaDefinitiva) {
+    ui.alert('⚠️ Error', 'No se encontró la hoja "Lista Definitiva".\n\nEjecuta primero "Reconstruir Histórico Completo".', ui.ButtonSet.OK);
+    return;
+  }
+
+  const totalRegistros = listaDefinitiva.getLastRow() - 1;
+
+  if (totalRegistros === 0) {
+    ui.alert('⚠️ Aviso', 'La hoja "Lista Definitiva" está vacía.\n\nEjecuta primero "Reconstruir Histórico Completo".', ui.ButtonSet.OK);
+    return;
+  }
+
+  const confirmacion = ui.alert(
+    '📥 Exportar Histórico Completo',
+    'Se exportarán TODOS los ' + totalRegistros + ' registros de "Lista Definitiva".\n\n' +
+    'Se creará una nueva hoja con los datos listos para copiar.\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) return;
+
+  ss.toast('📥 Exportando histórico completo...', 'Procesando', 10);
+
+  // Obtener todos los datos
+  const datos = listaDefinitiva.getDataRange().getValues();
+
+  // Crear nueva hoja de exportación
+  const nombreExportacion = 'Exportación_Completa_' + Utilities.formatDate(new Date(), 'America/Guatemala', 'yyyyMMdd_HHmmss');
+  let hojaExportacion = ss.getSheetByName(nombreExportacion);
+
+  if (hojaExportacion) {
+    ss.deleteSheet(hojaExportacion);
+  }
+
+  hojaExportacion = ss.insertSheet(nombreExportacion);
+
+  // Copiar todos los datos
+  hojaExportacion.getRange(1, 1, datos.length, datos[0].length).setValues(datos);
+
+  // Formatear encabezados
+  hojaExportacion.getRange(1, 1, 1, datos[0].length)
+    .setBackground('#1a237e')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  // Ajustar anchos de columna
+  [50, 120, 100, 130, 200, 60, 120, 150, 120, 180].forEach((w, i) => {
+    hojaExportacion.setColumnWidth(i + 1, w);
+  });
+
+  hojaExportacion.setFrozenRows(1);
+
+  // Activar la hoja de exportación
+  ss.setActiveSheet(hojaExportacion);
+
+  // Guardar fecha de última exportación completa
+  PropertiesService.getScriptProperties().setProperty('ULTIMA_EXPORTACION_COMPLETA', new Date().toISOString());
+
+  ss.toast('✅ Exportación completa: ' + totalRegistros + ' registros', 'Completado', 5);
+
+  ui.alert(
+    '✅ Exportación Completada',
+    'Se creó la hoja "' + nombreExportacion + '" con ' + totalRegistros + ' registros.\n\n' +
+    '📋 Puedes copiar todos los datos y pegarlos en Excel o Google Sheets.\n\n' +
+    '💡 Para descargar como CSV:\n' +
+    '1. Archivo → Descargar → Valores separados por comas (.csv)\n' +
+    '2. Selecciona solo esta hoja',
+    ui.ButtonSet.OK
+  );
+}
+
+/**
+ * Exporta solo los datos nuevos desde la última exportación
+ */
+function exportarDatosNuevos() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Verificar que existe Lista Definitiva
+  const listaDefinitiva = ss.getSheetByName('Lista Definitiva');
+  if (!listaDefinitiva) {
+    ui.alert('⚠️ Error', 'No se encontró la hoja "Lista Definitiva".\n\nEjecuta primero "Reconstruir Histórico Completo".', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Obtener fecha de última exportación
+  const props = PropertiesService.getScriptProperties();
+  const ultimaExportacion = props.getProperty('ULTIMA_EXPORTACION_NUEVOS');
+  let fechaCorte = null;
+
+  if (ultimaExportacion) {
+    fechaCorte = new Date(ultimaExportacion);
+  }
+
+  const mensaje = fechaCorte
+    ? 'Se exportarán los registros agregados después del ' +
+      Utilities.formatDate(fechaCorte, 'America/Guatemala', 'dd/MM/yyyy HH:mm') + '.\n\n'
+    : 'No hay registro de exportación anterior. Se exportarán TODOS los registros.\n\n';
+
+  const confirmacion = ui.alert(
+    '📥 Exportar Datos Nuevos',
+    mensaje +
+    'Se creará una nueva hoja con los datos listos para copiar.\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmacion !== ui.Button.YES) return;
+
+  ss.toast('📥 Exportando datos nuevos...', 'Procesando', 10);
+
+  // Obtener todos los datos
+  const datos = listaDefinitiva.getDataRange().getValues();
+  const encabezados = datos[0];
+  const datosNuevos = [encabezados]; // Incluir encabezados
+
+  let contadorNuevos = 0;
+
+  // Filtrar solo los registros nuevos
+  for (let i = 1; i < datos.length; i++) {
+    const fechaEnvio = datos[i][1]; // Columna B - Fecha Envío
+
+    if (!fechaCorte || (fechaEnvio && new Date(fechaEnvio) > fechaCorte)) {
+      datosNuevos.push(datos[i]);
+      contadorNuevos++;
+    }
+  }
+
+  if (contadorNuevos === 0) {
+    ui.alert('ℹ️ Sin Datos Nuevos', 'No hay registros nuevos desde la última exportación.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Crear nueva hoja de exportación
+  const nombreExportacion = 'Exportación_Nuevos_' + Utilities.formatDate(new Date(), 'America/Guatemala', 'yyyyMMdd_HHmmss');
+  let hojaExportacion = ss.getSheetByName(nombreExportacion);
+
+  if (hojaExportacion) {
+    ss.deleteSheet(hojaExportacion);
+  }
+
+  hojaExportacion = ss.insertSheet(nombreExportacion);
+
+  // Copiar los datos nuevos
+  hojaExportacion.getRange(1, 1, datosNuevos.length, datosNuevos[0].length).setValues(datosNuevos);
+
+  // Formatear encabezados
+  hojaExportacion.getRange(1, 1, 1, datosNuevos[0].length)
+    .setBackground('#1a237e')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  // Ajustar anchos de columna
+  [50, 120, 100, 130, 200, 60, 120, 150, 120, 180].forEach((w, i) => {
+    hojaExportacion.setColumnWidth(i + 1, w);
+  });
+
+  hojaExportacion.setFrozenRows(1);
+
+  // Activar la hoja de exportación
+  ss.setActiveSheet(hojaExportacion);
+
+  // Guardar fecha de última exportación de nuevos
+  props.setProperty('ULTIMA_EXPORTACION_NUEVOS', new Date().toISOString());
+
+  ss.toast('✅ Exportación nuevos: ' + contadorNuevos + ' registros', 'Completado', 5);
+
+  ui.alert(
+    '✅ Exportación Completada',
+    'Se creó la hoja "' + nombreExportacion + '" con ' + contadorNuevos + ' registros nuevos.\n\n' +
+    '📋 Puedes copiar todos los datos y pegarlos en Excel o Google Sheets.\n\n' +
+    '💡 Para descargar como CSV:\n' +
+    '1. Archivo → Descargar → Valores separados por comas (.csv)\n' +
+    '2. Selecciona solo esta hoja',
+    ui.ButtonSet.OK
+  );
 }
