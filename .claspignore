@@ -1,0 +1,19 @@
+# Git
+.git/**
+.gitignore
+
+# Node
+node_modules/**
+package-lock.json
+package.json
+
+# Documentation
+*.md
+!appsscript.json
+
+# Templates
+*.template
+
+# Misc
+.DS_Store
+.vscode/**

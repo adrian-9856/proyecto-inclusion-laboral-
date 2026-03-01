@@ -1,0 +1,18 @@
+# Clasp (Google Apps Script CLI)
+.clasp.json
+.clasprc.json
+
+# Node
+node_modules/
+package-lock.json
+
+# MacOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.log
+*.tmp
