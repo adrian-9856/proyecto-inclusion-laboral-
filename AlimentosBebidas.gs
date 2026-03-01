@@ -166,6 +166,7 @@ function onOpen() {
     // ========== ACCIONES PRINCIPALES ==========
     .addItem('📋 Importar Hoja de Interés (Kobo)', 'importarDesdeKobo')
     .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
+    .addItem('🧹 Limpiar filas vacías (Hoja de Interés)', 'limpiarFilasVaciasHojaInteres')
     .addSeparator()
 
     // ========== REPORTES ==========
@@ -173,7 +174,7 @@ function onOpen() {
       .addItem('📊 Actualizar Reportes', 'actualizarReportes')
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addSeparator()
-      .addItem('🔄 Reconstruir Histórico Completo', 'reconstruirHistoricoCompleto')
+      .addItem('🔄 Copiar Cohortes → Lista Definitiva', 'reconstruirHistoricoCompleto')
       .addItem('📥 Exportar Histórico Completo', 'exportarHistoricoCompleto')
       .addItem('📥 Exportar Solo Datos Nuevos', 'exportarDatosNuevos'))
 
@@ -4073,6 +4074,66 @@ function limpiarTodosLosDatos() {
 
   actualizarReportes();
   ss.toast('✅ Datos eliminados', 'OK', 4);
+}
+
+/**
+ * Limpia filas vacías en la Hoja de Interés
+ * Elimina filas que tienen fórmulas pero no tienen datos reales (sin nombre en columna E)
+ * Esto arregla el problema de numeración cuando hay filas vacías entre registros
+ */
+function limpiarFilasVaciasHojaInteres() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const hoja = ss.getSheetByName('Hoja de Interés');
+
+  if (!hoja) {
+    ui.alert('⚠️ Error', 'No se encontró la hoja "Hoja de Interés"', ui.ButtonSet.OK);
+    return;
+  }
+
+  const resp = ui.alert(
+    '🧹 Limpiar Filas Vacías',
+    'Esta acción eliminará las filas que no tienen nombre en la columna "Nombre Completo".\n\n' +
+    'Esto arreglará la numeración y eliminará las filas vacías.\n\n' +
+    '¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (resp !== ui.Button.YES) return;
+
+  ss.toast('🧹 Limpiando filas vacías...', 'Limpieza', 3);
+
+  const ultimaFila = hoja.getLastRow();
+  let filasEliminadas = 0;
+
+  // Recorrer desde la última fila hacia arriba para no afectar los índices
+  for (let i = ultimaFila; i >= 2; i--) {
+    const nombreCompleto = hoja.getRange(i, 5).getValue(); // Columna E = 5
+
+    // Si la celda de nombre está vacía, eliminar toda la fila
+    if (!nombreCompleto || nombreCompleto.toString().trim() === '') {
+      hoja.deleteRow(i);
+      filasEliminadas++;
+    }
+  }
+
+  // Reinstalar las fórmulas en las primeras 100 filas después de la última con datos
+  const nuevaUltimaFila = hoja.getLastRow();
+  const maxFila = nuevaUltimaFila + 100;
+
+  for (let i = nuevaUltimaFila + 1; i <= maxFila; i++) {
+    hoja.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
+    hoja.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
+  }
+
+  ui.alert(
+    '✅ Limpieza Completada',
+    'Se eliminaron ' + filasEliminadas + ' filas vacías.\n\n' +
+    'La numeración ahora debería estar correcta.',
+    ui.ButtonSet.OK
+  );
+
+  ss.toast('✅ Filas vacías eliminadas: ' + filasEliminadas, 'Completado', 5);
 }
 
 /**
