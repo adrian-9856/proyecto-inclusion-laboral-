@@ -4606,9 +4606,9 @@ function instalarTodo() {
     '✓ Configurar validaciones y formatos\n' +
     '✓ Instalar fórmulas en todas las hojas\n' +
     '✓ Instalar triggers automáticos\n' +
-    '✓ Importar datos de ambos Kobos\n' +
     '✓ Reparar fórmulas del Reporte\n' +
-    '✓ Crear/actualizar Guía de Uso\n\n' +
+    '✓ Crear Guía de Uso (si no existe)\n\n' +
+    'ℹ️ Importación de Kobo: usar menú después\n' +
     '⚠️ NO se borrará "Copy of CREAMOS ID nuevo"\n' +
     '⚠️ NO se borrarán datos existentes\n\n' +
     '¿Deseas continuar?',
@@ -4629,9 +4629,12 @@ function instalarTodo() {
       cambios.push('✅ Hoja Lista Definitiva creada');
     }
 
-    ss.toast('📖 Creando Guía de Uso...', 'Instalando', 5);
-    crearHojaGuiaUso();
-    cambios.push('✅ Guía de Uso creada/actualizada');
+    // Crear Guía de Uso solo si no existe (para que sea más rápido)
+    if (!ss.getSheetByName('Guía de Uso')) {
+      ss.toast('📖 Creando Guía de Uso...', 'Instalando', 5);
+      crearHojaGuiaUso();
+      cambios.push('✅ Guía de Uso creada');
+    }
 
     ss.toast('✅ Configurando validaciones...', 'Instalando', 5);
     configurarValidaciones();
