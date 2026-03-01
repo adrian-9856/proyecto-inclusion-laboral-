@@ -491,9 +491,9 @@ function crearHojaInteres() {
     'Programa Interés',// K - Desplegable (cohortes)
     'Responsable',     // L - Desplegable
     'Notas',           // M
-    'Estado',          // N - Desplegable
-    '¿Deseas inscribirte?', // O - Desde Kobo
-    'Servicio/Formación de Interés' // P - Desde Kobo
+    '¿Deseas inscribirte?', // N - Desde Kobo
+    'Servicio/Formación de Interés', // O - Desde Kobo
+    'Estado'           // P - Desplegable (al final para evitar problemas)
   ];
 
   // Siempre asegurar que los encabezados estén correctos
@@ -1081,8 +1081,8 @@ function configurarValidaciones() {
     interes.getRange('K2:K500').clearDataValidations();
     interes.getRange('L2:L500').clearDataValidations();
 
-    // Estado (columna N) - SOLO DOS OPCIONES
-    interes.getRange('N2:N500').setDataValidation(
+    // Estado (columna P) - SOLO DOS OPCIONES
+    interes.getRange('P2:P500').setDataValidation(
       SpreadsheetApp.newDataValidation()
         .requireValueInList(['Entrevista agendada', 'No interesado'])
         .setAllowInvalid(false)
@@ -1305,9 +1305,9 @@ function alEditar(e) {
   if (val === '') return;
 
   // === HOJA DE INTERÉS ===
-  // Estado está en columna N (14) - solo "Entrevista agendada" o "No interesado"
+  // Estado está en columna P (16) - solo "Entrevista agendada" o "No interesado"
   if (hoja === 'Hoja de Interés') {
-    if (columna === 14) {
+    if (columna === 16) {
       procesarCambioEstadoInteres(sheet, fila, val);
     }
   }
@@ -2830,9 +2830,9 @@ function importarDesdeKobo() {
       colESnapshot[filaVaciaIdx] = nombreCompleto; // marcar como ocupada en memoria
       filaVaciaIdx++;
 
-      // Limpiar validaciones solo en columnas intermedias (C-M) para no borrar
-      // el dropdown de Estado (columna N) ni las protecciones de A y B
-      hojaInteres.getRange(nuevaFila, 3, 1, 11).clearDataValidations();
+      // Limpiar validaciones solo en columnas intermedias (C-O) para no borrar
+      // el dropdown de Estado (columna P) ni las protecciones de A y B
+      hojaInteres.getRange(nuevaFila, 3, 1, 13).clearDataValidations();
 
       // Usar fecha de Kobo si existe; si no, poner fecha de hoy como valor fijo
       const fechaParaHoja = fechaRegistroKobo || new Date();
@@ -2852,9 +2852,9 @@ function importarDesdeKobo() {
         programaInteres,   // K: Programa Interés
         '',                // L: Responsable
         notasPrograma,     // M: Notas
-        '',                // N: Estado (vacío para que el dropdown funcione)
-        deseaInscribirse,  // O: ¿Deseas inscribirte?
-        servicioFormacion  // P: Servicio/Formación de Interés
+        deseaInscribirse,  // N: ¿Deseas inscribirte?
+        servicioFormacion, // O: Servicio/Formación de Interés
+        ''                 // P: Estado (vacío para que el dropdown funcione)
       ];
 
       hojaInteres.getRange(nuevaFila, 1, 1, 16).setValues([registro]);
@@ -2862,8 +2862,8 @@ function importarDesdeKobo() {
       // Restaurar fórmula de No. (columna B) que setValues sobreescribe
       hojaInteres.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",COUNTA($E$2:E' + nuevaFila + '),"")');
 
-      // Restaurar dropdown de Estado (columna N) para esta fila
-      hojaInteres.getRange(nuevaFila, 14).setDataValidation(
+      // Restaurar dropdown de Estado (columna P) para esta fila
+      hojaInteres.getRange(nuevaFila, 16).setDataValidation(
         SpreadsheetApp.newDataValidation()
           .requireValueInList(['Entrevista agendada', 'No interesado'])
           .setAllowInvalid(false)
