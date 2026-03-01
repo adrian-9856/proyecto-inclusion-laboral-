@@ -166,7 +166,7 @@ const CONFIG = {
 
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('🎓 Inclusión Laboral')
+  ui.createMenu('🍔 Alimentos y Bebidas')
     // ========== ACCIONES PRINCIPALES ==========
     .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
     .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKobo')
@@ -261,20 +261,16 @@ function instalarSistema() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
-    ss.toast('📋 Creando hojas...', 'Instalando', 3);
-    Utilities.sleep(1000);
+    ss.toast('📋 Creando hojas...', 'Instalando', 2);
     crearTodasLasHojas();
 
-    ss.toast('✅ Configurando validaciones...', 'Instalando', 3);
-    Utilities.sleep(1000);
+    ss.toast('✅ Configurando validaciones...', 'Instalando', 2);
     configurarValidaciones();
 
-    ss.toast('🎨 Aplicando formatos...', 'Instalando', 3);
-    Utilities.sleep(1000);
+    ss.toast('🎨 Aplicando formatos...', 'Instalando', 2);
     aplicarFormatos();
 
-    ss.toast('⏰ Instalando triggers...', 'Instalando', 3);
-    Utilities.sleep(1000);
+    ss.toast('⏰ Instalando triggers...', 'Instalando', 2);
     instalarTriggers();
 
     ss.toast(
@@ -2593,6 +2589,50 @@ function importarDesdeKobo() {
 }
 
 /**
+ * Normaliza texto para comparación (sin tildes, minúsculas, sin espacios extra)
+ */
+function normalizarTexto(texto) {
+  if (!texto) return '';
+  return texto.toString()
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Elimina tildes
+    .replace(/\s+/g, ' ') // Normaliza espacios
+    .trim();
+}
+
+/**
+ * Detecta si el texto contiene indicadores de Gastronomía
+ */
+function esTextGastronomia(texto) {
+  const textoNorm = normalizarTexto(texto);
+  const patronesGastronomia = [
+    'gastronomia',
+    'cocina',
+    'reposteria',
+    'pasteleria',
+    'panaderia',
+    'alimentos y bebidas - gastronomia',
+    'chef'
+  ];
+  return patronesGastronomia.some(patron => textoNorm.includes(patron));
+}
+
+/**
+ * Detecta si el texto contiene indicadores de Barismo
+ */
+function esTextBarismo(texto) {
+  const textoNorm = normalizarTexto(texto);
+  const patronesBarismo = [
+    'barismo',
+    'barista',
+    'cafe',
+    'alimentos y bebidas - barismo',
+    'coffee'
+  ];
+  return patronesBarismo.some(patron => textoNorm.includes(patron));
+}
+
+/**
  * Función interna que realiza la importación desde cualquier URL de Kobo
  *
  * MAPEO DE COLUMNAS KOBO → HOJA DE INTERÉS:
@@ -2605,9 +2645,9 @@ function importarDesdeKobo() {
  * - Inicio/Zona → Zona
  * - ¿Cómo te enteraste de Creamos? → Cómo se enteró
  *
- * FILTRO TECNOLOGÍA:
- * - Inclusión Laboral/.../Tecnología - Marketing = 1
- * - Inclusión Laboral/.../Tecnología - Programación = 1
+ * FILTRO ALIMENTOS Y BEBIDAS:
+ * - Alimentos y Bebidas - Gastronomía
+ * - Alimentos y Bebidas - Barismo
  */
 function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
   try {
@@ -2847,23 +2887,42 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
     for (let i = 1; i < rows.length; i++) {
       const fila = rows[i];
 
-      // === FILTRO: Solo registros de TECNOLOGÍA ===
-      // Obtener el texto de la columna de servicios de interés
+      // === FILTRO: Solo registros de ALIMENTOS Y BEBIDAS ===
+      // Buscar en múltiples columnas posibles (para manejar datos históricos y diferentes formatos)
       const servicioTexto = colIndices.servicioInteres >= 0 ?
-        (fila[colIndices.servicioInteres] || '').toString().toLowerCase() : '';
+        (fila[colIndices.servicioInteres] || '').toString() : '';
 
-      // Verificar si contiene algún programa de tecnología
-      const esMarketing = servicioTexto.includes('tecnología - marketing') || servicioTexto.includes('tecnologia - marketing') || servicioTexto.includes('marketing digital');
-      const esProgramacion = servicioTexto.includes('tecnología - programación') || servicioTexto.includes('tecnologia - programacion') || servicioTexto.includes('programación') || servicioTexto.includes('programacion');
-      const esAlfabetizacion = servicioTexto.includes('alfabetización digital') || servicioTexto.includes('alfabetizacion digital');
-      const esCertificacion = servicioTexto.includes('certificación microsoft') || servicioTexto.includes('certificacion microsoft');
-      const esServicioCliente = servicioTexto.includes('servicio al cliente') || servicioTexto.includes('atención al cliente') || servicioTexto.includes('atencion al cliente');
+      // Buscar también en otras columnas que puedan contener el programa
+      let textoCompleto = servicioTexto;
 
-      // Si no tiene ningún programa de tecnología, omitir
-      if (!esMarketing && !esProgramacion && !esAlfabetizacion && !esCertificacion && !esServicioCliente) {
-        omitidosNoTech++;
-        continue; // Saltar si no es Tech
+      // Buscar en columna "programa" si existe
+      if (colIndices.programa !== undefined && colIndices.programa >= 0) {
+        textoCompleto += ' ' + (fila[colIndices.programa] || '').toString();
       }
+
+      // Buscar en columna "área" o "especialidad" si existe
+      for (let col = 0; col < fila.length; col++) {
+        const valor = (fila[col] || '').toString();
+        if (valor && (valor.toLowerCase().includes('alimentos') || valor.toLowerCase().includes('bebidas') ||
+                      valor.toLowerCase().includes('gastronomia') || valor.toLowerCase().includes('barismo'))) {
+          textoCompleto += ' ' + valor;
+        }
+      }
+
+      // Verificar si contiene algún programa de Alimentos y Bebidas
+      const esGastronomia = esTextGastronomia(textoCompleto);
+      const esBarismo = esTextBarismo(textoCompleto);
+
+      // Si no tiene ningún programa de Alimentos y Bebidas, omitir
+      if (!esGastronomia && !esBarismo) {
+        omitidosNoTech++;
+        Logger.log('⚠️ OMITIDO (No es Alimentos y Bebidas): ' + textoCompleto.substring(0, 100));
+        continue; // Saltar si no es Alimentos y Bebidas
+      }
+
+      // Log de registro detectado
+      const tipoPrograma = esGastronomia ? '🍽️ Gastronomía' : '☕ Barismo';
+      Logger.log('✅ DETECTADO ' + tipoPrograma + ': ' + textoCompleto.substring(0, 100));
 
       // Obtener Creamos ID y DPI - CONVERTIR A MAYÚSCULAS
       const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim().toUpperCase() : '';
@@ -2920,13 +2979,10 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       if (verificarValorPositivo(fila, colIndices.redWhatsApp)) redesSociales.push('WhatsApp');
       const comoSeEntero = redesSociales.length > 0 ? redesSociales.join(' ') : '';
 
-      // Determinar notas de programas seleccionados
+      // Determinar notas de programas seleccionados (Alimentos y Bebidas)
       let programasSeleccionados = [];
-      if (esMarketing) programasSeleccionados.push('Marketing');
-      if (esProgramacion) programasSeleccionados.push('Programación');
-      if (esAlfabetizacion) programasSeleccionados.push('Alfabetización Digital');
-      if (esCertificacion) programasSeleccionados.push('Certificación Microsoft');
-      if (esServicioCliente) programasSeleccionados.push('Servicio al Cliente');
+      if (esGastronomia) programasSeleccionados.push('Gastronomía');
+      if (esBarismo) programasSeleccionados.push('Barismo');
 
       const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
 
@@ -4226,6 +4282,28 @@ function desinstalarSistema() {
   if (resp2 !== ui.Button.YES) {
     ss.toast('❌ Desinstalación cancelada', 'Cancelado', 3);
     return;
+  }
+
+  // ===== PREGUNTA SOBRE COPIA DE SEGURIDAD =====
+  const respCopia = ui.alert(
+    '💾 Copia de Seguridad',
+    '¿Deseas hacer una COPIA DE SEGURIDAD del archivo antes de desinstalar?\n\n' +
+    'La copia incluirá todos los datos actuales y se guardará en tu Google Drive.\n\n' +
+    '💡 Recomendado: SÍ (podrás recuperar datos si es necesario)',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respCopia === ui.Button.YES) {
+    ss.toast('💾 Creando copia de seguridad...', 'Respaldo', 5);
+    try {
+      const nombreCopia = 'BACKUP - ' + ss.getName() + ' - ' + Utilities.formatDate(new Date(), 'GMT-6', 'yyyy-MM-dd HH-mm');
+      const archivo = DriveApp.getFileById(ss.getId());
+      const copia = archivo.makeCopy(nombreCopia);
+      ss.toast('✅ Copia creada: ' + nombreCopia, 'Respaldo Exitoso', 5);
+      Logger.log('✅ Copia de seguridad creada: ' + nombreCopia + ' (ID: ' + copia.getId() + ')');
+    } catch (errorCopia) {
+      ui.alert('⚠️ Error al crear copia', 'No se pudo crear la copia de seguridad:\n' + errorCopia.message + '\n\n¿Deseas continuar con la desinstalación de todos modos?', ui.ButtonSet.OK);
+    }
   }
 
   ss.toast('🗑️ Desinstalando sistema...', 'Desinstalación', -1);

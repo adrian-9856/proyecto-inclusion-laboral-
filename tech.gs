@@ -166,7 +166,7 @@ const CONFIG = {
 
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('🎓 Inclusión Laboral')
+  ui.createMenu('💻 Tecnología')
     // ========== ACCIONES PRINCIPALES ==========
     .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
     .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKobo')
@@ -261,20 +261,16 @@ function instalarSistema() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
-    ss.toast('📋 Creando hojas...', 'Instalando', 3);
-    Utilities.sleep(1000);
+    ss.toast('📋 Creando hojas...', 'Instalando', 2);
     crearTodasLasHojas();
 
-    ss.toast('✅ Configurando validaciones...', 'Instalando', 3);
-    Utilities.sleep(1000);
+    ss.toast('✅ Configurando validaciones...', 'Instalando', 2);
     configurarValidaciones();
 
-    ss.toast('🎨 Aplicando formatos...', 'Instalando', 3);
-    Utilities.sleep(1000);
+    ss.toast('🎨 Aplicando formatos...', 'Instalando', 2);
     aplicarFormatos();
 
-    ss.toast('⏰ Instalando triggers...', 'Instalando', 3);
-    Utilities.sleep(1000);
+    ss.toast('⏰ Instalando triggers...', 'Instalando', 2);
     instalarTriggers();
 
     ss.toast(
@@ -2609,8 +2605,7 @@ function importarDesdeKobo() {
  * - Inclusión Laboral/.../Tecnología - Marketing = 1
  * - Inclusión Laboral/.../Tecnología - Programación = 1
  */
-function importarDesdeKoboInterno(ss, ui, url, tipoImportacion)
-
+function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
   try {
     ss.toast(tipoImportacion + ' - Descargando...', 'Importando', 5);
 
@@ -4227,6 +4222,28 @@ function desinstalarSistema() {
   if (resp2 !== ui.Button.YES) {
     ss.toast('❌ Desinstalación cancelada', 'Cancelado', 3);
     return;
+  }
+
+  // ===== PREGUNTA SOBRE COPIA DE SEGURIDAD =====
+  const respCopia = ui.alert(
+    '💾 Copia de Seguridad',
+    '¿Deseas hacer una COPIA DE SEGURIDAD del archivo antes de desinstalar?\n\n' +
+    'La copia incluirá todos los datos actuales y se guardará en tu Google Drive.\n\n' +
+    '💡 Recomendado: SÍ (podrás recuperar datos si es necesario)',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respCopia === ui.Button.YES) {
+    ss.toast('💾 Creando copia de seguridad...', 'Respaldo', 5);
+    try {
+      const nombreCopia = 'BACKUP - ' + ss.getName() + ' - ' + Utilities.formatDate(new Date(), 'GMT-6', 'yyyy-MM-dd HH-mm');
+      const archivo = DriveApp.getFileById(ss.getId());
+      const copia = archivo.makeCopy(nombreCopia);
+      ss.toast('✅ Copia creada: ' + nombreCopia, 'Respaldo Exitoso', 5);
+      Logger.log('✅ Copia de seguridad creada: ' + nombreCopia + ' (ID: ' + copia.getId() + ')');
+    } catch (errorCopia) {
+      ui.alert('⚠️ Error al crear copia', 'No se pudo crear la copia de seguridad:\n' + errorCopia.message + '\n\n¿Deseas continuar con la desinstalación de todos modos?', ui.ButtonSet.OK);
+    }
   }
 
   ss.toast('🗑️ Desinstalando sistema...', 'Desinstalación', -1);
