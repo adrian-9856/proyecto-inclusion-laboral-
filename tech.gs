@@ -1146,7 +1146,7 @@ function configurarValidaciones() {
   }
 
   // === HOJA DE SELECCIONADAS ===
-  // Columnas: A-No, B-CreamosID, C-DPI, D-Nombre, E-Género, F-Edad, G-Tel, H-NivelEdu, I-Zona, J-Notas, K-EnviarACohorte
+  // Columnas: A-No, B-CreamosID, C-DPI, D-Nombre, E-Género, F-Edad, G-Tel, H-NivelEdu, I-Zona, J-Notas, K-Estado, L-EnviarACohorte
   const seleccionadas = ss.getSheetByName('Inscritx');
   if (seleccionadas) {
     // Género (E)

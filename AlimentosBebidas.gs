@@ -32,13 +32,13 @@ const CONFIG = {
   // Cohortes disponibles (se llenan dinámicamente desde la hoja Cohortes)
   COHORTES: [],
 
-  // Programas de Tecnología (para Hoja de Interés - viene de Kobo)
-  PROGRAMAS_TECNOLOGIA: [
-    'Marketing Digital',
-    'Programación',
-    'Alfabetización Digital',
-    'Certificación Microsoft',
-    'Servicio al Cliente'
+  // Programas de Alimentos y Bebidas (para Hoja de Interés - viene de Kobo)
+  // Nota: La detección se hace mediante las funciones esTextGastronomia() y esTextBarismo()
+  PROGRAMAS_ALIMENTOS: [
+    'Gastronomía',
+    'Barismo',
+    'Cocina',
+    'Repostería'
   ],
 
   // Responsables del programa
@@ -1146,7 +1146,7 @@ function configurarValidaciones() {
   }
 
   // === HOJA DE SELECCIONADAS ===
-  // Columnas: A-No, B-CreamosID, C-DPI, D-Nombre, E-Género, F-Edad, G-Tel, H-NivelEdu, I-Zona, J-Notas, K-EnviarACohorte
+  // Columnas: A-No, B-CreamosID, C-DPI, D-Nombre, E-Género, F-Edad, G-Tel, H-NivelEdu, I-Zona, J-Notas, K-Estado, L-EnviarACohorte
   const seleccionadas = ss.getSheetByName('Inscritx');
   if (seleccionadas) {
     // Género (E)
