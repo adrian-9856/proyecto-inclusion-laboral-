@@ -210,6 +210,7 @@ function onOpen() {
       .addSeparator()
       .addItem('🧹 Limpiar Filas Vacías', 'limpiarFilasVaciasHojaInteres')
       .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
+      .addItem('🗑️ Eliminar Todos los Datos', 'limpiarTodosLosDatos')
       .addSeparator()
       .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
       .addItem('✅ Verificar Instalación', 'verificarInstalacion')
@@ -523,7 +524,7 @@ function crearHojaInteres() {
     const valorE = sheet.getRange('E' + i).getValue();
     const valorA = sheet.getRange('A' + i).getValue();
     // Solo poner fórmula de No. si no hay valor fijo ya puesto
-    sheet.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
+    sheet.getRange('B' + i).setFormula('=IF(E' + i + '<>"",ROW()-1,"")');
     // Solo poner fórmula de fecha si la celda está vacía y no hay nombre
     if (!valorA && !valorE) {
       sheet.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
@@ -2916,7 +2917,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       hojaInteres.getRange(nuevaFila, 1, 1, 16).setValues([registro]);
 
       // Restaurar fórmula de No. (columna B) que setValues sobreescribe
-      hojaInteres.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",COUNTA($E$2:E' + nuevaFila + '),"")');
+      hojaInteres.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",ROW()-1,"")');
 
       // Restaurar dropdown de Género (columna F) para esta fila
       hojaInteres.getRange(nuevaFila, 6).setDataValidation(
@@ -4004,7 +4005,7 @@ function repararFormulas() {
     // Columna B: siempre fórmula (batch)
     const fmB = [];
     for (let r = 2; r <= limite; r++) {
-      fmB.push(['=IF(E' + r + '<>"",COUNTA($E$2:E' + r + '),"")']);
+      fmB.push(['=IF(E' + r + '<>"",ROW()-1,"")']);
     }
     sheet.getRange(2, 2, limite - 1, 1).setFormulas(fmB);
     // Columna A: solo celdas vacías (preserva fechas reales de Kobo)
@@ -4088,7 +4089,7 @@ function limpiarTodosLosDatos() {
   const interes = ss.getSheetByName('Hoja de Interés');
   for (let i = 2; i <= 100; i++) {
     interes.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
-    interes.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
+    interes.getRange('B' + i).setFormula('=IF(E' + i + '<>"",ROW()-1,"")');
   }
 
   actualizarReportes();
@@ -4142,7 +4143,7 @@ function limpiarFilasVaciasHojaInteres() {
 
   for (let i = nuevaUltimaFila + 1; i <= maxFila; i++) {
     hoja.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
-    hoja.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
+    hoja.getRange('B' + i).setFormula('=IF(E' + i + '<>"",ROW()-1,"")');
   }
 
   ui.alert(

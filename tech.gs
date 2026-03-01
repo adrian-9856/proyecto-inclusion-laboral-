@@ -210,6 +210,7 @@ function onOpen() {
       .addSeparator()
       .addItem('🧹 Limpiar Filas Vacías', 'limpiarFilasVaciasHojaInteres')
       .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
+      .addItem('🗑️ Eliminar Todos los Datos', 'limpiarTodosLosDatos')
       .addSeparator()
       .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
       .addItem('✅ Verificar Instalación', 'verificarInstalacion')
@@ -523,7 +524,7 @@ function crearHojaInteres() {
     const valorE = sheet.getRange('E' + i).getValue();
     const valorA = sheet.getRange('A' + i).getValue();
     // Solo poner fórmula de No. si no hay valor fijo ya puesto
-    sheet.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
+    sheet.getRange('B' + i).setFormula('=IF(E' + i + '<>"",ROW()-1,"")');
     // Solo poner fórmula de fecha si la celda está vacía y no hay nombre
     if (!valorA && !valorE) {
       sheet.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
@@ -4142,7 +4143,7 @@ function limpiarFilasVaciasHojaInteres() {
 
   for (let i = nuevaUltimaFila + 1; i <= maxFila; i++) {
     hoja.getRange('A' + i).setFormula('=IF(E' + i + '<>"",TODAY(),"")');
-    hoja.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
+    hoja.getRange('B' + i).setFormula('=IF(E' + i + '<>"",ROW()-1,"")');
   }
 
   ui.alert(
