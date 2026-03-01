@@ -4542,34 +4542,10 @@ function instalarTodo() {
     instalarTriggers();
     cambios.push('✅ Triggers automáticos instalados');
 
-    // 10. Importar desde Kobo — Hoja de Interés
-    ss.toast('📥 Importando Hoja de Interés desde Kobo...', 'Instalando', 8);
-    try {
-      importarDesdeKobo();
-      cambios.push('✅ Hoja de Interés importada desde Kobo');
-    } catch (e) {
-      cambios.push('⚠️ Kobo Registros: ' + e.message);
-    }
+    // SALTAR IMPORTACIÓN AUTOMÁTICA - El usuario la hará manualmente para que sea más rápido
+    cambios.push('ℹ️ Importación de Kobo: Usar menú después de instalación');
 
-    // 11. Importar desde Kobo — Entrevistas
-    ss.toast('📥 Importando Entrevistas desde Kobo...', 'Instalando', 8);
-    try {
-      importarEntrevistasDesdeKobo();
-      cambios.push('✅ Entrevistas importadas desde Kobo');
-    } catch (e) {
-      cambios.push('⚠️ Kobo Entrevistas: ' + e.message);
-    }
-
-    // 12. Autocompletar CREAMOS ID e información faltante en TODAS las hojas
-    ss.toast('🔄 Autocompletando información desde CREAMOS ID...', 'Instalando', 8);
-    try {
-      actualizarTodosDesdeDirectorio(true);
-      cambios.push('✅ Información autocompletada desde CREAMOS ID en todas las hojas');
-    } catch (e) {
-      cambios.push('⚠️ Autocompletar CREAMOS ID: ' + e.message);
-    }
-
-    // 13. Actualizar reporte final
+    // Actualizar reporte final
     actualizarReportes();
     cambios.push('✅ Reporte actualizado');
 
