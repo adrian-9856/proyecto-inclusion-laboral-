@@ -13,15 +13,47 @@ LA SOLUCIÓN (2 MINUTOS):
 
 ═══════════════════════════════════════════════════════════════
 
-PASOS EXACTOS:
+¿QUÉ SISTEMA USAS?
 ═══════════════════════════════════════════════════════════════
 
-1. Abre tu hoja de Google Sheets
+A) TECNOLOGÍA (tech.gs)
+   → Busca el menú: 💻 Tecnología
+
+B) ALIMENTOS Y BEBIDAS (AlimentosBebidas.gs)
+   → Busca el menú: 🍔 Alimentos y Bebidas
+
+C) AMBOS
+   → Lee: INSTALAR_AMBOS_SISTEMAS.md
+
+═══════════════════════════════════════════════════════════════
+
+PASOS PARA TECNOLOGÍA:
+═══════════════════════════════════════════════════════════════
+
+1. Abre tu hoja de Google Sheets de Tecnología
 
 2. Busca el menú: 💻 Tecnología
    (Si no lo ves, refresca la página con F5)
 
 3. Haz clic en: 💻 Tecnología → ⚙️ Configuración
+
+4. Haz clic en: ⏰ Instalar Triggers
+
+5. Autoriza permisos → Espera "✅ Triggers instalados"
+
+6. Verifica: 💻 Tecnología → 🛠️ Herramientas → ✅ Verificar
+
+═══════════════════════════════════════════════════════════════
+
+PASOS PARA ALIMENTOS Y BEBIDAS:
+═══════════════════════════════════════════════════════════════
+
+1. Abre tu hoja de Google Sheets de Alimentos y Bebidas
+
+2. Busca el menú: 🍔 Alimentos y Bebidas
+   (Si no lo ves, refresca la página con F5)
+
+3. Haz clic en: 🍔 Alimentos y Bebidas → ⚙️ Configuración
 
 4. Haz clic en: ⏰ Instalar Triggers
 
@@ -78,6 +110,13 @@ RESUMEN:
 
 ✅ Ya copiaste el código
 ⚠️  FALTA: Instalar triggers
-📍 CÓMO: 💻 Tecnología → ⚙️ Configuración → ⏰ Instalar Triggers
+
+📍 TECNOLOGÍA:
+   💻 Tecnología → ⚙️ Configuración → ⏰ Instalar Triggers
+
+📍 ALIMENTOS Y BEBIDAS:
+   🍔 Alimentos y Bebidas → ⚙️ Configuración → ⏰ Instalar Triggers
+
+📖 GUÍA COMPLETA: cat INSTALAR_AMBOS_SISTEMAS.md
 
 ═══════════════════════════════════════════════════════════════
