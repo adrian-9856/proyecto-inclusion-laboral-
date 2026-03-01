@@ -168,19 +168,18 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('🎓 Inclusión Laboral')
     // ========== ACCIONES PRINCIPALES ==========
-    .addItem('📋 Importar Hoja de Interés (Kobo)', 'importarDesdeKobo')
+    .addItem('📋 Importar Datos de Kobo', 'importarDesdeKobo')
     .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
-    .addItem('🧹 Limpiar filas vacías (Hoja de Interés)', 'limpiarFilasVaciasHojaInteres')
     .addSeparator()
 
-    // ========== REPORTES ==========
-    .addSubMenu(ui.createMenu('📊 Reportes')
+    // ========== REPORTES Y EXPORTACIÓN ==========
+    .addSubMenu(ui.createMenu('📊 Reportes y Exportación')
       .addItem('📊 Actualizar Reportes', 'actualizarReportes')
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addSeparator()
-      .addItem('🔄 Copiar Cohortes → Lista Definitiva', 'reconstruirHistoricoCompleto')
-      .addItem('📥 Exportar Histórico Completo', 'exportarHistoricoCompleto')
-      .addItem('📥 Exportar Solo Datos Nuevos', 'exportarDatosNuevos'))
+      .addItem('🔄 1️⃣ Consolidar Datos → Lista Definitiva', 'reconstruirHistoricoCompleto')
+      .addItem('📥 2️⃣ Exportar Histórico Completo', 'exportarHistoricoCompleto')
+      .addItem('📥 2️⃣ Exportar Solo Datos Nuevos', 'exportarDatosNuevos'))
 
     // ========== COHORTES ==========
     .addSubMenu(ui.createMenu('📋 Cohortes')
@@ -211,6 +210,8 @@ function onOpen() {
     .addSubMenu(ui.createMenu('🛠️ Herramientas')
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
       .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
+      .addSeparator()
+      .addItem('🧹 Limpiar Filas Vacías', 'limpiarFilasVaciasHojaInteres')
       .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
       .addSeparator()
       .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
@@ -222,10 +223,7 @@ function onOpen() {
       .addSeparator()
       .addItem('🔍 Probar Conexión Kobo', 'probarConexionKobo')
       .addItem('📊 Ver Columnas Kobo', 'verColumnasKobo')
-      .addItem('✉️ Probar Email', 'probarEmail')
-      .addSeparator()
-      .addItem('🧪 Crear Datos de Prueba', 'crearDatosPrueba')
-      .addItem('🧹 Limpiar Todos los Datos', 'limpiarTodosLosDatos'))
+      .addItem('✉️ Probar Email', 'probarEmail'))
     .addSeparator()
 
     // ========== INSTALACIÓN Y AYUDA ==========
