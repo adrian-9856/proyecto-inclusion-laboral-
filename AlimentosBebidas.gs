@@ -2607,8 +2607,7 @@ function importarDesdeKobo() {
  * - Inclusión Laboral/.../Tecnología - Marketing = 1
  * - Inclusión Laboral/.../Tecnología - Programación = 1
  */
-function importarDesdeKoboInterno(ss, ui, url, tipoImportacion)
-
+function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
   try {
     ss.toast(tipoImportacion + ' - Descargando...', 'Importando', 5);
 
