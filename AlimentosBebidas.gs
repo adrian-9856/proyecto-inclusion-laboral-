@@ -1380,7 +1380,7 @@ function alEditar(e) {
   }
 
   // === SELECCIONADAS ===
-  // "Enviar a Cohorte" está en columna K (11) - al seleccionar cohorte se envía
+  // "Enviar a Cohorte" está en columna L (12) - al seleccionar cohorte se envía
   if (hoja === 'Inscritx') {
     if (columna === 12 && val !== '') {
       procesarEnvioACohorte(sheet, fila, val);
@@ -1782,7 +1782,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
   const seleccionadas = ss.getSheetByName('Inscritx');
   const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
-  // Columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
+  // Columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
   const registro = [
     nuevaFila - 1,
     creamosId,
@@ -1794,6 +1794,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
     nivelEducativo,
     '',               // Zona
     'Reingreso desde Deserción (' + cohorteAnterior + ') - ' + notas,
+    'Inscritx',       // Estado (automático)
     ''                // Enviar a Cohorte
   ];
 
@@ -1821,8 +1822,8 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
 function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Inscritx tiene 11 columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
-  const datos = sheet.getRange(fila, 1, 1, 11).getValues()[0];
+  // Inscritx tiene 12 columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
+  const datos = sheet.getRange(fila, 1, 1, 12).getValues()[0];
   const creamosId = datos[1];
   const nombre = datos[3];
 
@@ -3919,17 +3920,23 @@ function enviarParticipantesACohorte() {
     const datosInteres = buscarPorCreamosID(interes, p.creamosId);
     const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
-    // Columnas: No, CreamosID, DPI, Nombre, Edad, Tel, NivelEdu, Zona, Notas, EnviarACohorte
+    // Columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
     const registro = [
-      nuevaFila - 1, p.creamosId,
-      datosInteres ? datosInteres[3] : '', p.nombre,
-      datosInteres ? datosInteres[5] : '', p.datos[4],
-      datosInteres ? datosInteres[7] : '', datosInteres ? datosInteres[8] : '',
-      p.datos[8] || '',
-      ''                // Enviar a Cohorte (vacío)
+      nuevaFila - 1,                          // No
+      p.creamosId,                            // CreamosID
+      datosInteres ? datosInteres[3] : '',    // DPI
+      p.nombre,                               // Nombre
+      datosInteres ? datosInteres[5] : '',    // Género
+      datosInteres ? datosInteres[6] : '',    // Edad
+      p.datos[4],                             // Teléfono
+      datosInteres ? datosInteres[8] : '',    // Nivel Educativo
+      datosInteres ? datosInteres[9] : '',    // Zona
+      p.datos[8] || '',                       // Notas
+      'Inscritx',                             // Estado (automático)
+      ''                                      // Enviar a Cohorte (vacío)
     ];
 
-    seleccionadas.getRange(nuevaFila, 1, 1, 10).setValues([registro]);
+    seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
     entrevistas.getRange(p.fila, 1, 1, 11).setBackground('#c8e6c9');
     entrevistas.getRange(p.fila, 11).setValue('Enviado ✓');
     enviados++;
