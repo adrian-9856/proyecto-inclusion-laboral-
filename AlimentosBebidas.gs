@@ -44,6 +44,18 @@ const CONFIG = {
     'Paola Ortiz'
   ],
 
+  // Opciones de Género (valores válidos del formulario Kobo)
+  GENEROS: [
+    'Mujer / Femenino',
+    'Hombre / Masculino',
+    'Trans Mujer',
+    'Trans Hombre',
+    'No Binarie / Género Queer / Género No Conforme',
+    'Agénero',
+    'Prefiero autodescribirme',
+    'No quiere contestar'
+  ],
+
   // Niveles educativos
   NIVELES_EDUCATIVOS: [
     'Primaria incompleta',
