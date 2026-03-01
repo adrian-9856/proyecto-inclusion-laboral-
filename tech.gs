@@ -1225,24 +1225,27 @@ function configurarValidaciones() {
   }
 
   // === HOJA DE NO SELECCIONADAS ===
-  // Columnas: A-Fecha, B-CreamosID, C-Nombre, D-Género, E-Tel, F-Etapa, G-Motivo, H-Origen, I-Notas, J-Acción
+  // Columnas: A-Fecha, B-CreamosID, C-Nombre, D-Género, E-Edad, F-Teléfono, G-Etapa, H-Motivo, I-Origen, J-Notas, K-Acción
   const noInscritx = ss.getSheetByName('No Inscritx');
   if (noInscritx) {
     // Género (D)
     noInscritx.getRange('D2:D500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.GENEROS).setAllowInvalid(true).build()
     );
-    noInscritx.getRange('F2:F500').setDataValidation(
+    // Etapa (G)
+    noInscritx.getRange('G2:G500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(['Interés inicial', 'Post-entrevista', 'Post-selección']).setAllowInvalid(false).build()
     );
-    noInscritx.getRange('G2:G500').setDataValidation(
+    // Motivo (H)
+    noInscritx.getRange('H2:H500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.MOTIVOS_NO_SELECCION).setAllowInvalid(true).build()
     );
-    noInscritx.getRange('H2:H500').setDataValidation(
+    // Origen (I)
+    noInscritx.getRange('I2:I500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(['Hoja de Interés', 'Entrevistas', 'Inscritx']).setAllowInvalid(false).build()
     );
-    // Acción (J) - Opciones para reenviar según origen
-    noInscritx.getRange('J2:J500').setDataValidation(
+    // Acción (K) - Opciones para reenviar según origen
+    noInscritx.getRange('K2:K500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(['Reenviar a Entrevistas', 'Reenviar a Inscritx']).setAllowInvalid(true).build()
     );
   }
@@ -1509,7 +1512,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       datos[7],             // H: Teléfono
       datos[8],             // I: Nivel Educativo
       datos[9],             // J: Zona
-      '',                   // K: Entrevistador (vacío para selección manual)
+      'Eva',                // K: Entrevistador (asignado automáticamente)
       '',                   // L: Calificación
       '',                   // M: Observaciones
       ''                    // N: Estado (vacío hasta que se complete)
@@ -1913,6 +1916,7 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   const nuevaFilaCohorte = obtenerPrimeraFilaVacia(hojaCohorte, 'E');
   const noParticipante = nuevaFilaCohorte - 1; // No. secuencial (fila 2 = participante 1)
   // Orden: Fecha, No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Estado, Año
+  const añoActual = new Date().getFullYear(); // Año actual (YYYY)
   const registroCohorte = [
     new Date(),
     noParticipante,
@@ -1925,7 +1929,7 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
     datos[7],           // Nivel Educativo
     datos[8],           // Zona
     '',                 // Estado (vacío - opciones: Graduadx/Retiradx)
-    ''                  // Año (se calcula automáticamente con fórmula)
+    añoActual           // Año (asignado automáticamente)
   ];
   hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, 12).setValues([registroCohorte]);
 
@@ -4309,12 +4313,17 @@ function desinstalarSistema() {
   ss.toast('🗑️ Desinstalando sistema...', 'Desinstalación', -1);
 
   try {
-    // ===== PASO 1: Eliminar triggers automáticos =====
+    // ===== PASO 1: Eliminar solo triggers específicos del sistema =====
     const triggers = ScriptApp.getProjectTriggers();
+    let triggersEliminados = 0;
     triggers.forEach(trigger => {
-      ScriptApp.deleteTrigger(trigger);
+      // Solo eliminar triggers específicos del sistema (alEditar y actualizarReportes)
+      if (['alEditar', 'actualizarReportes'].includes(trigger.getHandlerFunction())) {
+        ScriptApp.deleteTrigger(trigger);
+        triggersEliminados++;
+      }
     });
-    Logger.log('✅ Triggers eliminados: ' + triggers.length);
+    Logger.log('✅ Triggers del sistema eliminados: ' + triggersEliminados + ' de ' + triggers.length + ' totales');
 
     // ===== PASO 2: Lista de hojas del sistema a eliminar =====
     const hojasDelSistema = [
