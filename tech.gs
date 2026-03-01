@@ -492,7 +492,9 @@ function crearHojaInteres() {
     'Programa Interés',// K - Desplegable (cohortes)
     'Responsable',     // L - Desplegable
     'Notas',           // M
-    'Estado'           // N - Desplegable (última columna)
+    'Estado',          // N - Desplegable
+    '¿Deseas inscribirte?', // O - Desde Kobo
+    'Servicio/Formación de Interés' // P - Desde Kobo
   ];
 
   // Siempre asegurar que los encabezados estén correctos
@@ -516,7 +518,7 @@ function crearHojaInteres() {
     }
   }
 
-  [100, 50, 100, 130, 200, 60, 120, 150, 120, 150, 150, 120, 250, 120].forEach((w, i) => {
+  [100, 50, 100, 130, 200, 60, 120, 150, 120, 150, 150, 120, 250, 120, 150, 250].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -2798,6 +2800,12 @@ function importarDesdeKobo() {
 
       const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
 
+      // Obtener datos de las preguntas de Inclusión Laboral
+      const deseaInscribirse = colIndices.deseaInscribirse >= 0 ?
+        (fila[colIndices.deseaInscribirse] || '').toString().trim() : '';
+      const servicioFormacion = colIndices.servicioInteres >= 0 ?
+        (fila[colIndices.servicioInteres] || '').toString().trim() : '';
+
       // Extender la hoja si nuevaFila supera el número de filas disponibles
       // Obtener la siguiente fila realmente vacía (sin huecos ni sobreescrituras)
       const nuevaFila = siguienteFilaVacia();
@@ -2826,10 +2834,12 @@ function importarDesdeKobo() {
         programaInteres,   // K: Programa Interés
         '',                // L: Responsable
         notasPrograma,     // M: Notas
-        ''                 // N: Estado (vacío para que el dropdown funcione)
+        '',                // N: Estado (vacío para que el dropdown funcione)
+        deseaInscribirse,  // O: ¿Deseas inscribirte?
+        servicioFormacion  // P: Servicio/Formación de Interés
       ];
 
-      hojaInteres.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
+      hojaInteres.getRange(nuevaFila, 1, 1, 16).setValues([registro]);
 
       // Restaurar fórmula de No. (columna B) que setValues sobreescribe
       hojaInteres.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",COUNTA($E$2:E' + nuevaFila + '),"")');
