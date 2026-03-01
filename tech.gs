@@ -212,6 +212,8 @@ function onOpen() {
       .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
       .addItem('🗑️ Eliminar Todos los Datos', 'limpiarTodosLosDatos')
       .addSeparator()
+      .addItem('⛔ Desinstalar Sistema Completo', 'desinstalarSistema')
+      .addSeparator()
       .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
       .addItem('✅ Verificar Instalación', 'verificarInstalacion')
       .addSeparator()
@@ -4162,6 +4164,172 @@ function limpiarTodosLosDatos() {
 
   actualizarReportes();
   ss.toast('✅ Datos eliminados', 'OK', 4);
+}
+
+/**
+ * =====================================================================
+ * DESINSTALAR SISTEMA COMPLETO
+ * =====================================================================
+ * Elimina todas las hojas del sistema excepto "Copy of CREAMOS ID nuevo"
+ * y elimina todos los triggers automáticos.
+ *
+ * ⚠️ ADVERTENCIA: Esta acción NO se puede deshacer.
+ *
+ * MANTIENE:
+ * - La hoja "Copy of CREAMOS ID nuevo" (datos de Salesforce)
+ *
+ * ELIMINA:
+ * - Todas las hojas del sistema (Hoja de Interés, Entrevistas, etc.)
+ * - Todas las hojas de cohortes individuales
+ * - Todos los triggers automáticos
+ * =====================================================================
+ */
+function desinstalarSistema() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // ===== PRIMERA CONFIRMACIÓN =====
+  const resp1 = ui.alert(
+    '⚠️ DESINSTALAR SISTEMA',
+    '⛔ ADVERTENCIA: Esta acción eliminará TODAS las hojas del sistema.\n\n' +
+    '✅ SE MANTENDRÁ:\n' +
+    '   • "Copy of CREAMOS ID nuevo" (datos de Salesforce)\n\n' +
+    '❌ SE ELIMINARÁ:\n' +
+    '   • Hoja de Interés\n' +
+    '   • Entrevistas y Detalle Entrevistas\n' +
+    '   • Inscritx, Graduadx, Retiradx, No Inscritx\n' +
+    '   • Cohortes y todas las hojas de cohortes\n' +
+    '   • Lista Definitiva\n' +
+    '   • Reportes y Reportes Mensuales\n' +
+    '   • Guía de Uso\n' +
+    '   • Todos los triggers automáticos\n\n' +
+    '⚠️ Esta acción NO se puede deshacer.\n\n' +
+    '¿Estás segurx de que quieres continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (resp1 !== ui.Button.YES) {
+    ss.toast('❌ Desinstalación cancelada', 'Cancelado', 3);
+    return;
+  }
+
+  // ===== SEGUNDA CONFIRMACIÓN =====
+  const resp2 = ui.alert(
+    '⚠️ CONFIRMACIÓN FINAL',
+    '🔴 ÚLTIMA ADVERTENCIA 🔴\n\n' +
+    'Se eliminarán TODAS las hojas del sistema.\n' +
+    'Solo se mantendrá "Copy of CREAMOS ID nuevo".\n\n' +
+    '⚠️ NO podrás recuperar los datos eliminados.\n\n' +
+    '¿Confirmas que quieres DESINSTALAR el sistema?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (resp2 !== ui.Button.YES) {
+    ss.toast('❌ Desinstalación cancelada', 'Cancelado', 3);
+    return;
+  }
+
+  ss.toast('🗑️ Desinstalando sistema...', 'Desinstalación', -1);
+
+  try {
+    // ===== PASO 1: Eliminar triggers automáticos =====
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(trigger => {
+      ScriptApp.deleteTrigger(trigger);
+    });
+    Logger.log('✅ Triggers eliminados: ' + triggers.length);
+
+    // ===== PASO 2: Lista de hojas del sistema a eliminar =====
+    const hojasDelSistema = [
+      'Hoja de Interés',
+      'Entrevistas',
+      'Detalle Entrevistas',
+      'Inscritx',
+      'Cohortes',
+      'Graduadx',
+      'Retiradx',
+      'No Inscritx',
+      'Lista Definitiva',
+      'Reporte',
+      'Reportes Mensuales',
+      'Guía de Uso'
+    ];
+
+    let hojasEliminadas = 0;
+
+    // ===== PASO 3: Eliminar hojas principales del sistema =====
+    hojasDelSistema.forEach(nombre => {
+      const hoja = ss.getSheetByName(nombre);
+      if (hoja) {
+        ss.deleteSheet(hoja);
+        hojasEliminadas++;
+        Logger.log('✅ Hoja eliminada: ' + nombre);
+      }
+    });
+
+    // ===== PASO 4: Eliminar hojas de cohortes individuales =====
+    // Las hojas de cohortes NO están en la lista fija porque se crean dinámicamente
+    const todasLasHojas = ss.getSheets();
+    const hojasCohortesEliminadas = [];
+
+    todasLasHojas.forEach(hoja => {
+      const nombre = hoja.getName();
+
+      // NO eliminar "Copy of CREAMOS ID nuevo"
+      if (nombre === 'Copy of CREAMOS ID nuevo') {
+        Logger.log('✅ Hoja protegida (NO eliminada): ' + nombre);
+        return;
+      }
+
+      // NO eliminar "Sheet1" (hoja por defecto de Google Sheets)
+      if (nombre === 'Sheet1' || nombre === 'Hoja 1') {
+        Logger.log('✅ Hoja por defecto (NO eliminada): ' + nombre);
+        return;
+      }
+
+      // Eliminar cualquier otra hoja (probablemente cohortes)
+      if (!hojasDelSistema.includes(nombre)) {
+        ss.deleteSheet(hoja);
+        hojasCohortesEliminadas.push(nombre);
+        hojasEliminadas++;
+        Logger.log('✅ Hoja de cohorte eliminada: ' + nombre);
+      }
+    });
+
+    // ===== PASO 5: Verificar que "Copy of CREAMOS ID nuevo" sigue existiendo =====
+    const hojaProtegida = ss.getSheetByName('Copy of CREAMOS ID nuevo');
+    if (!hojaProtegida) {
+      Logger.log('⚠️ ADVERTENCIA: "Copy of CREAMOS ID nuevo" no existe o fue eliminada');
+    } else {
+      Logger.log('✅ "Copy of CREAMOS ID nuevo" está intacta');
+    }
+
+    // ===== PASO 6: Mensaje final =====
+    let mensaje = '✅ SISTEMA DESINSTALADO\n\n' +
+                  '📊 Hojas eliminadas: ' + hojasEliminadas + '\n' +
+                  '⏰ Triggers eliminados: ' + triggers.length + '\n\n' +
+                  '✅ Hoja protegida mantenida:\n' +
+                  '   • "Copy of CREAMOS ID nuevo"\n\n';
+
+    if (hojasCohortesEliminadas.length > 0) {
+      mensaje += '📋 Hojas de cohortes eliminadas:\n';
+      hojasCohortesEliminadas.forEach(nombre => {
+        mensaje += '   • ' + nombre + '\n';
+      });
+    }
+
+    mensaje += '\n💡 Para reinstalar el sistema, ejecuta:\n' +
+               '   Menú → 🚀 Instalación Completa';
+
+    ui.alert('✅ Desinstalación Completada', mensaje, ui.ButtonSet.OK);
+
+    ss.toast('✅ Sistema desinstalado correctamente', 'Completado', 5);
+
+  } catch (error) {
+    Logger.log('❌ Error en desinstalación: ' + error.message);
+    ui.alert('❌ Error', 'Error durante la desinstalación:\n' + error.message, ui.ButtonSet.OK);
+    ss.toast('❌ Error en la desinstalación', 'Error', 5);
+  }
 }
 
 /**
