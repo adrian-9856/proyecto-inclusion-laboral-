@@ -164,7 +164,7 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('🍽️ Alimentos y Bebidas')
     // ========== ACCIONES PRINCIPALES ==========
-    .addItem('📋 Importar Datos de Kobo', 'importarDesdeKobo')
+    .addItem('📋 Importar Solo Datos Nuevos de Kobo', 'importarDesdeKobo')
     .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
     .addSeparator()
 
@@ -174,11 +174,8 @@ function onOpen() {
       .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
       .addSeparator()
       .addItem('🔄 1️⃣ Consolidar Datos → Lista Definitiva', 'reconstruirHistoricoCompleto')
-      .addItem('📥 2️⃣ Exportar Histórico Completo (Lista Def.)', 'exportarHistoricoCompleto')
-      .addItem('📥 2️⃣ Exportar Solo Datos Nuevos (Lista Def.)', 'exportarDatosNuevos')
-      .addSeparator()
-      .addItem('📥 Exportar Histórico Completo (Hoja de Interés)', 'exportarHistoricoCompletoHojaInteres')
-      .addItem('📥 Exportar Solo Datos Nuevos (Hoja de Interés)', 'exportarDatosNuevosHojaInteres'))
+      .addItem('📥 2️⃣ Exportar Histórico Completo', 'exportarHistoricoCompleto')
+      .addItem('📥 2️⃣ Exportar Solo Datos Nuevos', 'exportarDatosNuevos'))
 
     // ========== COHORTES ==========
     .addSubMenu(ui.createMenu('📋 Cohortes')
@@ -5285,216 +5282,6 @@ function exportarDatosNuevos() {
 
   ui.alert(
     '✅ Exportación Completada',
-    'Se creó la hoja "' + nombreExportacion + '" con ' + contadorNuevos + ' registros nuevos.\n\n' +
-    '📋 Puedes copiar todos los datos y pegarlos en Excel o Google Sheets.\n\n' +
-    '💡 Para descargar como CSV:\n' +
-    '1. Archivo → Descargar → Valores separados por comas (.csv)\n' +
-    '2. Selecciona solo esta hoja',
-    ui.ButtonSet.OK
-  );
-}
-
-// =====================================================================
-// EXPORTACIÓN DESDE HOJA DE INTERÉS
-// =====================================================================
-
-/**
- * Exporta todo el histórico de "Hoja de Interés" como archivo CSV
- */
-function exportarHistoricoCompletoHojaInteres() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-
-  // Verificar que existe Hoja de Interés
-  const hojaInteres = ss.getSheetByName('Hoja de Interés');
-  if (!hojaInteres) {
-    ui.alert('⚠️ Error', 'No se encontró la hoja "Hoja de Interés".', ui.ButtonSet.OK);
-    return;
-  }
-
-  const totalRegistros = hojaInteres.getLastRow() - 1;
-
-  if (totalRegistros === 0) {
-    ui.alert('⚠️ Aviso', 'La hoja "Hoja de Interés" está vacía.', ui.ButtonSet.OK);
-    return;
-  }
-
-  const confirmacion = ui.alert(
-    '📥 Exportar Histórico Completo - Hoja de Interés',
-    'Se exportarán TODOS los ' + totalRegistros + ' registros de "Hoja de Interés".\n\n' +
-    'Se creará una nueva hoja con los datos listos para copiar.\n\n' +
-    '¿Deseas continuar?',
-    ui.ButtonSet.YES_NO
-  );
-
-  if (confirmacion !== ui.Button.YES) return;
-
-  ss.toast('📥 Exportando histórico completo de Hoja de Interés...', 'Procesando', 10);
-
-  // Obtener todos los datos
-  const datos = hojaInteres.getDataRange().getValues();
-
-  // Crear nueva hoja de exportación
-  const nombreExportacion = 'Exportación_HojaInteres_Completa_' + Utilities.formatDate(new Date(), 'America/Guatemala', 'yyyyMMdd_HHmmss');
-  let hojaExportacion = ss.getSheetByName(nombreExportacion);
-
-  if (hojaExportacion) {
-    ss.deleteSheet(hojaExportacion);
-  }
-
-  hojaExportacion = ss.insertSheet(nombreExportacion);
-
-  // Copiar todos los datos
-  hojaExportacion.getRange(1, 1, datos.length, datos[0].length).setValues(datos);
-
-  // Formatear encabezados
-  hojaExportacion.getRange(1, 1, 1, datos[0].length)
-    .setBackground('#1a237e')
-    .setFontColor('white')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center');
-
-  // Ajustar anchos de columna (adaptado a las columnas de Hoja de Interés)
-  for (let i = 1; i <= datos[0].length; i++) {
-    hojaExportacion.setColumnWidth(i, 120);
-  }
-
-  hojaExportacion.setFrozenRows(1);
-
-  // Activar la hoja de exportación
-  ss.setActiveSheet(hojaExportacion);
-
-  // Guardar fecha de última exportación completa
-  PropertiesService.getScriptProperties().setProperty('ULTIMA_EXPORTACION_COMPLETA_HOJA_INTERES', new Date().toISOString());
-
-  ss.toast('✅ Exportación completa: ' + totalRegistros + ' registros', 'Completado', 5);
-
-  ui.alert(
-    '✅ Exportación Completada - Hoja de Interés',
-    'Se creó la hoja "' + nombreExportacion + '" con ' + totalRegistros + ' registros.\n\n' +
-    '📋 Puedes copiar todos los datos y pegarlos en Excel o Google Sheets.\n\n' +
-    '💡 Para descargar como CSV:\n' +
-    '1. Archivo → Descargar → Valores separados por comas (.csv)\n' +
-    '2. Selecciona solo esta hoja',
-    ui.ButtonSet.OK
-  );
-}
-
-/**
- * Exporta solo los datos nuevos de "Hoja de Interés" desde la última exportación
- */
-function exportarDatosNuevosHojaInteres() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-
-  // Verificar que existe Hoja de Interés
-  const hojaInteres = ss.getSheetByName('Hoja de Interés');
-  if (!hojaInteres) {
-    ui.alert('⚠️ Error', 'No se encontró la hoja "Hoja de Interés".', ui.ButtonSet.OK);
-    return;
-  }
-
-  // Obtener fecha de última exportación
-  const props = PropertiesService.getScriptProperties();
-  const ultimaExportacion = props.getProperty('ULTIMA_EXPORTACION_NUEVOS_HOJA_INTERES');
-  let fechaCorte = null;
-
-  if (ultimaExportacion) {
-    fechaCorte = new Date(ultimaExportacion);
-  }
-
-  const mensaje = fechaCorte
-    ? 'Se exportarán los registros agregados después del ' +
-      Utilities.formatDate(fechaCorte, 'America/Guatemala', 'dd/MM/yyyy HH:mm') + '.\n\n'
-    : 'No hay registro de exportación anterior. Se exportarán TODOS los registros.\n\n';
-
-  const confirmacion = ui.alert(
-    '📥 Exportar Datos Nuevos - Hoja de Interés',
-    mensaje +
-    'Se creará una nueva hoja con los datos listos para copiar.\n\n' +
-    '¿Deseas continuar?',
-    ui.ButtonSet.YES_NO
-  );
-
-  if (confirmacion !== ui.Button.YES) return;
-
-  ss.toast('📥 Exportando datos nuevos de Hoja de Interés...', 'Procesando', 10);
-
-  // Obtener todos los datos
-  const datos = hojaInteres.getDataRange().getValues();
-  const encabezados = datos[0];
-  const datosNuevos = [encabezados]; // Incluir encabezados
-
-  let contadorNuevos = 0;
-
-  // Buscar columna de fecha (puede ser "Fecha de Registro" o similar)
-  const indiceFecha = encabezados.findIndex(col =>
-    col.toString().toLowerCase().includes('fecha') ||
-    col.toString().toLowerCase().includes('timestamp')
-  );
-
-  // Filtrar solo los registros nuevos
-  for (let i = 1; i < datos.length; i++) {
-    let incluir = false;
-
-    if (indiceFecha >= 0) {
-      const fechaRegistro = datos[i][indiceFecha];
-      if (!fechaCorte || (fechaRegistro && new Date(fechaRegistro) > fechaCorte)) {
-        incluir = true;
-      }
-    } else {
-      // Si no hay columna de fecha, exportar todos si no hay exportación previa
-      incluir = !fechaCorte;
-    }
-
-    if (incluir) {
-      datosNuevos.push(datos[i]);
-      contadorNuevos++;
-    }
-  }
-
-  if (contadorNuevos === 0) {
-    ui.alert('ℹ️ Sin Datos Nuevos', 'No hay registros nuevos desde la última exportación.', ui.ButtonSet.OK);
-    return;
-  }
-
-  // Crear nueva hoja de exportación
-  const nombreExportacion = 'Exportación_HojaInteres_Nuevos_' + Utilities.formatDate(new Date(), 'America/Guatemala', 'yyyyMMdd_HHmmss');
-  let hojaExportacion = ss.getSheetByName(nombreExportacion);
-
-  if (hojaExportacion) {
-    ss.deleteSheet(hojaExportacion);
-  }
-
-  hojaExportacion = ss.insertSheet(nombreExportacion);
-
-  // Copiar datos nuevos
-  hojaExportacion.getRange(1, 1, datosNuevos.length, datosNuevos[0].length).setValues(datosNuevos);
-
-  // Formatear encabezados
-  hojaExportacion.getRange(1, 1, 1, datosNuevos[0].length)
-    .setBackground('#1a237e')
-    .setFontColor('white')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center');
-
-  // Ajustar anchos de columna
-  for (let i = 1; i <= datosNuevos[0].length; i++) {
-    hojaExportacion.setColumnWidth(i, 120);
-  }
-
-  hojaExportacion.setFrozenRows(1);
-
-  // Activar la hoja de exportación
-  ss.setActiveSheet(hojaExportacion);
-
-  // Guardar fecha de última exportación de nuevos
-  props.setProperty('ULTIMA_EXPORTACION_NUEVOS_HOJA_INTERES', new Date().toISOString());
-
-  ss.toast('✅ Exportación nuevos: ' + contadorNuevos + ' registros', 'Completado', 5);
-
-  ui.alert(
-    '✅ Exportación Completada - Hoja de Interés',
     'Se creó la hoja "' + nombreExportacion + '" con ' + contadorNuevos + ' registros nuevos.\n\n' +
     '📋 Puedes copiar todos los datos y pegarlos en Excel o Google Sheets.\n\n' +
     '💡 Para descargar como CSV:\n' +
