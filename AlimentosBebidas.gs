@@ -2640,13 +2640,34 @@ function importarDesdeKobo() {
       // === COLUMNA PRINCIPAL DE INTERÉS (contiene texto con las opciones) ===
       servicioInteres: buscarIndiceColumnaExacto(headers, [
         'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?',
-        '¿Tienes interés en un servicio o formación específica?'
+        '¿Tienes interés en un servicio o formación específica?',
+        'servicio',
+        'formacion',
+        'interes'
       ]),
 
       // Desea inscribirse en Inclusión Laboral
       deseaInscribirse: buscarIndiceColumnaExacto(headers, [
         'Inclusión Laboral/¿Deseas inscribirte en el programa de Inclusión Laboral?',
         '¿Deseas inscribirte en el programa de Inclusión Laboral?'
+      ]),
+
+      // COLUMNAS ADICIONALES para búsqueda de Gastronomía/Barismo
+      // Estas columnas pueden contener información en datos históricos o formatos alternativos
+      programa: buscarIndiceColumnaExacto(headers, [
+        'programa',
+        'Programa',
+        'Programa de interés',
+        'especialidad',
+        'Especialidad'
+      ]),
+
+      area: buscarIndiceColumnaExacto(headers, [
+        'area',
+        'Area',
+        'Área',
+        'área de interés',
+        'area de interes'
       ])
     };
 
@@ -2696,19 +2717,36 @@ function importarDesdeKobo() {
       const fila = rows[i];
 
       // === FILTRO: Solo registros de ALIMENTOS Y BEBIDAS ===
-      // Obtener el texto de la columna de servicios de interés
+      // Buscar en TODAS las columnas posibles (no solo servicioInteres)
+      // Esto captura datos históricos y formatos alternativos
       const servicioTexto = colIndices.servicioInteres >= 0 ?
-        (fila[colIndices.servicioInteres] || '').toString().toLowerCase() : '';
+        (fila[colIndices.servicioInteres] || '').toString() : '';
+      const programaTexto = colIndices.programa >= 0 ?
+        (fila[colIndices.programa] || '').toString() : '';
+      const areaTexto = colIndices.area >= 0 ?
+        (fila[colIndices.area] || '').toString() : '';
+
+      // Combinar todos los textos para búsqueda más amplia
+      const textoCompleto = servicioTexto + ' ' + programaTexto + ' ' + areaTexto;
 
       // Verificar si contiene algún programa de Alimentos y Bebidas
-      const esGastronomia = servicioTexto.includes('alimentos y bebidas - gastronomía') || servicioTexto.includes('alimentos y bebidas - gastronomia');
-      const esBarismo = servicioTexto.includes('alimentos y bebidas - barismo');
+      // MEJORADO: Usar funciones robustas que detectan múltiples variaciones
+      const esGastronomia = esTextGastronomia(textoCompleto);
+      const esBarismo = esTextBarismo(textoCompleto);
+
+      // LOG para debugging: registrar qué se está omitiendo
+      if (!esGastronomia && !esBarismo && textoCompleto.trim()) {
+        Logger.log('⚠️ OMITIDO (no es A&B): "' + textoCompleto.substring(0, 100).trim() + '"');
+      }
 
       // Si no tiene ningún programa de Alimentos y Bebidas, omitir
       if (!esGastronomia && !esBarismo) {
         omitidosNoAlimentos++;
         continue; // Saltar si no es Alimentos y Bebidas
       }
+
+      // LOG para debugging: registrar qué se está importando
+      Logger.log('✅ IMPORTANDO: Gastronomía=' + esGastronomia + ', Barismo=' + esBarismo + ' | "' + textoCompleto.substring(0, 80).trim() + '"');
 
       // Obtener Creamos ID y DPI - CONVERTIR A MAYÚSCULAS
       const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim().toUpperCase() : '';
@@ -2881,7 +2919,68 @@ function verificarValorPositivo(fila, indice) {
 }
 
 /**
+ * Normaliza texto removiendo tildes, espacios extras y convirtiendo a minúsculas
+ * Útil para comparaciones flexibles de texto
+ */
+function normalizarTexto(texto) {
+  if (!texto) return '';
+  return texto.toString()
+    .toLowerCase()
+    .trim()
+    // Reemplazar múltiples espacios por uno solo
+    .replace(/\s+/g, ' ')
+    // Remover tildes
+    .replace(/á/g, 'a')
+    .replace(/é/g, 'e')
+    .replace(/í/g, 'i')
+    .replace(/ó/g, 'o')
+    .replace(/ú/g, 'u')
+    .replace(/ñ/g, 'n');
+}
+
+/**
+ * Verifica si un texto contiene indicadores de Gastronomía
+ * Busca múltiples variaciones para ser más robusto
+ */
+function esTextGastronomia(texto) {
+  const textoNorm = normalizarTexto(texto);
+
+  // Búsquedas de mayor a menor especificidad
+  const patronesGastronomia = [
+    'alimentos y bebidas - gastronomia',
+    'alimentos y bebidas gastronomia',
+    'alimentos bebidas gastronomia',
+    'gastronomia',
+    'cocina', // Incluir cocina como parte de gastronomía
+    'reposteria'
+  ];
+
+  return patronesGastronomia.some(patron => textoNorm.includes(patron));
+}
+
+/**
+ * Verifica si un texto contiene indicadores de Barismo
+ * Busca múltiples variaciones para ser más robusto
+ */
+function esTextBarismo(texto) {
+  const textoNorm = normalizarTexto(texto);
+
+  // Búsquedas de mayor a menor especificidad
+  const patronesBarismo = [
+    'alimentos y bebidas - barismo',
+    'alimentos y bebidas barismo',
+    'alimentos bebidas barismo',
+    'barismo',
+    'barista',
+    'cafe' // Podría venir como "café"
+  ];
+
+  return patronesBarismo.some(patron => textoNorm.includes(patron));
+}
+
+/**
  * DEBUG: Muestra las columnas de Alimentos y Bebidas encontradas en Kobo
+ * Y prueba el filtro mejorado de detección
  */
 function verColumnasKobo() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -2890,7 +2989,7 @@ function verColumnasKobo() {
   const url = props.getProperty('KOBO_URL') || CONFIG.KOBO_URL;
 
   try {
-    ss.toast('🔍 Analizando columnas...', 'Análisis', 3);
+    ss.toast('🔍 Analizando columnas y datos...', 'Análisis', 3);
 
     const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
     let csvData = response.getContentText('UTF-8');
@@ -2900,47 +2999,81 @@ function verColumnasKobo() {
     const rows = parsearCSVManual(csvData, ';');
     const headers = rows[0];
 
-    let mensaje = '📊 COLUMNAS ALIMENTOS Y BEBIDAS ENCONTRADAS:\n\n';
+    let mensaje = '📊 ANÁLISIS DE DATOS KOBO - ALIMENTOS Y BEBIDAS\n\n';
     let colsAlimentos = [];
 
+    // Buscar columnas relacionadas
     for (let i = 0; i < headers.length; i++) {
       const h = headers[i].toLowerCase();
       if (h.includes('alimentos') || h.includes('bebidas') || h.includes('gastronomía') ||
-          h.includes('gastronomia') || h.includes('barismo')) {
+          h.includes('gastronomia') || h.includes('barismo') || h.includes('programa') ||
+          h.includes('especialidad') || h.includes('area') || h.includes('interes') ||
+          h.includes('servicio') || h.includes('formación') || h.includes('formacion')) {
         colsAlimentos.push({ idx: i, nombre: headers[i] });
       }
     }
 
     if (colsAlimentos.length > 0) {
+      mensaje += '🔎 COLUMNAS RELEVANTES ENCONTRADAS:\n';
       colsAlimentos.forEach(c => {
-        mensaje += '📌 [' + c.idx + '] ' + c.nombre.substring(0, 40) + '\n';
+        mensaje += '  [' + c.idx + '] ' + c.nombre.substring(0, 50) + '\n';
       });
 
-      mensaje += '\n📋 VALORES FILA 1:\n';
-      const primeraFila = rows[1];
-      colsAlimentos.forEach(c => {
-        const valor = primeraFila && primeraFila[c.idx] ? primeraFila[c.idx] : '(vacío)';
-        mensaje += '"' + valor + '" ← ' + c.nombre.substring(0, 25) + '\n';
-      });
-    } else {
-      mensaje += '⚠️ No encontradas. Buscando alternativas...\n\n';
-      for (let i = 0; i < headers.length; i++) {
-        const h = headers[i].toLowerCase();
-        if (h.includes('interés') || h.includes('interes') || h.includes('servicio') || h.includes('formación')) {
-          mensaje += '[' + i + '] ' + headers[i].substring(0, 50) + '\n';
+      mensaje += '\n📋 VALORES DE PRIMERAS 3 FILAS:\n';
+      for (let r = 1; r <= Math.min(3, rows.length - 1); r++) {
+        mensaje += '\n--- Fila ' + r + ' ---\n';
+        colsAlimentos.forEach(c => {
+          const valor = rows[r] && rows[r][c.idx] ? rows[r][c.idx] : '(vacío)';
+          const isGastro = esTextGastronomia(valor);
+          const isBar = esTextBarismo(valor);
+          const marcador = isGastro ? '🍽️' : (isBar ? '☕' : '  ');
+          mensaje += marcador + ' "' + valor.toString().substring(0, 40) + '"\n';
+        });
+      }
+
+      // Contar cuántos serían importados
+      let contadorGastro = 0;
+      let contadorBar = 0;
+      let contadorTotal = 0;
+
+      for (let i = 1; i < rows.length; i++) {
+        let textoFila = '';
+        colsAlimentos.forEach(c => {
+          textoFila += (rows[i] && rows[i][c.idx] ? rows[i][c.idx] : '') + ' ';
+        });
+
+        if (esTextGastronomia(textoFila)) {
+          contadorGastro++;
+          contadorTotal++;
         }
+        if (esTextBarismo(textoFila)) {
+          contadorBar++;
+        }
+      }
+
+      mensaje += '\n\n📊 RESUMEN DE DETECCIÓN:\n';
+      mensaje += '  🍽️ Gastronomía detectados: ' + contadorGastro + '\n';
+      mensaje += '  ☕ Barismo detectados: ' + contadorBar + '\n';
+      mensaje += '  ✅ Total A&B: ' + contadorTotal + '\n';
+      mensaje += '  📥 Total registros: ' + (rows.length - 1);
+
+    } else {
+      mensaje += '⚠️ No se encontraron columnas relevantes.\n\n';
+      mensaje += 'Primeras 10 columnas:\n';
+      for (let i = 0; i < Math.min(10, headers.length); i++) {
+        mensaje += '[' + i + '] ' + headers[i].substring(0, 50) + '\n';
       }
     }
 
-    mensaje += '\n📊 Total: ' + headers.length + ' cols, ' + rows.length + ' filas';
+    ui.alert('Debug Kobo - Alimentos y Bebidas', mensaje, ui.ButtonSet.OK);
 
-    ui.alert('Columnas Kobo', mensaje, ui.ButtonSet.OK);
-
-    Logger.log('=== COLUMNAS KOBO ===');
+    Logger.log('=== ANÁLISIS COMPLETO KOBO ===');
+    Logger.log(mensaje);
     headers.forEach((h, i) => Logger.log(i + ': ' + h));
 
   } catch (error) {
     ui.alert('Error', error.message, ui.ButtonSet.OK);
+    Logger.log('Error en verColumnasKobo: ' + error.message);
   }
 }
 
