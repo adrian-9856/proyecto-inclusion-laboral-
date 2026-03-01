@@ -168,18 +168,15 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('🎓 Inclusión Laboral')
     // ========== ACCIONES PRINCIPALES ==========
-    .addItem('📋 Importar Solo Datos Nuevos de Kobo', 'importarDesdeKobo')
+    .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
+    .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKobo')
     .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
     .addSeparator()
 
     // ========== REPORTES Y EXPORTACIÓN ==========
     .addSubMenu(ui.createMenu('📊 Reportes y Exportación')
       .addItem('📊 Actualizar Reportes', 'actualizarReportes')
-      .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual')
-      .addSeparator()
-      .addItem('🔄 1️⃣ Consolidar Datos → Lista Definitiva', 'reconstruirHistoricoCompleto')
-      .addItem('📥 2️⃣ Exportar Histórico Completo', 'exportarHistoricoCompleto')
-      .addItem('📥 2️⃣ Exportar Solo Datos Nuevos', 'exportarDatosNuevos'))
+      .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual'))
 
     // ========== COHORTES ==========
     .addSubMenu(ui.createMenu('📋 Cohortes')
@@ -2461,7 +2458,35 @@ function configurarKoboURL() {
 }
 
 /**
- * Importa datos desde KoboToolbox (solo Tecnología: Marketing y Programación)
+ * Importa DATOS HISTÓRICOS desde KoboToolbox (solo Tecnología)
+ * URL FIJA de datos históricos que NO cambia
+ */
+function importarDatosHistoricos() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // URL FIJA de datos históricos
+  const url = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esuV4RKqQhYUUaUizfWBP8S/data.csv';
+
+  importarDesdeKoboInterno(ss, ui, url, '📥 DATOS HISTÓRICOS');
+}
+
+/**
+ * Importa SOLO DATOS NUEVOS desde KoboToolbox (se actualiza cada 10 minutos)
+ * URL FIJA de datos nuevos que se actualiza automáticamente
+ */
+function importarDesdeKobo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // URL FIJA de datos nuevos (actualizada cada 10 minutos)
+  const url = 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/eseYzEgWw6Tui9y2eppZy3L/data.csv';
+
+  importarDesdeKoboInterno(ss, ui, url, '📥 DATOS NUEVOS');
+}
+
+/**
+ * Función interna que realiza la importación desde cualquier URL de Kobo
  *
  * MAPEO DE COLUMNAS KOBO → HOJA DE INTERÉS:
  * - Inicio/Creamos ID → Creamos ID
@@ -2477,20 +2502,10 @@ function configurarKoboURL() {
  * - Inclusión Laboral/.../Tecnología - Marketing = 1
  * - Inclusión Laboral/.../Tecnología - Programación = 1
  */
-function importarDesdeKobo() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-
-  const props = PropertiesService.getDocumentProperties();
-  const url = props.getProperty('KOBO_URL') || CONFIG.KOBO_URL;
-
-  if (!url) {
-    ui.alert('⚠️ URL no configurada', 'Configure la URL de KoboToolbox primero.', ui.ButtonSet.OK);
-    return;
-  }
+function importarDesdeKoboInterno(ss, ui, url, tipoImportacion)
 
   try {
-    ss.toast('📥 Descargando datos de KoboToolbox...', 'Importando', 5);
+    ss.toast(tipoImportacion + ' - Descargando...', 'Importando', 5);
 
     const response = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
