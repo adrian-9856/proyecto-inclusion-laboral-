@@ -505,12 +505,11 @@ function crearHojaInteres() {
     'Nivel Educativo', // H - Desplegable
     'Zona',            // I - Desplegable
     'Cómo se enteró',  // J
-    'Programa Interés',// K - Desplegable (cohortes)
-    'Responsable',     // L - Desplegable
-    'Notas',           // M
-    '¿Deseas inscribirte?', // N - Desde Kobo
-    'Servicio/Formación de Interés', // O - Desde Kobo
-    'Estado'           // P - Desplegable (al final para evitar problemas)
+    'Responsable',     // K - Desplegable
+    'Notas',           // L
+    '¿Deseas inscribirte?', // M - Desde Kobo
+    'Servicio/Formación de Interés', // N - Desde Kobo
+    'Estado'           // O - Desplegable (al final para evitar problemas)
   ];
 
   // Siempre asegurar que los encabezados estén correctos
@@ -1090,11 +1089,9 @@ function configurarValidaciones() {
     // Limpiar validaciones de datos de Kobo
     interes.getRange('H2:H500').clearDataValidations();
     interes.getRange('I2:I500').clearDataValidations();
-    interes.getRange('K2:K500').clearDataValidations();
-    interes.getRange('L2:L500').clearDataValidations();
 
-    // Estado (columna P) - SOLO DOS OPCIONES
-    interes.getRange('P2:P500').setDataValidation(
+    // Estado (columna O) - SOLO DOS OPCIONES
+    interes.getRange('O2:O500').setDataValidation(
       SpreadsheetApp.newDataValidation()
         .requireValueInList(['Entrevista agendada', 'No interesado'])
         .setAllowInvalid(false)
@@ -1318,9 +1315,9 @@ function alEditar(e) {
   if (val === '') return;
 
   // === HOJA DE INTERÉS ===
-  // Estado está en columna P (16) - solo "Entrevista agendada" o "No interesado"
+  // Estado está en columna O (15) - solo "Entrevista agendada" o "No interesado"
   if (hoja === 'Hoja de Interés') {
-    if (columna === 16) {
+    if (columna === 15) {
       procesarCambioEstadoInteres(sheet, fila, val);
     }
   }
@@ -2791,28 +2788,13 @@ function importarDesdeKobo() {
       if (verificarValorPositivo(fila, colIndices.redWhatsApp)) redesSociales.push('WhatsApp');
       const comoSeEntero = redesSociales.length > 0 ? redesSociales.join(' ') : '';
 
-      // Determinar programa de interés y notas
+      // Determinar notas de programas seleccionados
       let programasSeleccionados = [];
       if (esMarketing) programasSeleccionados.push('Marketing');
       if (esProgramacion) programasSeleccionados.push('Programación');
       if (esAlfabetizacion) programasSeleccionados.push('Alfabetización Digital');
       if (esCertificacion) programasSeleccionados.push('Certificación Microsoft');
       if (esServicioCliente) programasSeleccionados.push('Servicio al Cliente');
-
-      // Asignar cohorte basado en el primer programa seleccionado
-      // Programa de interés basado en la especialidad seleccionada
-      let programaInteres = '';
-      if (esMarketing) {
-        programaInteres = 'Marketing Digital';
-      } else if (esProgramacion) {
-        programaInteres = 'Programación';
-      } else if (esAlfabetizacion) {
-        programaInteres = 'Alfabetización Digital';
-      } else if (esCertificacion) {
-        programaInteres = 'Certificación Microsoft';
-      } else if (esServicioCliente) {
-        programaInteres = 'Servicio al Cliente';
-      }
 
       const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
 
@@ -2828,9 +2810,9 @@ function importarDesdeKobo() {
       colESnapshot[filaVaciaIdx] = nombreCompleto; // marcar como ocupada en memoria
       filaVaciaIdx++;
 
-      // Limpiar validaciones solo en columnas intermedias (C-O) para no borrar
-      // el dropdown de Estado (columna P) ni las protecciones de A y B
-      hojaInteres.getRange(nuevaFila, 3, 1, 13).clearDataValidations();
+      // Limpiar validaciones solo en columnas intermedias (C-N) para no borrar
+      // el dropdown de Estado (columna O) ni las protecciones de A y B
+      hojaInteres.getRange(nuevaFila, 3, 1, 12).clearDataValidations();
 
       // Usar fecha de Kobo si existe; si no, poner fecha de hoy como valor fijo
       const fechaParaHoja = fechaRegistroKobo || new Date();
@@ -2847,21 +2829,20 @@ function importarDesdeKobo() {
         nivelEducativo,    // H: Nivel Educativo
         zona,              // I: Zona
         comoSeEntero,      // J: Cómo se enteró
-        programaInteres,   // K: Programa Interés
-        '',                // L: Responsable
-        notasPrograma,     // M: Notas
-        deseaInscribirse,  // N: ¿Deseas inscribirte?
-        servicioFormacion, // O: Servicio/Formación de Interés
-        ''                 // P: Estado (vacío para que el dropdown funcione)
+        '',                // K: Responsable
+        notasPrograma,     // L: Notas
+        deseaInscribirse,  // M: ¿Deseas inscribirte?
+        servicioFormacion, // N: Servicio/Formación de Interés
+        ''                 // O: Estado (vacío para que el dropdown funcione)
       ];
 
-      hojaInteres.getRange(nuevaFila, 1, 1, 16).setValues([registro]);
+      hojaInteres.getRange(nuevaFila, 1, 1, 15).setValues([registro]);
 
       // Restaurar fórmula de No. (columna B) que setValues sobreescribe
       hojaInteres.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",COUNTA($E$2:E' + nuevaFila + '),"")');
 
-      // Restaurar dropdown de Estado (columna P) para esta fila
-      hojaInteres.getRange(nuevaFila, 16).setDataValidation(
+      // Restaurar dropdown de Estado (columna O) para esta fila
+      hojaInteres.getRange(nuevaFila, 15).setDataValidation(
         SpreadsheetApp.newDataValidation()
           .requireValueInList(['Entrevista agendada', 'No interesado'])
           .setAllowInvalid(false)
@@ -3993,14 +3974,14 @@ function crearDatosPrueba() {
   if (resp !== SpreadsheetApp.getUi().Button.YES) return;
 
   const interes = ss.getSheetByName('Hoja de Interés');
-  // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Teléfono, NivelEducativo, Zona, ComoSeEntero, ProgramaInteres, Responsable, Notas, Estado
+  // Orden: Fecha, No, CreamosID, DPI, Nombre, Edad, Teléfono, NivelEducativo, Zona, ComoSeEntero, Responsable, Notas, DeseaInscribirse, ServicioFormacion, Estado
   // Estado vacío para que usuario elija "Entrevista agendada" o "No interesado"
   const datosPrueba = [
-    ['', '', 'CR001', '1234567890101', 'María García', '22', '5555-1234', 'Diversificado completo', 'Zona 1', 'Redes', 'Marketing Digital', 'Adrian Torres', '', ''],
-    ['', '', 'CR002', '2345678901212', 'Ana Martínez', '25', '5555-5678', 'Universitario', 'Zona 7', 'Referido', 'Programación', 'Paola Ortiz', '', ''],
-    ['', '', 'CR003', '3456789012323', 'Laura López', '19', '5555-9012', 'Básicos completos', 'Mixco', 'Facebook', 'Alfabetización Digital', 'Adrian Torres', '', '']
+    ['', '', 'CR001', '1234567890101', 'María García', '22', '5555-1234', 'Diversificado completo', 'Zona 1', 'Redes', 'Adrian Torres', '', '', '', ''],
+    ['', '', 'CR002', '2345678901212', 'Ana Martínez', '25', '5555-5678', 'Universitario', 'Zona 7', 'Referido', 'Paola Ortiz', '', '', '', ''],
+    ['', '', 'CR003', '3456789012323', 'Laura López', '19', '5555-9012', 'Básicos completos', 'Mixco', 'Facebook', 'Adrian Torres', '', '', '', '']
   ];
-  interes.getRange(2, 1, 3, 14).setValues(datosPrueba);
+  interes.getRange(2, 1, 3, 15).setValues(datosPrueba);
   ss.toast('✅ 3 registros creados', 'OK', 4);
 }
 
