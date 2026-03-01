@@ -824,8 +824,9 @@ function crearHojaGraduadx() {
     'Edad',                 // F
     'Teléfono',             // G
     'Nivel Educativo',      // H
-    'Cohorte',              // I
-    'Notas'                 // J
+    'Zona',                 // I
+    'Cohorte',              // J
+    'Notas'                 // K
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -834,7 +835,7 @@ function crearHojaGraduadx() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 100, 130, 200, 120, 80, 120, 150, 180, 300].forEach((w, i) => {
+  [120, 100, 130, 200, 120, 80, 120, 150, 120, 180, 300].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 }
@@ -856,10 +857,11 @@ function crearHojaRetiradx() {
     'Edad',             // F
     'Teléfono',         // G
     'Nivel Educativo',  // H
-    'Cohorte',          // I
-    'Motivo',           // J
-    'Notas',            // K
-    'Acción'            // L - Desplegable para reenviar (última columna - trigger)
+    'Zona',             // I
+    'Cohorte',          // J
+    'Motivo',           // K
+    'Notas',            // L
+    'Acción'            // M - Desplegable para reenviar (última columna - trigger)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -868,12 +870,12 @@ function crearHojaRetiradx() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [120, 100, 130, 200, 120, 80, 120, 150, 180, 200, 300, 180].forEach((w, i) => {
+  [120, 100, 130, 200, 120, 80, 120, 150, 120, 180, 200, 300, 180].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
   // Destacar columna Acción
-  sheet.getRange('L1').setBackground('#4caf50');
+  sheet.getRange('M1').setBackground('#4caf50');
 }
 
 /**
@@ -1168,40 +1170,56 @@ function configurarValidaciones() {
   }
 
   // === HOJA DE GRADUADAS ===
-  // Columnas: A-Fecha, B-CreamosID, C-DPI, D-Nombre, E-Género, F-Tel, G-NivelEdu, H-Cohorte, I-Notas
+  // Columnas: A-Fecha, B-CreamosID, C-DPI, D-Nombre, E-Género, F-Edad, G-Tel, H-NivelEdu, I-Zona, J-Cohorte, K-Notas
   const graduadas = ss.getSheetByName('Graduadx');
   if (graduadas) {
     // Género (E)
     graduadas.getRange('E2:E500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.GENEROS).setAllowInvalid(true).build()
     );
-    graduadas.getRange('G2:G500').setDataValidation(
+    // Nivel Educativo (H)
+    graduadas.getRange('H2:H500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
     );
+    // Zona (I)
+    graduadas.getRange('I2:I500').setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ZONAS).setAllowInvalid(true).build()
+    );
+    // Cohorte (J)
     const todasCohortes = obtenerCohortesActuales();
-    graduadas.getRange('H2:H500').setDataValidation(
+    graduadas.getRange('J2:J500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(todasCohortes).setAllowInvalid(false).build()
     );
     // Nota: No hay desplegable de Estado en Graduadx — el seguimiento se gestiona en el Archivo de Seguimiento externo
   }
 
   // === HOJA DE DESERCIONES ===
-  // Columnas: A-Fecha, B-CreamosID, C-DPI, D-Nombre, E-Género, F-Tel, G-NivelEdu, H-Cohorte, I-Motivo, J-Notas, K-Acción
+  // Columnas: A-Fecha, B-CreamosID, C-DPI, D-Nombre, E-Género, F-Edad, G-Tel, H-NivelEdu, I-Zona, J-Cohorte, K-Motivo, L-Notas, M-Acción
   const deserciones = ss.getSheetByName('Retiradx');
   if (deserciones) {
     // Género (E)
     deserciones.getRange('E2:E500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.GENEROS).setAllowInvalid(true).build()
     );
-    const todasCohortes = obtenerCohortesActuales();
+    // Nivel Educativo (H)
     deserciones.getRange('H2:H500').setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
+    );
+    // Zona (I)
+    deserciones.getRange('I2:I500').setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ZONAS).setAllowInvalid(true).build()
+    );
+    // Cohorte (J)
+    const todasCohortes = obtenerCohortesActuales();
+    deserciones.getRange('J2:J500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(todasCohortes).setAllowInvalid(false).build()
     );
-    deserciones.getRange('I2:I500').setDataValidation(
+    // Motivo (K)
+    deserciones.getRange('K2:K500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.MOTIVOS_DESERCION).setAllowInvalid(true).build()
     );
-    // Acción (K) - Opción para reenviar a Inscritx
-    deserciones.getRange('K2:K500').setDataValidation(
+    // Acción (M) - Opción para reenviar a Inscritx
+    deserciones.getRange('M2:M500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(['Reenviar a Inscritx']).setAllowInvalid(true).build()
     );
   }
@@ -1405,9 +1423,9 @@ function alEditar(e) {
   }
 
   // === DESERCIONES ===
-  // Acción está en columna L (12) - reenviar a Inscritx
+  // Acción está en columna M (13) - reenviar a Inscritx
   if (hoja === 'Retiradx') {
-    if (columna === 12 && val === 'Reenviar a Inscritx') {
+    if (columna === 13 && val === 'Reenviar a Inscritx') {
       procesarReenvioDesdeRetiradx(sheet, fila);
     }
   }
@@ -1635,7 +1653,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
   const motivo = CONFIG.MOTIVOS_DESERCION[num - 1];
 
   // Agregar a Retiradx
-  // Columnas: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Cohorte, Motivo, Notas, Acción
+  // Columnas: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Cohorte, Motivo, Notas, Acción
   const deserciones = ss.getSheetByName('Retiradx');
   const nuevaFila = obtenerPrimeraFilaVacia(deserciones, 'D');
 
@@ -1648,13 +1666,14 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
     datos[6],           // Edad
     datos[7],           // Teléfono
     datos[8],           // Nivel Educativo
+    datos[9] || '',     // Zona
     nombreCohorte,      // Cohorte
     motivo,             // Motivo
     '',                 // Notas
     ''                  // Acción (vacío)
   ];
 
-  deserciones.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
+  deserciones.getRange(nuevaFila, 1, 1, 13).setValues([registro]);
 
   // Marcar fila como Deserción (NO eliminar - conservar registro)
   sheet.getRange(fila, 1, 1, 11).setBackground('#ffcdd2'); // Rojo claro
@@ -2115,7 +2134,7 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
 
   const nuevaFilaGrad = graduadas.getLastRow() + 1;
 
-  // Orden Graduadx: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Cohorte, Notas
+  // Orden Graduadx: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Cohorte, Notas
   const registroGraduada = [
     fechaGraduacion,
     datos[2] || '',     // Creamos ID (puede estar vacío)
@@ -2125,11 +2144,12 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
     datos[6],           // Edad
     datos[7],           // Teléfono
     datos[8],           // Nivel Educativo
+    datos[9] || '',     // Zona
     nombreCohorte,
     notaID              // Notas (alerta si falta ID)
   ];
 
-  graduadas.getRange(nuevaFilaGrad, 1, 1, 10).setValues([registroGraduada]);
+  graduadas.getRange(nuevaFilaGrad, 1, 1, 11).setValues([registroGraduada]);
 
   // Enviar automáticamente al archivo externo de seguimiento
   enviarAArchivoSeguimiento(datos[2], datos[4], datos[7], datos[8], nombreCohorte);
