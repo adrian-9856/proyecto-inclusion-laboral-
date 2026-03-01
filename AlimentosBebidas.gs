@@ -4409,23 +4409,39 @@ function desinstalarSistema() {
 
     // ===== PASO 4: Eliminar hojas de cohortes individuales =====
     // Las hojas de cohortes NO están en la lista fija porque se crean dinámicamente
+
+    // IMPORTANTE: Asegurar que existe al menos una hoja visible
+    // Verificar si "Copy of CREAMOS ID nuevo" existe
+    let hojaProtegida = ss.getSheetByName('Copy of CREAMOS ID nuevo');
+
+    if (hojaProtegida) {
+      // Si existe pero está oculta, hacerla visible
+      if (hojaProtegida.isSheetHidden()) {
+        hojaProtegida.showSheet();
+        Logger.log('✅ "Copy of CREAMOS ID nuevo" estaba oculta, ahora visible');
+      }
+    } else {
+      // Si no existe, buscar Sheet1 o Hoja 1
+      const hojaSheet1 = ss.getSheetByName('Sheet1');
+      const hojaHoja1 = ss.getSheetByName('Hoja 1');
+
+      if (!hojaSheet1 && !hojaHoja1) {
+        // Crear hoja temporal si no existe ninguna
+        Logger.log('⚠️ No existe hoja protegida. Creando "Hoja 1" temporal...');
+        const hojaTemporal = ss.insertSheet('Hoja 1');
+        Logger.log('✅ Hoja temporal creada: Hoja 1');
+      } else if (hojaSheet1 && hojaSheet1.isSheetHidden()) {
+        hojaSheet1.showSheet();
+        Logger.log('✅ "Sheet1" estaba oculta, ahora visible');
+      } else if (hojaHoja1 && hojaHoja1.isSheetHidden()) {
+        hojaHoja1.showSheet();
+        Logger.log('✅ "Hoja 1" estaba oculta, ahora visible');
+      }
+    }
+
+    // Obtener lista actualizada de hojas DESPUÉS de asegurar que hay una visible
     const todasLasHojas = ss.getSheets();
     const hojasCohortesEliminadas = [];
-
-    // IMPORTANTE: Verificar que al menos una hoja quedará visible
-    // Buscar si existe alguna hoja protegida
-    const tieneHojaProtegida = todasLasHojas.some(h =>
-      h.getName() === 'Copy of CREAMOS ID nuevo' ||
-      h.getName() === 'Sheet1' ||
-      h.getName() === 'Hoja 1'
-    );
-
-    // Si no existe ninguna hoja protegida, crear una hoja temporal
-    if (!tieneHojaProtegida) {
-      Logger.log('⚠️ No existe hoja protegida. Creando "Hoja 1" temporal...');
-      const hojaTemporal = ss.insertSheet('Hoja 1');
-      Logger.log('✅ Hoja temporal creada: Hoja 1');
-    }
 
     todasLasHojas.forEach(hoja => {
       const nombre = hoja.getName();
