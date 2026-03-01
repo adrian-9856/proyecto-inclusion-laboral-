@@ -2552,7 +2552,7 @@ function importarDesdeKobo() {
  * - Inclusión Laboral/.../Alimentos y Bebidas - Marketing = 1
  * - Inclusión Laboral/.../Alimentos y Bebidas - Barismo = 1
  */
-function importarDesdeKoboInterno(ss, ui, url, tipoImportacion)
+function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
 
   try {
     ss.toast(tipoImportacion + ' - Descargando...', 'Importando', 5);
