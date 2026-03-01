@@ -1159,9 +1159,9 @@ function configurarValidaciones() {
     seleccionadas.getRange('I2:I500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG.ZONAS).setAllowInvalid(true).build()
     );
-    // Enviar a Cohorte (K) - dropdown dinámico con cohortes activas
+    // Enviar a Cohorte (L) - dropdown dinámico con cohortes activas
     if (cohortes.length > 0) {
-      seleccionadas.getRange('K2:K500').setDataValidation(
+      seleccionadas.getRange('L2:L500').setDataValidation(
         SpreadsheetApp.newDataValidation().requireValueInList(cohortes).setAllowInvalid(false).build()
       );
     }
@@ -1481,7 +1481,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
 
     // Entrevistas: Fecha, Hora, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Entrevistador, Calificación, Observaciones, Estado
     const registro = [
-      '',                   // A: Fecha Entrevista
+      new Date(),           // A: Fecha Entrevista (automática - fecha actual)
       '',                   // B: Hora
       datos[2],             // C: Creamos ID
       datos[3],             // D: DPI
