@@ -217,6 +217,7 @@ function onOpen() {
       .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
       .addItem('✅ Verificar Instalación', 'verificarInstalacion')
       .addItem('🔍 Diagnosticar Campos (Nivel/Zona)', 'diagnosticarCamposNivelYZona')
+      .addItem('🔬 Diagnóstico Detallado (Ver Contenido)', 'diagnosticoDetalladoTransferencia')
       .addSeparator()
       .addSubMenu(ui.createMenu('👤 Responsables')
         .addItem('➕ Agregar Responsable', 'agregarResponsable')
@@ -6092,4 +6093,89 @@ function exportarDatosNuevos() {
     '2. Selecciona solo esta hoja',
     ui.ButtonSet.OK
   );
+}
+
+/**
+ * DIAGNÓSTICO DETALLADO - Muestra el contenido EXACTO de cada celda
+ * para identificar por qué los campos no se están transfiriendo correctamente
+ */
+function diagnosticoDetalladoTransferencia() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  let mensaje = '🔍 DIAGNÓSTICO DETALLADO DE TRANSFERENCIA\n\n';
+
+  // === HOJA DE ENTREVISTAS ===
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (entrevistas && entrevistas.getLastRow() > 1) {
+    mensaje += '📄 HOJA: ENTREVISTAS\n';
+    mensaje += '─'.repeat(50) + '\n';
+
+    // Leer todos los registros (excluyendo encabezado)
+    const datosEntrevistas = entrevistas.getRange(2, 1, entrevistas.getLastRow() - 1, 14).getValues();
+
+    for (let i = 0; i < Math.min(datosEntrevistas.length, 3); i++) {
+      const fila = datosEntrevistas[i];
+      const filaNum = i + 2;
+
+      mensaje += `\nFila ${filaNum}:\n`;
+      mensaje += `  C - Creamos ID: "${fila[2]}"\n`;
+      mensaje += `  E - Nombre: "${fila[4]}"\n`;
+      mensaje += `  I - Nivel Educativo: "${fila[8]}" (longitud: ${String(fila[8]).length})\n`;
+      mensaje += `  J - Zona: "${fila[9]}" (longitud: ${String(fila[9]).length})\n`;
+      mensaje += `  N - Estado: "${fila[13]}"\n`;
+
+      // Verificar si hay caracteres invisibles
+      const nivelEdu = String(fila[8]);
+      const zona = String(fila[9]);
+      mensaje += `  Nivel Educativo vacío: ${nivelEdu === '' || nivelEdu.trim() === ''}\n`;
+      mensaje += `  Zona vacía: ${zona === '' || zona.trim() === ''}\n`;
+    }
+
+    if (datosEntrevistas.length > 3) {
+      mensaje += `\n... y ${datosEntrevistas.length - 3} registros más\n`;
+    }
+  } else {
+    mensaje += '❌ No hay datos en Entrevistas\n';
+  }
+
+  mensaje += '\n' + '='.repeat(50) + '\n\n';
+
+  // === HOJA DE INSCRITX ===
+  const inscritx = ss.getSheetByName('Inscritx');
+  if (inscritx && inscritx.getLastRow() > 1) {
+    mensaje += '📄 HOJA: INSCRITX\n';
+    mensaje += '─'.repeat(50) + '\n';
+
+    // Leer todos los registros (excluyendo encabezado)
+    const datosInscritx = inscritx.getRange(2, 1, inscritx.getLastRow() - 1, 12).getValues();
+
+    for (let i = 0; i < Math.min(datosInscritx.length, 3); i++) {
+      const fila = datosInscritx[i];
+      const filaNum = i + 2;
+
+      mensaje += `\nFila ${filaNum}:\n`;
+      mensaje += `  B - Creamos ID: "${fila[1]}"\n`;
+      mensaje += `  D - Nombre: "${fila[3]}"\n`;
+      mensaje += `  H - Nivel Educativo: "${fila[7]}" (longitud: ${String(fila[7]).length})\n`;
+      mensaje += `  I - Zona: "${fila[8]}" (longitud: ${String(fila[8]).length})\n`;
+      mensaje += `  K - Estado: "${fila[10]}"\n`;
+
+      // Verificar si hay caracteres invisibles
+      const nivelEdu = String(fila[7]);
+      const zona = String(fila[8]);
+      mensaje += `  Nivel Educativo vacío: ${nivelEdu === '' || nivelEdu.trim() === ''}\n`;
+      mensaje += `  Zona vacía: ${zona === '' || zona.trim() === ''}\n`;
+    }
+
+    if (datosInscritx.length > 3) {
+      mensaje += `\n... y ${datosInscritx.length - 3} registros más\n`;
+    }
+  } else {
+    mensaje += '❌ No hay datos en Inscritx\n';
+  }
+
+  // Mostrar el diagnóstico
+  Logger.log(mensaje);
+  ui.alert('🔍 Diagnóstico Detallado', mensaje, ui.ButtonSet.OK);
 }
