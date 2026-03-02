@@ -232,9 +232,36 @@ function onOpen() {
     .addToUi();
 
   try {
+    verificarEInstalarTriggersAutomaticamente();
     mantenimientoAutomatico();
   } catch (error) {
     Logger.log('Error en mantenimiento automático: ' + error.message);
+  }
+}
+
+/**
+ * Verifica si los triggers necesarios están instalados y los instala automáticamente si faltan
+ * Ejecutado silenciosamente en onOpen para asegurar funcionamiento automático
+ */
+function verificarEInstalarTriggersAutomaticamente() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const triggers = ScriptApp.getProjectTriggers();
+
+    // Verificar si ya existen los triggers
+    let triggerEditarOk = false;
+    triggers.forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'alEditar') triggerEditarOk = true;
+    });
+
+    // Si no existe el trigger de edición (crítico para asignar estado "Inscritx"), instalarlo
+    if (!triggerEditarOk) {
+      Logger.log('⚠️ Trigger onEdit no encontrado. Instalando automáticamente...');
+      ScriptApp.newTrigger('alEditar').forSpreadsheet(ss).onEdit().create();
+      Logger.log('✅ Trigger onEdit instalado automáticamente');
+    }
+  } catch (error) {
+    Logger.log('❌ Error al verificar/instalar triggers: ' + error.message);
   }
 }
 
