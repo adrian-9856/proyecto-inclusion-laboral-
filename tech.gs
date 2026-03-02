@@ -1706,6 +1706,11 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
 
     entrevistas.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
 
+    // Autocompletar campos vacíos desde Directorio Maestro
+    // Entrevistas: C[2]=CreamosID, D[3]=DPI, E[4]=Nombre, G[6]=Edad, I[8]=NivelEducativo, J[9]=Zona
+    autocompletarFilaDesdeDirectorio(entrevistas, nuevaFila,
+      { creamosId: 2, dpi: 3, nombre: 4, edad: 6, nivelEducativo: 8, zona: 9 });
+
     // Marcar como procesado (NO eliminar - conservar registro)
     sheet.getRange(fila, 1, 1, 16).setBackground('#c8e6c9'); // Verde claro
     ss.toast('📋 Entrevista creada en hoja Entrevistas (registro conservado).', 'Entrevista Agendada', 4);
@@ -1754,6 +1759,11 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     ];
 
     seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registroInscritx]);
+
+    // Autocompletar campos vacíos desde Directorio Maestro
+    // Inscritx: B[1]=CreamosID, C[2]=DPI, D[3]=Nombre, F[5]=Edad, H[7]=NivelEducativo, I[8]=Zona
+    autocompletarFilaDesdeDirectorio(seleccionadas, nuevaFila,
+      { creamosId: 1, dpi: 2, nombre: 3, edad: 5, nivelEducativo: 7, zona: 8 });
 
     // Marcar en Hoja de Interés como procesado (NO eliminar)
     if (filaInteres) {
@@ -1864,6 +1874,11 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
 
   deserciones.getRange(nuevaFila, 1, 1, 13).setValues([registro]);
 
+  // Autocompletar campos vacíos desde Directorio Maestro
+  // Retiradx: B[1]=CreamosID, C[2]=DPI, D[3]=Nombre, F[5]=Edad, H[7]=NivelEducativo, I[8]=Zona
+  autocompletarFilaDesdeDirectorio(deserciones, nuevaFila,
+    { creamosId: 1, dpi: 2, nombre: 3, edad: 5, nivelEducativo: 7, zona: 8 });
+
   // Marcar fila como Deserción (NO eliminar - conservar registro)
   sheet.getRange(fila, 1, 1, 11).setBackground('#ffcdd2'); // Rojo claro
 
@@ -1962,6 +1977,11 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
 
     seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
 
+    // Autocompletar campos vacíos desde Directorio Maestro
+    // Inscritx: B[1]=CreamosID, C[2]=DPI, D[3]=Nombre, F[5]=Edad, H[7]=NivelEducativo, I[8]=Zona
+    autocompletarFilaDesdeDirectorio(seleccionadas, nuevaFila,
+      { creamosId: 1, dpi: 2, nombre: 3, edad: 5, nivelEducativo: 7, zona: 8 });
+
     // Marcar como reenviado (NO eliminar - conservar registro)
     sheet.getRange(fila, 11).setValue(''); // Limpiar acción
     sheet.getRange(fila, 1, 1, 11).setBackground('#e0e0e0'); // Gris claro
@@ -2013,6 +2033,11 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
   ];
 
   seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
+
+  // Autocompletar campos vacíos desde Directorio Maestro
+  // Inscritx: B[1]=CreamosID, C[2]=DPI, D[3]=Nombre, F[5]=Edad, H[7]=NivelEducativo, I[8]=Zona
+  autocompletarFilaDesdeDirectorio(seleccionadas, nuevaFila,
+    { creamosId: 1, dpi: 2, nombre: 3, edad: 5, nivelEducativo: 7, zona: 8 });
 
   // NO ELIMINAR - Mantener registro histórico de deserción
   // Solo marcar que reingresó y limpiar la acción
@@ -2119,6 +2144,11 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   ];
   hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, 12).setValues([registroCohorte]);
 
+  // Autocompletar campos vacíos desde Directorio Maestro
+  // Hojas de cohorte: C[2]=CreamosID, D[3]=DPI, E[4]=Nombre, G[6]=Edad, I[8]=NivelEducativo, J[9]=Zona
+  autocompletarFilaDesdeDirectorio(hojaCohorte, nuevaFilaCohorte,
+    { creamosId: 2, dpi: 3, nombre: 4, edad: 6, nivelEducativo: 8, zona: 9 });
+
   // Agregar copia a Lista Definitiva (registro histórico permanente)
   // Crear automáticamente si no existe
   if (!ss.getSheetByName('Lista Definitiva')) {
@@ -2141,6 +2171,11 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
       cohorteDestino      // Cohorte
     ];
     listaDefinitiva.getRange(nuevaFilaLD, 1, 1, 11).setValues([registroLD]);
+
+    // Autocompletar campos vacíos desde Directorio Maestro
+    // Lista Definitiva: C[2]=CreamosID, D[3]=DPI, E[4]=Nombre, G[6]=Edad, I[8]=NivelEducativo, J[9]=Zona
+    autocompletarFilaDesdeDirectorio(listaDefinitiva, nuevaFilaLD,
+      { creamosId: 2, dpi: 3, nombre: 4, edad: 6, nivelEducativo: 8, zona: 9 });
   }
 
   // Marcar como enviada (NO eliminar - conservar registro)
@@ -2341,6 +2376,11 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   ];
 
   graduadas.getRange(nuevaFilaGrad, 1, 1, 11).setValues([registroGraduada]);
+
+  // Autocompletar campos vacíos desde Directorio Maestro
+  // Graduadx: B[1]=CreamosID, C[2]=DPI, D[3]=Nombre, F[5]=Edad, H[7]=NivelEducativo, I[8]=Zona
+  autocompletarFilaDesdeDirectorio(graduadas, nuevaFilaGrad,
+    { creamosId: 1, dpi: 2, nombre: 3, edad: 5, nivelEducativo: 7, zona: 8 });
 
   // Enviar automáticamente al archivo externo de seguimiento
   enviarAArchivoSeguimiento(datos[2], datos[4], datos[7], datos[8], nombreCohorte);
@@ -4907,6 +4947,110 @@ function autocompletarDesdeCreamosID(silencioso) {
 
   if (!silencioso) ui.alert('Autocompletar desde CREAMOS ID', mensaje, ui.ButtonSet.OK);
   Logger.log(mensaje);
+}
+
+/**
+ * Autocompleta una fila específica desde el Directorio CREAMOS ID
+ * Solo rellena campos vacíos - no sobreescribe datos existentes
+ *
+ * @param {Sheet} sheet - La hoja donde está la fila
+ * @param {number} numFila - Número de fila (1-indexed)
+ * @param {object} colMap - Mapa de columnas: {creamosId, dpi, nombre, edad, nivelEducativo, zona}
+ * @returns {boolean} - true si se actualizó algo, false si no
+ */
+function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
+  if (!sheet || numFila < 2) return false;
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID);
+
+  // Si no existe el directorio, no hacer nada
+  if (!hojaDirectorio) return false;
+
+  const datosDirectorio = hojaDirectorio.getDataRange().getValues();
+  if (datosDirectorio.length < 2) return false;
+
+  // Construir mapas de búsqueda
+  const mapPorCreamosId = new Map();
+  const mapPorDpi = new Map();
+  const mapPorNombre = new Map();
+
+  for (let i = 1; i < datosDirectorio.length; i++) {
+    const f = datosDirectorio[i];
+    const nombre    = f[0] ? f[0].toString().trim() : '';
+    const creamosId = f[1] ? f[1].toString().trim() : '';
+    const dpi       = f[4] ? f[4].toString().trim() : '';
+    if (creamosId) mapPorCreamosId.set(creamosId.toUpperCase(), f);
+    if (dpi)       mapPorDpi.set(dpi, f);
+    if (nombre)    mapPorNombre.set(nombre.toLowerCase(), f);
+  }
+
+  // Leer la fila actual
+  const maxCol = Math.max(
+    colMap.creamosId >= 0 ? colMap.creamosId + 1 : 0,
+    colMap.dpi >= 0 ? colMap.dpi + 1 : 0,
+    colMap.nombre >= 0 ? colMap.nombre + 1 : 0,
+    colMap.edad >= 0 ? colMap.edad + 1 : 0,
+    colMap.nivelEducativo >= 0 ? colMap.nivelEducativo + 1 : 0,
+    colMap.zona >= 0 ? colMap.zona + 1 : 0
+  );
+
+  if (maxCol === 0) return false;
+
+  const fila = sheet.getRange(numFila, 1, 1, maxCol).getValues()[0];
+
+  const cId = colMap.creamosId >= 0 ? (fila[colMap.creamosId] || '').toString().trim() : '';
+  const dpi = colMap.dpi >= 0 ? (fila[colMap.dpi] || '').toString().trim() : '';
+  const nom = colMap.nombre >= 0 ? (fila[colMap.nombre] || '').toString().trim() : '';
+  const ed  = colMap.edad >= 0 ? (fila[colMap.edad] || '').toString().trim() : '';
+  const nvl = colMap.nivelEducativo >= 0 ? (fila[colMap.nivelEducativo] || '').toString().trim() : '';
+  const zn  = colMap.zona >= 0 ? (fila[colMap.zona] || '').toString().trim() : '';
+
+  // Buscar en directorio: CreamosID → DPI → Nombre
+  let filaDir = null;
+  if (cId) filaDir = mapPorCreamosId.get(cId.toUpperCase()) || null;
+  if (!filaDir && dpi) filaDir = mapPorDpi.get(dpi) || null;
+  if (!filaDir && nom) filaDir = mapPorNombre.get(nom.toLowerCase()) || null;
+
+  if (!filaDir) return false;
+
+  // Extraer datos del directorio
+  const nombreDir  = filaDir[0] ? filaDir[0].toString().trim() : '';
+  const cIdDir     = filaDir[1] ? filaDir[1].toString().trim() : '';
+  const edadDir    = filaDir[3] ? filaDir[3].toString().trim() : '';
+  const dpiDir     = filaDir[4] ? filaDir[4].toString().trim() : '';
+  const nivelEducativoDir = filaDir[5] ? filaDir[5].toString().trim() : '';
+  const zonaDir    = filaDir[6] ? filaDir[6].toString().trim() : '';
+
+  let actualizado = false;
+
+  // Rellenar solo los campos vacíos
+  if (colMap.nombre >= 0 && !nom && nombreDir) {
+    sheet.getRange(numFila, colMap.nombre + 1).setValue(nombreDir);
+    actualizado = true;
+  }
+  if (colMap.creamosId >= 0 && !cId && cIdDir) {
+    sheet.getRange(numFila, colMap.creamosId + 1).setValue(cIdDir);
+    actualizado = true;
+  }
+  if (colMap.dpi >= 0 && !dpi && dpiDir) {
+    sheet.getRange(numFila, colMap.dpi + 1).setValue(dpiDir);
+    actualizado = true;
+  }
+  if (colMap.edad >= 0 && !ed && edadDir) {
+    sheet.getRange(numFila, colMap.edad + 1).setValue(edadDir);
+    actualizado = true;
+  }
+  if (colMap.nivelEducativo >= 0 && !nvl && nivelEducativoDir) {
+    sheet.getRange(numFila, colMap.nivelEducativo + 1).setValue(nivelEducativoDir);
+    actualizado = true;
+  }
+  if (colMap.zona >= 0 && !zn && zonaDir) {
+    sheet.getRange(numFila, colMap.zona + 1).setValue(zonaDir);
+    actualizado = true;
+  }
+
+  return actualizado;
 }
 
 /**
