@@ -4187,18 +4187,18 @@ function enviarParticipantesACohorte() {
 
     // Columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
     const registro = [
-      nuevaFila - 1,                          // No
-      p.creamosId,                            // CreamosID
-      datosInteres ? datosInteres[3] : '',    // DPI
-      p.nombre,                               // Nombre
-      datosInteres ? datosInteres[5] : '',    // Género
-      datosInteres ? datosInteres[6] : '',    // Edad
-      p.datos[4],                             // Teléfono
-      datosInteres ? datosInteres[8] : '',    // Nivel Educativo
-      datosInteres ? datosInteres[9] : '',    // Zona
-      p.datos[8] || '',                       // Notas
-      'Inscritx',                             // Estado (automático)
-      ''                                      // Enviar a Cohorte (vacío)
+      nuevaFila - 1,                               // No
+      p.creamosId,                                 // CreamosID
+      datosInteres ? datosInteres.datos[3] : '',   // DPI
+      p.nombre,                                    // Nombre
+      datosInteres ? datosInteres.datos[5] : '',   // Género
+      datosInteres ? datosInteres.datos[6] : '',   // Edad
+      p.datos[4],                                  // Teléfono
+      datosInteres ? datosInteres.datos[8] : '',   // Nivel Educativo
+      datosInteres ? datosInteres.datos[9] : '',   // Zona
+      p.datos[8] || '',                            // Notas
+      'Inscritx',                                  // Estado (automático)
+      ''                                           // Enviar a Cohorte (vacío)
     ];
 
     seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
