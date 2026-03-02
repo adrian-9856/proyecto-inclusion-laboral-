@@ -1704,6 +1704,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     ];
 
     entrevistas.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
+    SpreadsheetApp.flush(); // Forzar escritura antes de autocompletar
 
     // Autocompletar campos vacíos desde Directorio Maestro
     // Entrevistas: C[2]=CreamosID, D[3]=DPI, E[4]=Nombre, G[6]=Edad, I[8]=NivelEducativo, J[9]=Zona
@@ -1767,6 +1768,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
 
     Logger.log('Registro a escribir en Inscritx: ' + JSON.stringify(registroInscritx));
     seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registroInscritx]);
+    SpreadsheetApp.flush(); // Forzar escritura antes de autocompletar
     Logger.log('✅ Datos escritos en fila ' + nuevaFila + ' de Inscritx');
 
     // Autocompletar campos vacíos desde Directorio Maestro
