@@ -216,6 +216,7 @@ function onOpen() {
       .addSeparator()
       .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
       .addItem('✅ Verificar Instalación', 'verificarInstalacion')
+      .addItem('🔍 Diagnosticar Campos (Nivel/Zona)', 'diagnosticarCamposNivelYZona')
       .addSeparator()
       .addSubMenu(ui.createMenu('👤 Responsables')
         .addItem('➕ Agregar Responsable', 'agregarResponsable')
@@ -467,6 +468,164 @@ function verificarInstalacion() {
   }
 
   ss.toast(mensaje, 'Verificación', -1);
+}
+
+/**
+ * Diagnóstico de campos "Nivel Educativo" y "Zona"
+ * Verifica que estos campos estén presentes en cada hoja y muestra estadísticas
+ */
+function diagnosticarCamposNivelYZona() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  let reporte = '🔍 DIAGNÓSTICO: Nivel Educativo y Zona\n\n';
+  let problemaEncontrado = false;
+
+  // Verificar Hoja de Interés
+  const hojaInteres = ss.getSheetByName('Hoja de Interés');
+  if (hojaInteres) {
+    const headers = hojaInteres.getRange(1, 1, 1, 16).getValues()[0];
+    const tieneNivel = headers[8] === 'Nivel Educativo';
+    const tieneZona = headers[9] === 'Zona';
+
+    reporte += '📄 Hoja de Interés:\n';
+    reporte += (tieneNivel ? '  ✅' : '  ❌') + ' Columna I = Nivel Educativo ' + (tieneNivel ? '' : '(encontrado: "' + headers[8] + '")') + '\n';
+    reporte += (tieneZona ? '  ✅' : '  ❌') + ' Columna J = Zona ' + (tieneZona ? '' : '(encontrado: "' + headers[9] + '")') + '\n';
+
+    if (tieneNivel && tieneZona) {
+      const datos = hojaInteres.getDataRange().getValues();
+      let vacios = 0;
+      let llenos = 0;
+      for (let i = 1; i < datos.length && i < 100; i++) {
+        if (datos[i][4]) { // Si tiene nombre
+          if (!datos[i][8] || !datos[i][9]) vacios++;
+          else llenos++;
+        }
+      }
+      reporte += '  📊 Registros con datos: ' + llenos + '\n';
+      reporte += '  ⚠️ Registros con campos vacíos: ' + vacios + '\n';
+      if (vacios > 0) problemaEncontrado = true;
+    } else {
+      problemaEncontrado = true;
+    }
+    reporte += '\n';
+  }
+
+  // Verificar Entrevistas
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (entrevistas) {
+    const headers = entrevistas.getRange(1, 1, 1, 14).getValues()[0];
+    const tieneNivel = headers[8] === 'Nivel Educativo';
+    const tieneZona = headers[9] === 'Zona';
+
+    reporte += '📄 Entrevistas:\n';
+    reporte += (tieneNivel ? '  ✅' : '  ❌') + ' Columna I = Nivel Educativo ' + (tieneNivel ? '' : '(encontrado: "' + headers[8] + '")') + '\n';
+    reporte += (tieneZona ? '  ✅' : '  ❌') + ' Columna J = Zona ' + (tieneZona ? '' : '(encontrado: "' + headers[9] + '")') + '\n';
+
+    if (tieneNivel && tieneZona) {
+      const datos = entrevistas.getDataRange().getValues();
+      let vacios = 0;
+      let llenos = 0;
+      for (let i = 1; i < datos.length && i < 100; i++) {
+        if (datos[i][4]) { // Si tiene nombre
+          if (!datos[i][8] || !datos[i][9]) vacios++;
+          else llenos++;
+        }
+      }
+      reporte += '  📊 Registros con datos: ' + llenos + '\n';
+      reporte += '  ⚠️ Registros con campos vacíos: ' + vacios + '\n';
+      if (vacios > 0) problemaEncontrado = true;
+    } else {
+      problemaEncontrado = true;
+    }
+    reporte += '\n';
+  }
+
+  // Verificar Inscritx
+  const inscritx = ss.getSheetByName('Inscritx');
+  if (inscritx) {
+    const headers = inscritx.getRange(1, 1, 1, 12).getValues()[0];
+    const tieneNivel = headers[7] === 'Nivel Educativo';
+    const tieneZona = headers[8] === 'Zona';
+
+    reporte += '📄 Inscritx:\n';
+    reporte += (tieneNivel ? '  ✅' : '  ❌') + ' Columna H = Nivel Educativo ' + (tieneNivel ? '' : '(encontrado: "' + headers[7] + '")') + '\n';
+    reporte += (tieneZona ? '  ✅' : '  ❌') + ' Columna I = Zona ' + (tieneZona ? '' : '(encontrado: "' + headers[8] + '")') + '\n';
+
+    if (tieneNivel && tieneZona) {
+      const datos = inscritx.getDataRange().getValues();
+      let vacios = 0;
+      let llenos = 0;
+      for (let i = 1; i < datos.length; i++) {
+        if (datos[i][3]) { // Si tiene nombre
+          if (!datos[i][7] || !datos[i][8]) vacios++;
+          else llenos++;
+        }
+      }
+      reporte += '  📊 Registros con datos: ' + llenos + '\n';
+      reporte += '  ⚠️ Registros con campos vacíos: ' + vacios + '\n';
+      if (vacios > 0) problemaEncontrado = true;
+    } else {
+      problemaEncontrado = true;
+    }
+    reporte += '\n';
+  }
+
+  // Verificar una cohorte de ejemplo
+  const cohortesSheet = ss.getSheetByName('Cohortes');
+  if (cohortesSheet) {
+    const datosCohortes = cohortesSheet.getDataRange().getValues();
+    if (datosCohortes.length > 1 && datosCohortes[1][0]) {
+      const nombreCohorte = datosCohortes[1][0];
+      const hojaCohorte = ss.getSheetByName(nombreCohorte);
+      if (hojaCohorte) {
+        const headers = hojaCohorte.getRange(1, 1, 1, 12).getValues()[0];
+        const tieneNivel = headers[8] === 'Nivel Educativo';
+        const tieneZona = headers[9] === 'Zona';
+
+        reporte += '📄 Cohorte "' + nombreCohorte + '" (ejemplo):\n';
+        reporte += (tieneNivel ? '  ✅' : '  ❌') + ' Columna I = Nivel Educativo ' + (tieneNivel ? '' : '(encontrado: "' + headers[8] + '")') + '\n';
+        reporte += (tieneZona ? '  ✅' : '  ❌') + ' Columna J = Zona ' + (tieneZona ? '' : '(encontrado: "' + headers[9] + '")') + '\n';
+
+        if (tieneNivel && tieneZona) {
+          const datos = hojaCohorte.getDataRange().getValues();
+          let vacios = 0;
+          let llenos = 0;
+          for (let i = 1; i < datos.length; i++) {
+            if (datos[i][4]) { // Si tiene nombre
+              if (!datos[i][8] || !datos[i][9]) vacios++;
+              else llenos++;
+            }
+          }
+          reporte += '  📊 Registros con datos: ' + llenos + '\n';
+          reporte += '  ⚠️ Registros con campos vacíos: ' + vacios + '\n';
+          if (vacios > 0) problemaEncontrado = true;
+        } else {
+          problemaEncontrado = true;
+        }
+        reporte += '\n';
+      }
+    }
+  }
+
+  // Conclusión
+  if (problemaEncontrado) {
+    reporte += '❌ PROBLEMAS ENCONTRADOS\n\n';
+    reporte += 'Soluciones recomendadas:\n';
+    reporte += '1. Si las columnas están mal ubicadas:\n';
+    reporte += '   → Ejecutar "Reparar Validaciones"\n\n';
+    reporte += '2. Si hay registros con campos vacíos:\n';
+    reporte += '   → Verificar importación desde Kobo\n';
+    reporte += '   → Ejecutar "Actualizar desde CREAMOS ID"\n\n';
+    reporte += '3. Ver archivo DIAGNOSTICO_CAMPOS.md\n';
+    reporte += '   para instrucciones detalladas';
+  } else {
+    reporte += '✅ TODO CORRECTO\n';
+    reporte += 'Las columnas están bien ubicadas\n';
+    reporte += 'y los datos están completos';
+  }
+
+  ui.alert('Diagnóstico de Campos', reporte, ui.ButtonSet.OK);
 }
 
 // =====================================================================
