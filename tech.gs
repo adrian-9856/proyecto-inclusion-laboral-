@@ -1699,7 +1699,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       datos[7],             // H: Teléfono
       datos[8],             // I: Nivel Educativo
       datos[9],             // J: Zona
-      'Eva',                // K: Entrevistador (asignado automáticamente)
+      '',                   // K: Entrevistador (vacío para selección manual)
       '',                   // L: Calificación
       '',                   // M: Observaciones
       ''                    // N: Estado (vacío hasta que se complete)
