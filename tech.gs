@@ -2075,7 +2075,7 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
       // Si no tiene Creamos ID, agregar nota
       const notaID = fila[2] ? '' : '⚠️ Sin Creamos ID — verificar en Salesforce';
 
-      // Orden Graduadx: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Cohorte, Notas
+      // Orden Graduadx: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Cohorte, Notas
       const registroGraduada = [
         fechaGraduacion,
         fila[2] || '',     // Creamos ID (puede estar vacío)
@@ -2085,11 +2085,12 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
         fila[6],           // Edad
         fila[7],           // Teléfono
         fila[8],           // Nivel Educativo
+        fila[9] || '',     // Zona
         nombreCohorte,
         notaID             // Notas (alerta si falta ID)
       ];
 
-      graduadas.getRange(nuevaFilaGrad, 1, 1, 10).setValues([registroGraduada]);
+      graduadas.getRange(nuevaFilaGrad, 1, 1, 11).setValues([registroGraduada]);
 
       // Marcar como Graduada en la hoja de cohorte (NO eliminar — la hoja queda como archivo)
       hojaCohorte.getRange(i + 1, 11).setValue('Graduadx');
@@ -4414,7 +4415,7 @@ function desinstalarSistema() {
     });
 
     // ===== PASO 5: Verificar que "Copy of CREAMOS ID nuevo" sigue existiendo =====
-    const hojaProtegida = ss.getSheetByName('Copy of CREAMOS ID nuevo');
+    hojaProtegida = ss.getSheetByName('Copy of CREAMOS ID nuevo');
     if (!hojaProtegida) {
       Logger.log('⚠️ ADVERTENCIA: "Copy of CREAMOS ID nuevo" no existe o fue eliminada');
     } else {
