@@ -1833,8 +1833,8 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
-  // Datos de la hoja de cohorte: Fecha, No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Estado
-  const datos = sheet.getRange(fila, 1, 1, 11).getValues()[0];
+  // Datos de la hoja de cohorte: Fecha, No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Estado, Año
+  const datos = sheet.getRange(fila, 1, 1, 12).getValues()[0];
   const creamosId = datos[2];
   const nombre = datos[4];
 
@@ -1893,7 +1893,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
     { creamosId: 1, dpi: 2, nombre: 3, edad: 5, nivelEducativo: 7, zona: 8 });
 
   // Marcar fila como Deserción (NO eliminar - conservar registro)
-  sheet.getRange(fila, 1, 1, 11).setBackground('#ffcdd2'); // Rojo claro
+  sheet.getRange(fila, 1, 1, 12).setBackground('#ffcdd2'); // Rojo claro
 
   ss.toast('📋 Deserción registrada: ' + motivo, 'Cohorte ' + nombreCohorte, 4);
 
@@ -2009,8 +2009,8 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
 function procesarReenvioDesdeRetiradx(sheet, fila) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Columnas: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Cohorte, Motivo, Notas, Acción
-  const datos = sheet.getRange(fila, 1, 1, 12).getValues()[0];
+  // Columnas: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Cohorte, Motivo, Notas, Acción
+  const datos = sheet.getRange(fila, 1, 1, 13).getValues()[0];
   const creamosId = datos[1];
   const dpi = datos[2];
   const nombre = datos[3];
@@ -2018,16 +2018,12 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
   const edad = datos[5];
   const telefono = datos[6];
   const nivelEducativo = datos[7];
-  const cohorteAnterior = datos[8];
-  const notas = datos[10];
+  const zona = datos[8];
+  const cohorteAnterior = datos[9];
+  const notas = datos[11];
 
   const seleccionadas = ss.getSheetByName('Inscritx');
   const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
-
-  // Buscar Zona desde Hoja de Interés
-  const interes = ss.getSheetByName('Hoja de Interés');
-  const busqueda = buscarPorCreamosID(interes, creamosId);
-  const datosInteres = busqueda ? busqueda.datos : null;
 
   // Columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
   const registro = [
@@ -2039,7 +2035,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
     edad || '',       // Edad
     telefono,
     nivelEducativo,
-    datosInteres ? datosInteres[9] : '',  // Zona
+    zona || '',       // Zona
     'Reingreso desde Deserción (' + cohorteAnterior + ') - ' + notas,
     'Inscritx',       // Estado
     ''                // Enviar a Cohorte
@@ -2054,13 +2050,13 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
 
   // NO ELIMINAR - Mantener registro histórico de deserción
   // Solo marcar que reingresó y limpiar la acción
-  const notasActuales = datos[10] || '';
+  const notasActuales = datos[11] || '';
   const fechaReingreso = Utilities.formatDate(new Date(), 'America/Guatemala', 'dd/MM/yyyy');
-  sheet.getRange(fila, 11).setValue(notasActuales + ' [Reingresó: ' + fechaReingreso + ']');
-  sheet.getRange(fila, 12).setValue(''); // Limpiar Acción
+  sheet.getRange(fila, 12).setValue(notasActuales + ' [Reingresó: ' + fechaReingreso + ']');
+  sheet.getRange(fila, 13).setValue(''); // Limpiar Acción
 
   // Marcar fila con color gris claro para indicar que ya reingresó
-  sheet.getRange(fila, 1, 1, 12).setBackground('#e0e0e0');
+  sheet.getRange(fila, 1, 1, 13).setBackground('#e0e0e0');
 
   ss.toast('✅ ' + nombre + ' reenviada a Inscritx (registro de deserción conservado)', 'Reenvío', 4);
 }
@@ -2328,7 +2324,7 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
 
       // Marcar como Graduada en la hoja de cohorte (NO eliminar — la hoja queda como archivo)
       hojaCohorte.getRange(i + 1, 11).setValue('Graduadx');
-      hojaCohorte.getRange(i + 1, 1, 1, 11).setBackground('#e8f5e9'); // Verde claro = graduada
+      hojaCohorte.getRange(i + 1, 1, 1, 12).setBackground('#e8f5e9'); // Verde claro = graduada
 
       // Si falta Creamos ID, resaltar col C en naranja (encima del verde)
       if (!fila[2]) {
@@ -2400,7 +2396,7 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
 
   // Marcar como Graduada en la hoja de cohorte (NO eliminar — queda como archivo)
   sheet.getRange(fila, 11).setValue('Graduadx');
-  sheet.getRange(fila, 1, 1, 11).setBackground('#e8f5e9'); // Verde claro = graduada
+  sheet.getRange(fila, 1, 1, 12).setBackground('#e8f5e9'); // Verde claro = graduada
 
   // Si falta Creamos ID, resaltar esa celda en naranja
   if (!datos[2]) {
