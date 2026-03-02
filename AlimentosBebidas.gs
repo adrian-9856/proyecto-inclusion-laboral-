@@ -1739,6 +1739,14 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     const seleccionadas = ss.getSheetByName('Inscritx');
     const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
+    // *** DEPURACIÓN: Log de los datos leídos desde Entrevistas ***
+    Logger.log('=== DEPURACIÓN: Transferencia Entrevistas → Inscritx ===');
+    Logger.log('Fila Entrevistas: ' + fila);
+    Logger.log('Creamos ID: ' + creamosId);
+    Logger.log('Nivel Educativo (datos[8]): "' + datos[8] + '"');
+    Logger.log('Zona (datos[9]): "' + datos[9] + '"');
+    Logger.log('Todos los datos: ' + JSON.stringify(datos));
+
     // Orden: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
     // Entrevistas: [0]Fecha, [1]Hora, [2]CreamosID, [3]DPI, [4]Nombre, [5]Género, [6]Edad, [7]Tel,
     //              [8]NivelEdu, [9]Zona, [10]Entrevistador, [11]Calificación, [12]Observaciones, [13]Estado
@@ -1757,7 +1765,9 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       ''                                            // Enviar a Cohorte (vacío)
     ];
 
+    Logger.log('Registro a escribir en Inscritx: ' + JSON.stringify(registroInscritx));
     seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registroInscritx]);
+    Logger.log('✅ Datos escritos en fila ' + nuevaFila + ' de Inscritx');
 
     // Autocompletar campos vacíos desde Directorio Maestro
     // Inscritx: B[1]=CreamosID, C[2]=DPI, D[3]=Nombre, F[5]=Edad, H[7]=NivelEducativo, I[8]=Zona
@@ -5004,6 +5014,60 @@ function autocompletarDesdeCreamosID(silencioso) {
 }
 
 /**
+ * Detecta automáticamente las columnas del Directorio CREAMOS ID por nombre.
+ * Busca en los encabezados (fila 1) y devuelve un objeto con los índices.
+ * @returns {object} - {nombre, creamosId, dpi, edad, nivelEducativo, zona} con índices 0-based, o -1 si no existe
+ */
+function detectarColumnasDirectorio() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID);
+
+  if (!hojaDirectorio) return null;
+
+  const encabezados = hojaDirectorio.getRange(1, 1, 1, hojaDirectorio.getLastColumn()).getValues()[0];
+  const colMap = {
+    nombre: -1,
+    creamosId: -1,
+    dpi: -1,
+    edad: -1,
+    nivelEducativo: -1,
+    zona: -1
+  };
+
+  // Buscar cada columna por nombre (case-insensitive, ignora espacios extra)
+  for (let i = 0; i < encabezados.length; i++) {
+    const header = encabezados[i].toString().trim().toLowerCase();
+
+    // Nombre: puede ser "Nombre", "Nombre Completo", "Full Name", etc.
+    if (header.includes('nombre') && !header.includes('cohorte')) {
+      colMap.nombre = i;
+    }
+    // Creamos ID: puede ser "Creamos ID", "CreamosID", "CREAMOS ID", etc.
+    else if (header.replace(/\s+/g, '').toLowerCase().includes('creamosid')) {
+      colMap.creamosId = i;
+    }
+    // DPI
+    else if (header === 'dpi') {
+      colMap.dpi = i;
+    }
+    // Edad: puede ser "Edad", "Age", etc.
+    else if (header === 'edad' || header === 'age') {
+      colMap.edad = i;
+    }
+    // Nivel Educativo: puede tener espacios o no
+    else if (header.includes('nivel') && header.includes('educativo')) {
+      colMap.nivelEducativo = i;
+    }
+    // Zona
+    else if (header === 'zona') {
+      colMap.zona = i;
+    }
+  }
+
+  return colMap;
+}
+
+/**
  * Autocompleta una fila específica desde el Directorio CREAMOS ID
  * Solo rellena campos vacíos - no sobreescribe datos existentes
  *
@@ -5024,6 +5088,10 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
   const datosDirectorio = hojaDirectorio.getDataRange().getValues();
   if (datosDirectorio.length < 2) return false;
 
+  // *** NUEVO: Detectar columnas del directorio automáticamente ***
+  const colMapDir = detectarColumnasDirectorio();
+  if (!colMapDir) return false;
+
   // Construir mapas de búsqueda
   const mapPorCreamosId = new Map();
   const mapPorDpi = new Map();
@@ -5031,9 +5099,9 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
 
   for (let i = 1; i < datosDirectorio.length; i++) {
     const f = datosDirectorio[i];
-    const nombre    = f[0] ? f[0].toString().trim() : '';
-    const creamosId = f[1] ? f[1].toString().trim() : '';
-    const dpi       = f[4] ? f[4].toString().trim() : '';
+    const nombre    = colMapDir.nombre >= 0 && f[colMapDir.nombre] ? f[colMapDir.nombre].toString().trim() : '';
+    const creamosId = colMapDir.creamosId >= 0 && f[colMapDir.creamosId] ? f[colMapDir.creamosId].toString().trim() : '';
+    const dpi       = colMapDir.dpi >= 0 && f[colMapDir.dpi] ? f[colMapDir.dpi].toString().trim() : '';
     if (creamosId) mapPorCreamosId.set(creamosId.toUpperCase(), f);
     if (dpi)       mapPorDpi.set(dpi, f);
     if (nombre)    mapPorNombre.set(nombre.toLowerCase(), f);
@@ -5068,13 +5136,13 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
 
   if (!filaDir) return false;
 
-  // Extraer datos del directorio
-  const nombreDir  = filaDir[0] ? filaDir[0].toString().trim() : '';
-  const cIdDir     = filaDir[1] ? filaDir[1].toString().trim() : '';
-  const edadDir    = filaDir[3] ? filaDir[3].toString().trim() : '';
-  const dpiDir     = filaDir[4] ? filaDir[4].toString().trim() : '';
-  const nivelEducativoDir = filaDir[5] ? filaDir[5].toString().trim() : '';
-  const zonaDir    = filaDir[6] ? filaDir[6].toString().trim() : '';
+  // *** NUEVO: Extraer datos del directorio usando detección automática ***
+  const nombreDir  = colMapDir.nombre >= 0 && filaDir[colMapDir.nombre] ? filaDir[colMapDir.nombre].toString().trim() : '';
+  const cIdDir     = colMapDir.creamosId >= 0 && filaDir[colMapDir.creamosId] ? filaDir[colMapDir.creamosId].toString().trim() : '';
+  const edadDir    = colMapDir.edad >= 0 && filaDir[colMapDir.edad] ? filaDir[colMapDir.edad].toString().trim() : '';
+  const dpiDir     = colMapDir.dpi >= 0 && filaDir[colMapDir.dpi] ? filaDir[colMapDir.dpi].toString().trim() : '';
+  const nivelEducativoDir = colMapDir.nivelEducativo >= 0 && filaDir[colMapDir.nivelEducativo] ? filaDir[colMapDir.nivelEducativo].toString().trim() : '';
+  const zonaDir    = colMapDir.zona >= 0 && filaDir[colMapDir.zona] ? filaDir[colMapDir.zona].toString().trim() : '';
 
   let actualizado = false;
 
