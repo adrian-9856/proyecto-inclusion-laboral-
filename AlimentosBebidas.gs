@@ -6952,15 +6952,16 @@ function importarReferenciasNuevas(silencioso) {
   const indKobo = {
     fecha: buscarIndiceColumnaRef(headersKobo, ['start', '_submission_time']),
     uuid: buscarIndiceColumnaRef(headersKobo, ['_uuid', 'uuid']),
-    programa: buscarIndiceColumnaRef(headersKobo, ['programa que refiere', 'programa']),
+    programaOrigen: buscarIndiceColumnaRef(headersKobo, ['programa que refiere', 'programa']),
+    programaDestino: buscarIndiceColumnaRef(headersKobo, ['¿a qué programa se refiere?', 'programa se refiere']),
     responsable: buscarIndiceColumnaRef(headersKobo, ['responsable que deriva', 'nombre del responsable', 'responsable']),
     nombre: buscarIndiceColumnaRef(headersKobo, ['nombre completo', 'nombre de la derivacion', 'derivacion']),
     dpi: buscarIndiceColumnaRef(headersKobo, ['dpi / cui', 'cui', 'dpi']),
     edad: buscarIndiceColumnaRef(headersKobo, ['edad']),
     telefono: buscarIndiceColumnaRef(headersKobo, ['telefono', 'teléfono', 'tel', 'celular']),
-    nivelEdu: buscarIndiceColumnaRef(headersKobo, ['último nivel académico aprobado', 'nivel educativo', 'nivel académico', 'nivel cursado', 'escolaridad', 'grado académico', 'nivel de estudios', 'estudios', 'educación']),
+    nivelEdu: buscarIndiceColumnaRef(headersKobo, ['detalles inclusión laboral / último nivel académico aprobado', 'último nivel académico aprobado', 'nivel educativo', 'nivel académico']),
     zona: buscarIndiceColumnaRef(headersKobo, ['zona / colonia', 'zona de residencia', 'zona', 'colonia']),
-    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado', 'area', 'área', 'programa de interés', 'servicio', 'formación']),
+    aplica: buscarIndiceColumnaRef(headersKobo, ['detalles inclusión laboral / ¿en qué área está interesado/a?', 'en qué área está interesado', 'área está interesado', 'área de interés']),
     observaciones: buscarIndiceColumnaRef(headersKobo, ['observaciones', 'comentarios', 'notas'])
   };
   
@@ -6990,21 +6991,26 @@ function importarReferenciasNuevas(silencioso) {
     if (!uuidActual || (!nombreRef && indKobo.nombre >= 0)) continue;
     
     // VERIFICACIÓN DE FILTRO PARA ALIMENTOS Y BEBIDAS
-    const programaBruto = indKobo.programa >= 0 ? filaKobo[indKobo.programa].toString().trim() : '';
-    const areaAplica = indKobo.aplica >= 0 ? filaKobo[indKobo.aplica].toString().trim() : '';
+    // Primero verificar que sea una referencia a "Inclusión Laboral"
+    const programaDestino = indKobo.programaDestino >= 0 ? filaKobo[indKobo.programaDestino].toString().trim() : '';
+    const programaDestinoNorm = programaDestino.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    // Buscar en múltiples campos: área, programa, observaciones
-    const textosCombinados = [areaAplica, programaBruto].join(' ').toLowerCase();
-    const filtroNorm = textosCombinados.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (!programaDestinoNorm.includes('inclusion laboral')) {
+      continue; // IGNORAR SI NO ES REFERENCIA A INCLUSIÓN LABORAL
+    }
+
+    // Luego verificar que el área sea Alimentos y Bebidas
+    const areaAplica = indKobo.aplica >= 0 ? filaKobo[indKobo.aplica].toString().trim() : '';
+    const areaAplicaNorm = areaAplica.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
     // Buscar "alimentos", "bebidas", "gastronomia", "barismo", "cocina", "reposteria"
-    const esAlimentos = filtroNorm.includes(CONFIG_REFERENCIAS.FILTRO_PROGRAMA) ||
-                        filtroNorm.includes('bebidas') ||
-                        filtroNorm.includes('gastronomia') ||
-                        filtroNorm.includes('barismo') ||
-                        filtroNorm.includes('cocina') ||
-                        filtroNorm.includes('reposteria') ||
-                        filtroNorm.includes('food');
+    const esAlimentos = areaAplicaNorm.includes('alimentos') ||
+                        areaAplicaNorm.includes('bebidas') ||
+                        areaAplicaNorm.includes('gastronomia') ||
+                        areaAplicaNorm.includes('barismo') ||
+                        areaAplicaNorm.includes('cocina') ||
+                        areaAplicaNorm.includes('reposteria') ||
+                        areaAplicaNorm.includes('food');
 
     if (!esAlimentos) {
       continue; // IGNORAR SI NO ES REFERENCIA DE ALIMENTOS Y BEBIDAS
@@ -7019,9 +7025,11 @@ function importarReferenciasNuevas(silencioso) {
         if (idx >= 0) nuevaFila[idx] = valor;
       };
       
+      const programaOrigen = indKobo.programaOrigen >= 0 ? filaKobo[indKobo.programaOrigen] : '';
+
       setVal('Fecha', indKobo.fecha >= 0 ? filaKobo[indKobo.fecha] : '');
       setVal('_uuid', uuidActual);
-      setVal('Programa', programaBruto);
+      setVal('Programa', programaOrigen);
       setVal('Nombre del responsable que deriva', indKobo.responsable >= 0 ? filaKobo[indKobo.responsable] : '');
       setVal('Nombre Completo (según DPI)', nombreRef);
       setVal('DPI', indKobo.dpi >= 0 ? filaKobo[indKobo.dpi] : '');
@@ -7479,9 +7487,10 @@ function diagnosticarReferenciasKobo() {
   // Mapeo de columnas
   const indKobo = {
     uuid: buscarIndiceColumnaRef(headersKobo, ['_uuid', 'uuid']),
-    programa: buscarIndiceColumnaRef(headersKobo, ['programa que refiere', 'programa']),
+    programaOrigen: buscarIndiceColumnaRef(headersKobo, ['programa que refiere', 'programa']),
+    programaDestino: buscarIndiceColumnaRef(headersKobo, ['¿a qué programa se refiere?', 'programa se refiere']),
     nombre: buscarIndiceColumnaRef(headersKobo, ['nombre completo', 'nombre de la derivacion', 'derivacion']),
-    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado'])
+    aplica: buscarIndiceColumnaRef(headersKobo, ['detalles inclusión laboral / ¿en qué área está interesado/a?', 'en qué área está interesado', 'área está interesado'])
   };
 
   // Obtener UUIDs ya importados
@@ -7520,12 +7529,12 @@ function diagnosticarReferenciasKobo() {
     const filaKobo = koboData[i];
     const uuidActual = indKobo.uuid >= 0 ? filaKobo[indKobo.uuid].toString().trim() : '';
     const nombreRef = indKobo.nombre >= 0 ? filaKobo[indKobo.nombre].toString().trim() : '';
-    const programaBruto = indKobo.programa >= 0 ? filaKobo[indKobo.programa].toString().trim() : '';
+    const programaDestino = indKobo.programaDestino >= 0 ? filaKobo[indKobo.programaDestino].toString().trim() : '';
     const areaAplica = indKobo.aplica >= 0 ? filaKobo[indKobo.aplica].toString().trim() : '';
 
     // Registrar áreas y programas encontrados
     if (areaAplica) areasEncontradas.add(areaAplica);
-    if (programaBruto) programasEncontrados.add(programaBruto);
+    if (programaDestino) programasEncontrados.add(programaDestino);
 
     // Verificar si es válido
     if (!uuidActual || !nombreRef) {
@@ -7534,13 +7543,27 @@ function diagnosticarReferenciasKobo() {
       continue;
     }
 
-    // Verificar filtro
-    const filtroNorm = areaAplica.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const cumpleFiltro = filtroNorm.includes(CONFIG_REFERENCIAS.FILTRO_PROGRAMA);
-
-    if (!cumpleFiltro) {
+    // Verificar filtro: primero que sea "Inclusión Laboral"
+    const programaDestinoNorm = programaDestino.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (!programaDestinoNorm.includes('inclusion laboral')) {
       registrosFiltrados++;
-      Logger.log('Registro ' + i + ' FILTRADO: Área "' + areaAplica + '" no contiene "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"');
+      Logger.log('Registro ' + i + ' FILTRADO: Programa destino "' + programaDestino + '" no es "Inclusión Laboral"');
+      continue;
+    }
+
+    // Luego verificar que el área sea Alimentos y Bebidas
+    const areaAplicaNorm = areaAplica.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const esAlimentos = areaAplicaNorm.includes('alimentos') ||
+                        areaAplicaNorm.includes('bebidas') ||
+                        areaAplicaNorm.includes('gastronomia') ||
+                        areaAplicaNorm.includes('barismo') ||
+                        areaAplicaNorm.includes('cocina') ||
+                        areaAplicaNorm.includes('reposteria') ||
+                        areaAplicaNorm.includes('food');
+
+    if (!esAlimentos) {
+      registrosFiltrados++;
+      Logger.log('Registro ' + i + ' FILTRADO: Área "' + areaAplica + '" no es Alimentos y Bebidas');
       continue;
     }
 
@@ -7558,21 +7581,21 @@ function diagnosticarReferenciasKobo() {
   Logger.log('=== RESUMEN ===');
   Logger.log('Total en Kobo: ' + totalRegistros);
   Logger.log('Inválidos (sin UUID/nombre): ' + registrosInvalidos);
-  Logger.log('Filtrados (no coinciden con "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"): ' + registrosFiltrados);
+  Logger.log('Filtrados (no son Inclusión Laboral - Alimentos y Bebidas): ' + registrosFiltrados);
   Logger.log('Ya importados: ' + registrosYaImportados);
   Logger.log('Nuevos disponibles: ' + registrosNuevos);
   Logger.log('');
   Logger.log('Áreas encontradas en Kobo:');
   areasEncontradas.forEach(area => Logger.log('  - ' + area));
   Logger.log('');
-  Logger.log('Programas encontrados en Kobo:');
+  Logger.log('Programas destino encontrados en Kobo:');
   programasEncontrados.forEach(prog => Logger.log('  - ' + prog));
 
   // Mostrar resultado al usuario
   let mensaje = '📊 DIAGNÓSTICO COMPLETO\n\n';
   mensaje += '📋 Total de registros en Kobo: ' + totalRegistros + '\n\n';
   mensaje += '❌ Inválidos (sin UUID/nombre): ' + registrosInvalidos + '\n';
-  mensaje += '🔍 Filtrados (no son "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"): ' + registrosFiltrados + '\n';
+  mensaje += '🔍 Filtrados (no son Inclusión Laboral - Alimentos y Bebidas): ' + registrosFiltrados + '\n';
   mensaje += '✅ Ya importados anteriormente: ' + registrosYaImportados + '\n';
   mensaje += '🆕 Nuevos disponibles para importar: ' + registrosNuevos + '\n\n';
 
@@ -7581,8 +7604,13 @@ function diagnosticarReferenciasKobo() {
     areasEncontradas.forEach(area => mensaje += '  • ' + area + '\n');
   }
 
-  mensaje += '\n💡 TIP: Si ves áreas que deberían importarse pero están siendo filtradas,\n';
-  mensaje += 'verifica que contengan la palabra "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '" o ajusta el filtro.\n\n';
+  if (programasEncontrados.size > 0) {
+    mensaje += '\n📍 Programas destino encontrados:\n';
+    programasEncontrados.forEach(prog => mensaje += '  • ' + prog + '\n');
+  }
+
+  mensaje += '\n💡 TIP: Solo se importan referencias a "Inclusión Laboral" con área "Alimentos y Bebidas".\n';
+  mensaje += 'Si no ves registros nuevos, verifica el programa destino y el área de interés.\n\n';
   mensaje += '📝 Revisa la consola (Ver → Registros) para más detalles.';
 
   ui.alert('🔍 Diagnóstico Completo', mensaje, ui.ButtonSet.OK);
