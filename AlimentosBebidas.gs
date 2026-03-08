@@ -118,7 +118,7 @@ const CONFIG_AB = {
 
   // Motivos de no selección
   MOTIVOS_NO_SELECCION: [
-    'No le interesa el área de tecnología',
+    'No le interesa el área de alimentos y bebidas',
     'Horarios no compatibles',
     'Ubicación no conveniente',
     'Ya tiene otro programa',
@@ -3588,7 +3588,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
 
     let importados = 0;
     let omitidosDuplicados = 0;
-    let omitidosNoTech = 0;
+    let omitidosOtrosProgramas = 0;
 
     // Procesar filas
     for (let i = 1; i < rows.length; i++) {
@@ -3619,7 +3619,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
 
       // Si sigue sin detectarse como Inclusión Laboral, omitir
       if (!esIL) {
-        omitidosNoTech++;
+        omitidosOtrosProgramas++;
         continue;
       }
 
@@ -3789,7 +3789,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
     const mensaje = '✅ IMPORTACIÓN ALIMENTOS Y BEBIDAS FINALIZADA\n\n' +
       '📥 Importados: ' + importados + '\n' +
       '🔄 Duplicados omitidos: ' + omitidosDuplicados + '\n' +
-      '🚫 De otros programas (omitidos): ' + omitidosNoTech;
+      '🚫 De otros programas (omitidos): ' + omitidosOtrosProgramas;
 
     ss.toast(mensaje, 'Importación AB', 8);
     Logger.log(mensaje);
