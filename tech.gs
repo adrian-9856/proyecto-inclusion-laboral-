@@ -208,6 +208,8 @@ function onOpen() {
       .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
       .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
       .addSeparator()
+      .addItem('📋 Actualizar Hojas de Interés Masivamente', 'actualizarHojasInteresMasivamente')
+      .addSeparator()
       .addItem('🧹 Limpiar Filas Vacías', 'limpiarFilasVaciasHojaInteres')
       .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
       .addItem('🗑️ Eliminar Todos los Datos', 'limpiarTodosLosDatos')
@@ -438,7 +440,7 @@ function verificarInstalacion() {
   const hojasRequeridas = [
     'Hoja de Interés', 'Entrevistas', 'Inscritx',
     'Cohortes', 'Graduadx', 'Retiradx',
-    'No Inscritx', 'Lista Definitiva', 'Reporte', 'Reportes Mensuales'
+    'No Inscritx', 'Referencias de Programas', 'Lista Definitiva', 'Reporte', 'Reportes Mensuales'
   ];
 
   let hojasOk = 0;
@@ -657,6 +659,7 @@ function crearTodasLasHojas() {
   crearHojaRetiradx();
   crearHojaNoInscritx();
   crearHojaListaDefinitiva();
+  crearHojaReferenciasProgramas();
   crearHojaReporte();
   crearHojaReportesMensuales();
 }
@@ -692,7 +695,8 @@ function crearHojaInteres() {
     'Notas',           // M
     '¿Deseas inscribirte?', // N - Desde Kobo
     'Servicio/Formación de Interés', // O - Desde Kobo
-    'Estado'           // P - Desplegable (al final para evitar problemas)
+    'Estado',          // P - Desplegable
+    '¿Tiene Hoja de Interés?' // Q - Sí/No con color
   ];
 
   // Siempre asegurar que los encabezados estén correctos
@@ -716,7 +720,7 @@ function crearHojaInteres() {
     }
   }
 
-  [100, 50, 100, 130, 200, 120, 60, 120, 150, 120, 150, 150, 120, 250, 250, 120, 250].forEach((w, i) => {
+  [100, 50, 100, 130, 200, 120, 60, 120, 150, 120, 150, 150, 120, 250, 250, 120, 180].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -1145,6 +1149,53 @@ function crearHojaListaDefinitiva() {
 }
 
 /**
+ * HOJA DE REFERENCIAS DE PROGRAMAS
+ * Reemplaza la anterior "Referencias IL"
+ */
+function crearHojaReferenciasProgramas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Referencias de Programas')) return;
+  const sheet = ss.insertSheet('Referencias de Programas');
+
+  const headers = [
+    'Fecha',            // A
+    'No.',              // B
+    'Creamos ID',       // C
+    'DPI',              // D
+    'Nombre Completo',  // E
+    'Género',           // F
+    'Edad',             // G
+    'Teléfono',         // H
+    'Nivel Educativo',  // I
+    'Zona',             // J
+    'Programa de Referencia', // K
+    'Referido por',     // L
+    '¿Tiene Hoja de Interés?', // M - Sí/No con color
+    'Notas'             // N
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#6a1b9a')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  [120, 50, 100, 130, 200, 120, 60, 120, 150, 120, 180, 150, 180, 200].forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+
+  sheet.setFrozenRows(1);
+
+  // Configurar validación para "¿Tiene Hoja de Interés?" (columna M)
+  sheet.getRange('M2:M500').setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Sí', 'No'])
+      .setAllowInvalid(false)
+      .build()
+  );
+}
+
+/**
  * HOJA DE REPORTE - Dashboard principal (incluye No Inscritx)
  */
 function crearHojaReporte() {
@@ -1303,6 +1354,14 @@ function configurarValidaciones() {
     interes.getRange('P2:P500').setDataValidation(
       SpreadsheetApp.newDataValidation()
         .requireValueInList(['Entrevista agendada', 'No interesado'])
+        .setAllowInvalid(false)
+        .build()
+    );
+
+    // ¿Tiene Hoja de Interés? (columna Q) - Sí/No con color
+    interes.getRange('Q2:Q500').setDataValidation(
+      SpreadsheetApp.newDataValidation()
+        .requireValueInList(['Sí', 'No'])
         .setAllowInvalid(false)
         .build()
     );
@@ -1577,6 +1636,10 @@ function alEditar(e) {
     if (columna === 16) {
       procesarCambioEstadoInteres(sheet, fila, val);
     }
+    // ¿Tiene Hoja de Interés? está en columna Q (17) - Sí/No con color
+    if (columna === 17) {
+      procesarMarcaHojaInteres(sheet, fila, val);
+    }
   }
 
   // === ENTREVISTAS ===
@@ -1622,8 +1685,8 @@ function alEditar(e) {
 
   // === HOJAS DE COHORTES INDIVIDUALES ===
   const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
-                            'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte', 'Reportes Mensuales',
-                            'Lista Definitiva', 'Detalle Entrevistas'];
+                            'Graduadx', 'Retiradx', 'No Inscritx', 'Referencias de Programas',
+                            'Reporte', 'Reportes Mensuales', 'Lista Definitiva', 'Detalle Entrevistas'];
   if (!hojasPrincipales.includes(hoja)) {
     // Auto-rellenar Fecha (A) y No. (B) cuando se escribe el Nombre (E) manualmente
     if (columna === 5 && val !== '') {
@@ -1716,6 +1779,57 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     // Marcar como procesado (NO eliminar - conservar registro)
     sheet.getRange(fila, 1, 1, 16).setBackground('#c8e6c9'); // Verde claro
     ss.toast('📋 Entrevista creada en hoja Entrevistas (registro conservado).', 'Entrevista Agendada', 4);
+  }
+}
+
+/**
+ * Procesa marca de "¿Tiene Hoja de Interés?" en Hoja de Interés
+ * - "Sí" → Marca con color verde y copia a Referencias de Programas
+ * - "No" → Marca con color rojo
+ * REEMPLAZA la lógica anterior de envío a lista de espera
+ */
+function procesarMarcaHojaInteres(sheet, fila, tieneHoja) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const datos = sheet.getRange(fila, 1, 1, 17).getValues()[0];
+
+  if (tieneHoja === 'Sí') {
+    const referenciasPrograms = ss.getSheetByName('Referencias de Programas');
+    if (!referenciasPrograms) {
+      ss.toast('⚠️ La hoja "Referencias de Programas" no existe. Créala primero.', 'Error', 3);
+      return;
+    }
+
+    const nuevaFila = obtenerPrimeraFilaVacia(referenciasPrograms, 'C');
+
+    // Columnas: Fecha, No., CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Programa, ReferidoPor, TieneHoja, Notas
+    const registro = [
+      new Date(),           // A: Fecha
+      '',                   // B: No. (fórmula automática)
+      datos[2],             // C: Creamos ID
+      datos[3],             // D: DPI
+      datos[4],             // E: Nombre
+      datos[5],             // F: Género
+      datos[6],             // G: Edad
+      datos[7],             // H: Teléfono
+      datos[8],             // I: Nivel Educativo
+      datos[9],             // J: Zona
+      datos[14] || '',      // K: Programa de Referencia (Servicio/Formación de Interés)
+      datos[11] || '',      // L: Referido por (Responsable)
+      'Sí',                 // M: ¿Tiene Hoja de Interés?
+      datos[12]             // N: Notas
+    ];
+
+    referenciasPrograms.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
+
+    // Marcar la columna Q con color VERDE en Hoja de Interés
+    sheet.getRange(fila, 17).setBackground('#c8e6c9'); // Verde claro
+    ss.toast('✅ Registro copiado a "Referencias de Programas" (Sí tiene hoja de interés)', 'Completado', 3);
+  }
+
+  if (tieneHoja === 'No') {
+    // Marcar la columna Q con color ROJO en Hoja de Interés
+    sheet.getRange(fila, 17).setBackground('#ffcdd2'); // Rojo claro
+    ss.toast('❌ Marcado como "No tiene hoja de interés"', 'Completado', 2);
   }
 }
 
@@ -3249,10 +3363,11 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
         notasPrograma,     // M: Notas
         deseaInscribirse,  // N: ¿Deseas inscribirte?
         servicioFormacion, // O: Servicio/Formación de Interés
-        ''                 // P: Estado (vacío para que el dropdown funcione)
+        '',                // P: Estado (vacío para que el dropdown funcione)
+        ''                 // Q: ¿Tiene Hoja de Interés? (vacío para selección manual)
       ];
 
-      hojaInteres.getRange(nuevaFila, 1, 1, 16).setValues([registro]);
+      hojaInteres.getRange(nuevaFila, 1, 1, 17).setValues([registro]);
 
       // Restaurar fórmula de No. (columna B) que setValues sobreescribe
       hojaInteres.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",COUNTA($E$2:E' + nuevaFila + '),"")');
@@ -3269,6 +3384,14 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       hojaInteres.getRange(nuevaFila, 16).setDataValidation(
         SpreadsheetApp.newDataValidation()
           .requireValueInList(['Entrevista agendada', 'No interesado'])
+          .setAllowInvalid(false)
+          .build()
+      );
+
+      // Restaurar dropdown de ¿Tiene Hoja de Interés? (columna Q) para esta fila
+      hojaInteres.getRange(nuevaFila, 17).setDataValidation(
+        SpreadsheetApp.newDataValidation()
+          .requireValueInList(['Sí', 'No'])
           .setAllowInvalid(false)
           .build()
       );
@@ -4683,6 +4806,116 @@ function desinstalarSistema() {
     ui.alert('❌ Error', 'Error durante la desinstalación:\n' + error.message, ui.ButtonSet.OK);
     ss.toast('❌ Error en la desinstalación', 'Error', 5);
   }
+}
+
+/**
+ * Actualiza masivamente los registros de Hoja de Interés
+ * Procesa la columna Q "¿Tiene Hoja de Interés?" y aplica colores
+ * sin eliminar registros existentes
+ */
+function actualizarHojasInteresMasivamente() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const hojaInteres = ss.getSheetByName('Hoja de Interés');
+
+  if (!hojaInteres) {
+    ui.alert('⚠️ Error', 'No se encontró la hoja "Hoja de Interés"', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Confirmar con el usuario
+  const respuesta = ui.alert(
+    '📋 Actualización Masiva',
+    'Esta acción procesará todos los registros en la columna "¿Tiene Hoja de Interés?" (columna Q).\n\n' +
+    '• Los que tienen "Sí" se copiarán a "Referencias de Programas" y se marcarán en VERDE.\n' +
+    '• Los que tienen "No" se marcarán en ROJO.\n\n' +
+    '⚠️ NO se eliminarán registros.\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    ss.toast('❌ Operación cancelada', 'Cancelado', 2);
+    return;
+  }
+
+  ss.toast('🔄 Procesando registros...', 'Actualizando', -1);
+
+  const ultimaFila = hojaInteres.getLastRow();
+  let procesados = 0;
+  let copiados = 0;
+  let marcados = 0;
+
+  // Leer todos los datos de una vez para mejor rendimiento
+  const datos = hojaInteres.getRange(2, 1, ultimaFila - 1, 17).getValues();
+
+  for (let i = 0; i < datos.length; i++) {
+    const fila = i + 2; // +2 porque empezamos en fila 2 (índice 0 = fila 2)
+    const tieneHoja = datos[i][16]; // Columna Q (índice 16 en array 0-based)
+
+    if (tieneHoja === 'Sí' || tieneHoja === 'No') {
+      // Procesar según el valor
+      if (tieneHoja === 'Sí') {
+        const referenciasPrograms = ss.getSheetByName('Referencias de Programas');
+        if (referenciasPrograms) {
+          const nuevaFila = obtenerPrimeraFilaVacia(referenciasPrograms, 'C');
+
+          // Verificar si ya existe (por Creamos ID)
+          const creamosId = datos[i][2];
+          const datosRef = referenciasPrograms.getDataRange().getValues();
+          let yaExiste = false;
+          for (let j = 1; j < datosRef.length; j++) {
+            if (datosRef[j][2] === creamosId) {
+              yaExiste = true;
+              break;
+            }
+          }
+
+          if (!yaExiste && creamosId) {
+            const registro = [
+              new Date(),           // A: Fecha
+              '',                   // B: No. (fórmula automática)
+              datos[i][2],          // C: Creamos ID
+              datos[i][3],          // D: DPI
+              datos[i][4],          // E: Nombre
+              datos[i][5],          // F: Género
+              datos[i][6],          // G: Edad
+              datos[i][7],          // H: Teléfono
+              datos[i][8],          // I: Nivel Educativo
+              datos[i][9],          // J: Zona
+              datos[i][14] || '',   // K: Programa de Referencia
+              datos[i][11] || '',   // L: Referido por
+              'Sí',                 // M: ¿Tiene Hoja de Interés?
+              datos[i][12]          // N: Notas
+            ];
+
+            referenciasPrograms.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
+            copiados++;
+          }
+        }
+
+        // Marcar con color VERDE
+        hojaInteres.getRange(fila, 17).setBackground('#c8e6c9');
+        marcados++;
+      } else if (tieneHoja === 'No') {
+        // Marcar con color ROJO
+        hojaInteres.getRange(fila, 17).setBackground('#ffcdd2');
+        marcados++;
+      }
+
+      procesados++;
+    }
+  }
+
+  SpreadsheetApp.flush();
+
+  const mensaje = '✅ ACTUALIZACIÓN COMPLETADA\n\n' +
+    '📊 Registros procesados: ' + procesados + '\n' +
+    '📋 Copiados a Referencias de Programas: ' + copiados + '\n' +
+    '🎨 Celdas marcadas con color: ' + marcados;
+
+  ss.toast(mensaje, 'Completado', 8);
+  ui.alert('✅ Actualización Completada', mensaje, ui.ButtonSet.OK);
 }
 
 /**

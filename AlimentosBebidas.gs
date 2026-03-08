@@ -1144,6 +1144,53 @@ function crearHojaListaDefinitiva() {
 }
 
 /**
+ * HOJA DE REFERENCIAS DE PROGRAMAS
+ * Reemplaza la anterior "Referencias IL"
+ */
+function crearHojaReferenciasProgramas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Referencias de Programas')) return;
+  const sheet = ss.insertSheet('Referencias de Programas');
+
+  const headers = [
+    'Fecha',            // A
+    'No.',              // B
+    'Creamos ID',       // C
+    'DPI',              // D
+    'Nombre Completo',  // E
+    'Género',           // F
+    'Edad',             // G
+    'Teléfono',         // H
+    'Nivel Educativo',  // I
+    'Zona',             // J
+    'Programa de Referencia', // K
+    'Referido por',     // L
+    '¿Tiene Hoja de Interés?', // M - Sí/No con color
+    'Notas'             // N
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#6a1b9a')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  [120, 50, 100, 130, 200, 120, 60, 120, 150, 120, 180, 150, 180, 200].forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+
+  sheet.setFrozenRows(1);
+
+  // Configurar validación para "¿Tiene Hoja de Interés?" (columna M)
+  sheet.getRange('M2:M500').setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Sí', 'No'])
+      .setAllowInvalid(false)
+      .build()
+  );
+}
+
+/**
  * HOJA DE REPORTE - Dashboard principal (incluye No Inscritx)
  */
 function crearHojaReporte() {
