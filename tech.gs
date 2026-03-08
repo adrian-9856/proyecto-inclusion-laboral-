@@ -1689,9 +1689,10 @@ function alEditarTech(e) {
     }
   }
 
-  // === REFERENCIAS IL ===
+  // === REFERENCIAS DE PROGRAMAS ===
   // Acción de enviar a entrevista (Dinámico)
-  if (hoja === 'Referencias IL') {
+  // Mantiene compatibilidad con "Referencias IL" (legacy)
+  if (hoja === 'Referencias de Programas' || hoja === 'Referencias IL') {
     const tituloColumna = sheet.getRange(1, columna).getValue().toString().trim();
     if ((tituloColumna === 'Acción' || columna === sheet.getLastColumn()) && val === 'Enviar a Entrevista') {
       if (typeof procesarAccionReferencias === 'function') {
@@ -6822,7 +6823,7 @@ function resaltarSiEs2026(range, valorFechaOAnio) {
 
 const CONFIG_REFERENCIAS = {
   KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/afuD8C8AzoLfd4o5ksTWUw/export-settings/es52swrnjWcz8NnhY5Wyng3/data.csv',
-  NOMBRE_HOJA: 'Referencias IL',
+  NOMBRE_HOJA: 'Referencias de Programas',
   HOJA_DESTINO: 'Entrevistas',
   OPCION_ENVIAR: 'Enviar a Entrevista',
   FILTRO_PROGRAMA: 'tecnolog' // Filtro clave para ignorar acentos: "tecnología", "tecnologia"
@@ -6830,7 +6831,7 @@ const CONFIG_REFERENCIAS = {
 
 function setupMenuReferencias() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('📋 Referencias IL')
+  ui.createMenu('📋 Referencias de Programas')
     .addItem('Importar (Solo Nuevos)', 'importarReferenciasNuevas')
     .addSeparator()
     .addItem('▶️ Activar Auto-Update (5 min)', 'configurarAutoUpdateReferencias')
@@ -6852,7 +6853,7 @@ function configurarAutoUpdateReferencias() {
     .everyMinutes(5)
     .create();
     
-  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Auto-Update cada 5 min activado.', 'Referencias IL', 5);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Auto-Update cada 5 min activado.', 'Referencias de Programas', 5);
 }
 
 function detenerAutoUpdateReferencias(silencioso) {
@@ -6918,7 +6919,7 @@ function crearHojaReferencias() {
     
     hoja.setFrozenRows(1);
     
-    Logger.log('Hoja Referencias IL creada.');
+    Logger.log('Hoja Referencias de Programas creada.');
   }
   
   // Siempre re-aplicar validación a la columna de acción
