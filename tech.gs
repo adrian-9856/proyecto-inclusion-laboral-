@@ -7011,7 +7011,7 @@ function importarReferenciasNuevas(silencioso) {
     dpi: buscarIndiceColumnaRef(headersKobo, ['dpi / cui', 'cui', 'dpi']),
     edad: buscarIndiceColumnaRef(headersKobo, ['edad']),
     telefono: buscarIndiceColumnaRef(headersKobo, ['telefono', 'teléfono', 'tel', 'celular']),
-    nivelEdu: buscarIndiceColumnaRef(headersKobo, ['nivel educativo', 'nivel académico', 'nivel cursado', 'escolaridad', 'grado académico', 'nivel de estudios', 'estudios', 'educación']),
+    nivelEdu: buscarIndiceColumnaRef(headersKobo, ['último nivel académico aprobado', 'nivel educativo', 'nivel académico', 'nivel cursado', 'escolaridad', 'grado académico', 'nivel de estudios', 'estudios', 'educación']),
     zona: buscarIndiceColumnaRef(headersKobo, ['zona / colonia', 'zona de residencia', 'zona', 'colonia']),
     aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado']),
     observaciones: buscarIndiceColumnaRef(headersKobo, ['observaciones', 'comentarios', 'notas'])
