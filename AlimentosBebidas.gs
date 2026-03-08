@@ -2989,54 +2989,91 @@ function mostrarDialogoMotivoDesercion(nombre) {
 }
 
 /**
- * Procesa el marcado de "¿Tiene Hoja de Interés?" en Hoja de Interés - Programas
- * Solo marca con color, NO envía a ninguna hoja
- * - Sí → Marca con verde claro (#c8e6c9)
- * - No → Marca con rojo claro (#ffcdd2)
+ * Procesa marca de "¿Tiene Hoja de Interés?" en Hoja de Interés
+ * - "Sí" → Marca con color verde y copia a Hoja de Interés - Programas
+ * - "No" → Marca con color rojo
+ * REEMPLAZA la lógica anterior de envío a lista de espera
  */
 function procesarMarcaHojaInteres(sheet, fila, tieneHoja) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const datos = sheet.getRange(fila, 1, 1, 17).getValues()[0];
 
   if (tieneHoja === 'Sí') {
-    sheet.getRange(fila, 13).setBackground('#c8e6c9'); // Verde claro
-    ss.toast('✅ Marcado como "Sí tiene hoja de interés"', 'Completado', 2);
+    const referenciasPrograms = ss.getSheetByName('Hoja de Interés - Programas');
+    if (!referenciasPrograms) {
+      ss.toast('⚠️ La hoja "Hoja de Interés - Programas" no existe. Créala primero.', 'Error', 3);
+      return;
+    }
+
+    const nuevaFila = obtenerPrimeraFilaVacia(referenciasPrograms, 'C');
+
+    // Columnas: Fecha, No., Creamos ID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Programa, Referido, Tiene Hoja, Notas
+    const registro = [
+      new Date(),           // A - Fecha
+      nuevaFila - 1,        // B - No.
+      datos[2],             // C - Creamos ID
+      datos[3],             // D - DPI
+      datos[4],             // E - Nombre Completo
+      datos[5],             // F - Género
+      datos[6],             // G - Edad
+      datos[7],             // H - Teléfono
+      datos[8],             // I - Nivel Educativo
+      datos[9],             // J - Zona
+      'Alimentos y Bebidas', // K - Programa de Referencia
+      'Hoja de Interés',    // L - Referido por
+      'Sí',                 // M - ¿Tiene Hoja de Interés?
+      datos[12] || ''       // N - Notas
+    ];
+
+    referenciasPrograms.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
+
+    // Marcar la columna Q con color VERDE en Hoja de Interés
+    sheet.getRange(fila, 17).setBackground('#c8e6c9'); // Verde claro
+    ss.toast('✅ Registro copiado a "Hoja de Interés - Programas" (Sí tiene hoja de interés)', 'Completado', 3);
   }
 
   if (tieneHoja === 'No') {
-    sheet.getRange(fila, 13).setBackground('#ffcdd2'); // Rojo claro
+    // Solo marcar con color ROJO, no copiar a ninguna hoja
+    sheet.getRange(fila, 17).setBackground('#ffcdd2'); // Rojo claro
     ss.toast('❌ Marcado como "No tiene hoja de interés"', 'Completado', 2);
   }
 }
 
 /**
  * Actualiza masivamente todas las marcas de "¿Tiene Hoja de Interés?"
- * en Hoja de Interés - Programas sin eliminar registros
- * Marca con colores: Sí=verde, No=rojo
+ * en la Hoja de Interés sin eliminar registros
+ * - Copia los "Sí" a Hoja de Interés - Programas
+ * - Marca con colores: Sí=verde, No=rojo
  */
-function actualizarReferenciasInteresMasivamente() {
+function actualizarHojasInteresMasivamente() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
+  const hojaInteres = ss.getSheetByName('Hoja de Interés');
 
-  const sheet = ss.getSheetByName('Hoja de Interés - Programas');
-  if (!sheet) {
-    ui.alert('⚠️ Error', 'No existe la hoja "Hoja de Interés - Programas"', ui.ButtonSet.OK);
+  if (!hojaInteres) {
+    ui.alert('⚠️ Error', 'No existe la hoja "Hoja de Interés"', ui.ButtonSet.OK);
     return;
   }
 
-  const ultimaFila = sheet.getLastRow();
+  const referenciasPrograms = ss.getSheetByName('Hoja de Interés - Programas');
+  if (!referenciasPrograms) {
+    ui.alert('⚠️ Error', 'No existe la hoja "Hoja de Interés - Programas". Créala primero.', ui.ButtonSet.OK);
+    return;
+  }
+
+  const ultimaFila = hojaInteres.getLastRow();
   if (ultimaFila < 2) {
-    ui.alert('ℹ️ Sin registros', 'No hay registros para procesar en "Hoja de Interés - Programas"', ui.ButtonSet.OK);
+    ui.alert('ℹ️ Sin registros', 'No hay registros para procesar en "Hoja de Interés"', ui.ButtonSet.OK);
     return;
   }
 
   // Confirmar con el usuario
   const respuesta = ui.alert(
-    '📋 Actualizar Hojas de Interés',
-    'Se procesarán ' + (ultimaFila - 1) + ' registros en "Hoja de Interés - Programas".\n\n' +
-    'Esta acción marcará con colores según "¿Tiene Hoja de Interés?":\n' +
-    '• Sí → Verde claro\n' +
-    '• No → Rojo claro\n\n' +
-    'NO se eliminarán registros.\n\n' +
+    '📋 Actualización Masiva',
+    'Esta acción procesará todos los registros en la columna "¿Tiene Hoja de Interés?" (columna Q).\n\n' +
+    '• Los que tienen "Sí" se copiarán a "Hoja de Interés - Programas" y se marcarán en VERDE.\n' +
+    '• Los que tienen "No" se marcarán en ROJO.\n\n' +
+    '⚠️ NO se eliminarán registros.\n\n' +
     '¿Continuar?',
     ui.ButtonSet.YES_NO
   );
@@ -3047,35 +3084,87 @@ function actualizarReferenciasInteresMasivamente() {
   }
 
   let procesados = 0;
-  let marcadosSi = 0;
-  let marcadosNo = 0;
+  let copiados = 0;
+  let marcados = 0;
+
+  // Obtener IDs existentes en Hoja de Interés - Programas para evitar duplicados
+  const datosRef = referenciasPrograms.getDataRange().getValues();
+  const idsExistentes = new Set();
+  for (let i = 1; i < datosRef.length; i++) {
+    const id = datosRef[i][2]; // Columna C - Creamos ID
+    if (id) idsExistentes.add(id.toString().trim());
+  }
 
   // Procesar todas las filas
   for (let fila = 2; fila <= ultimaFila; fila++) {
-    const tieneHoja = sheet.getRange(fila, 13).getValue(); // Columna M
+    const tieneHoja = hojaInteres.getRange(fila, 17).getValue(); // Columna Q
 
+    if (!tieneHoja || tieneHoja === '') continue;
+
+    const datos = hojaInteres.getRange(fila, 1, 1, 17).getValues()[0];
+    const creamosId = datos[2] ? datos[2].toString().trim() : '';
+
+    // Procesar según el valor
     if (tieneHoja === 'Sí') {
-      sheet.getRange(fila, 13).setBackground('#c8e6c9'); // Verde claro
-      marcadosSi++;
+      const referenciasPrograms = ss.getSheetByName('Hoja de Interés - Programas');
+      if (referenciasPrograms) {
+        const nuevaFila = obtenerPrimeraFilaVacia(referenciasPrograms, 'C');
+
+        // Verificar si ya existe para evitar duplicados
+        if (creamosId && idsExistentes.has(creamosId)) {
+          // Ya existe, solo marcar con color
+          hojaInteres.getRange(fila, 17).setBackground('#c8e6c9');
+          marcados++;
+        } else {
+          // No existe, copiar a Hoja de Interés - Programas
+          const registro = [
+            new Date(),           // A - Fecha
+            nuevaFila - 1,        // B - No.
+            datos[2],             // C - Creamos ID
+            datos[3],             // D - DPI
+            datos[4],             // E - Nombre Completo
+            datos[5],             // F - Género
+            datos[6],             // G - Edad
+            datos[7],             // H - Teléfono
+            datos[8],             // I - Nivel Educativo
+            datos[9],             // J - Zona
+            'Alimentos y Bebidas', // K - Programa de Referencia
+            'Hoja de Interés',    // L - Referido por
+            'Sí',                 // M - ¿Tiene Hoja de Interés?
+            datos[12] || ''       // N - Notas
+          ];
+
+          referenciasPrograms.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
+          hojaInteres.getRange(fila, 17).setBackground('#c8e6c9'); // Verde
+
+          if (creamosId) idsExistentes.add(creamosId);
+          copiados++;
+        }
+      }
       procesados++;
     } else if (tieneHoja === 'No') {
-      sheet.getRange(fila, 13).setBackground('#ffcdd2'); // Rojo claro
-      marcadosNo++;
+      hojaInteres.getRange(fila, 17).setBackground('#ffcdd2'); // Rojo
+      marcados++;
       procesados++;
     }
   }
 
   // Mostrar resumen
-  ui.alert(
-    '✅ Actualización Completada',
-    'Registros procesados: ' + procesados + '\n\n' +
-    '✅ Marcados "Sí": ' + marcadosSi + '\n' +
-    '❌ Marcados "No": ' + marcadosNo + '\n\n' +
-    'Los registros se han marcado con colores correctamente.',
-    ui.ButtonSet.OK
-  );
+  const mensaje = '✅ ACTUALIZACIÓN COMPLETADA\n\n' +
+    '📊 Registros procesados: ' + procesados + '\n' +
+    '📋 Copiados a Hoja de Interés - Programas: ' + copiados + '\n' +
+    '🎨 Celdas marcadas con color: ' + marcados;
 
-  ss.toast('✅ Actualización masiva completada: ' + procesados + ' registros procesados', 'Completado', 4);
+  ui.alert('Completado', mensaje, ui.ButtonSet.OK);
+  ss.toast('✅ Actualización masiva completada', 'Completado', 4);
+}
+
+/**
+ * FUNCIÓN ANTIGUA - Mantener para compatibilidad
+ * Redirige a la nueva función actualizarHojasInteresMasivamente
+ */
+function actualizarReferenciasInteresMasivamente() {
+  actualizarHojasInteresMasivamente();
 }
 
 // =====================================================================
