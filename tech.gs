@@ -6856,7 +6856,8 @@ function setupMenuReferencias() {
     .addItem('Importar (Solo Nuevos)', 'importarReferenciasNuevas')
     .addItem('📥 Importar TODAS (sin filtro)', 'importarTodasReferencias')
     .addSeparator()
-    .addItem('🔍 Diagnóstico: Ver Datos Kobo', 'diagnosticarReferenciasKobo')
+    .addItem('🔍 Ver Datos de Kobo (DEBUG)', 'verDatosKoboCrudos')
+    .addItem('📊 Diagnóstico Completo', 'diagnosticarReferenciasKobo')
     .addSeparator()
     .addItem('▶️ Activar Auto-Update (5 min)', 'configurarAutoUpdateReferencias')
     .addItem('⏸️ Detener Auto-Update', 'detenerAutoUpdateReferencias')
@@ -7100,6 +7101,168 @@ function importarReferenciasNuevas(silencioso) {
   } else {
     if (ui) ui.alert('Información', 'Todo está al día. No se encontraron registros nuevos en Kobo para este programa.', ui.ButtonSet.OK);
   }
+}
+
+/**
+ * ========================================================================
+ * VER DATOS CRUDOS DE KOBO EN UNA HOJA
+ * ========================================================================
+ * Muestra TODOS los datos de Kobo en una hoja temporal para debugging
+ */
+function verDatosKoboCrudos() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  ss.toast('Descargando datos de Kobo...', '🔍 Diagnóstico', 5);
+
+  let csvData;
+  try {
+    const response = UrlFetchApp.fetch(CONFIG_REFERENCIAS.KOBO_URL);
+    csvData = response.getContentText('UTF-8');
+  } catch (e) {
+    ui.alert('❌ Error de Conexión',
+      'No se pudo conectar a KoboToolbox.\n\n' +
+      'URL: ' + CONFIG_REFERENCIAS.KOBO_URL + '\n\n' +
+      'Error: ' + e.message + '\n\n' +
+      'Verifica:\n' +
+      '1. Que la URL sea correcta\n' +
+      '2. Que tengas permisos de acceso\n' +
+      '3. Que el formulario exista en Kobo',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  // Parsear CSV
+  let koboData;
+  try {
+    koboData = Utilities.parseCsv(csvData, ';');
+  } catch (e) {
+    koboData = parsearCSVManualIL(csvData, ';');
+  }
+
+  if (!koboData || koboData.length === 0) {
+    ui.alert('⚠️ Sin Datos', 'El archivo CSV de Kobo está vacío.', ui.ButtonSet.OK);
+    return;
+  }
+
+  if (koboData.length === 1) {
+    ui.alert('⚠️ Solo Encabezados',
+      'El archivo de Kobo solo tiene encabezados, no hay registros.\n\n' +
+      'Esto significa que el formulario de Kobo NO tiene ningún dato.',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  // Crear o limpiar hoja de debug
+  let hojaDebug = ss.getSheetByName('DEBUG - Datos Kobo');
+  if (hojaDebug) {
+    hojaDebug.clear();
+  } else {
+    hojaDebug = ss.insertSheet('DEBUG - Datos Kobo');
+  }
+
+  // Escribir datos crudos
+  hojaDebug.getRange(1, 1, koboData.length, koboData[0].length).setValues(koboData);
+
+  // Formatear encabezados
+  hojaDebug.getRange(1, 1, 1, koboData[0].length)
+    .setBackground('#4285f4')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold');
+
+  hojaDebug.setFrozenRows(1);
+
+  // Agregar información adicional
+  const infoCol = koboData[0].length + 2;
+  hojaDebug.getRange(1, infoCol).setValue('📊 INFORMACIÓN');
+  hojaDebug.getRange(2, infoCol).setValue('Total registros:');
+  hojaDebug.getRange(2, infoCol + 1).setValue(koboData.length - 1);
+  hojaDebug.getRange(3, infoCol).setValue('URL Kobo:');
+  hojaDebug.getRange(3, infoCol + 1).setValue(CONFIG_REFERENCIAS.KOBO_URL);
+  hojaDebug.getRange(4, infoCol).setValue('Filtro actual:');
+  hojaDebug.getRange(4, infoCol + 1).setValue(CONFIG_REFERENCIAS.FILTRO_PROGRAMA);
+
+  hojaDebug.getRange(1, infoCol, 1, 2)
+    .setBackground('#34a853')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold');
+
+  // Buscar columnas importantes
+  const headers = koboData[0];
+  let colArea = -1;
+  let colPrograma = -1;
+  let colNombre = -1;
+
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i].toString().toLowerCase();
+    if (h.includes('área') || h.includes('area') || h.includes('aplica')) {
+      colArea = i;
+    }
+    if (h.includes('programa')) {
+      colPrograma = i;
+    }
+    if (h.includes('nombre completo') || h.includes('derivacion')) {
+      colNombre = i;
+    }
+  }
+
+  // Agregar análisis de datos
+  let fila = 6;
+  hojaDebug.getRange(fila, infoCol).setValue('📋 ANÁLISIS');
+  hojaDebug.getRange(fila, infoCol, 1, 2)
+    .setBackground('#fbbc04')
+    .setFontColor('#000000')
+    .setFontWeight('bold');
+  fila++;
+
+  if (colArea >= 0) {
+    hojaDebug.getRange(fila, infoCol).setValue('Columna "Área":');
+    hojaDebug.getRange(fila, infoCol + 1).setValue(headers[colArea]);
+    fila++;
+
+    // Mostrar valores únicos en esa columna
+    const areasUnicas = new Set();
+    for (let i = 1; i < koboData.length; i++) {
+      if (koboData[i][colArea]) {
+        areasUnicas.add(koboData[i][colArea].toString());
+      }
+    }
+
+    hojaDebug.getRange(fila, infoCol).setValue('Áreas encontradas:');
+    fila++;
+    areasUnicas.forEach(area => {
+      hojaDebug.getRange(fila, infoCol + 1).setValue(area);
+      // Marcar si coincide con filtro
+      const areaNorm = area.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (areaNorm.includes(CONFIG_REFERENCIAS.FILTRO_PROGRAMA)) {
+        hojaDebug.getRange(fila, infoCol + 2).setValue('✅ COINCIDE');
+        hojaDebug.getRange(fila, infoCol + 2).setBackground('#c8e6c9');
+      } else {
+        hojaDebug.getRange(fila, infoCol + 2).setValue('❌ NO COINCIDE');
+        hojaDebug.getRange(fila, infoCol + 2).setBackground('#ffcdd2');
+      }
+      fila++;
+    });
+  } else {
+    hojaDebug.getRange(fila, infoCol).setValue('⚠️ No se encontró');
+    hojaDebug.getRange(fila, infoCol + 1).setValue('columna de Área');
+    fila++;
+  }
+
+  ss.setActiveSheet(hojaDebug);
+  ss.toast('✅ Datos descargados. Revisa la hoja "DEBUG - Datos Kobo"', 'Completado', 5);
+
+  let mensaje = '✅ Datos Descargados\n\n';
+  mensaje += 'Se descargaron ' + (koboData.length - 1) + ' registros de Kobo.\n\n';
+  mensaje += 'Revisa la hoja "DEBUG - Datos Kobo" para ver:\n';
+  mensaje += '• Todos los datos tal como vienen de Kobo\n';
+  mensaje += '• Las columnas disponibles\n';
+  mensaje += '• Los valores en cada campo\n';
+  mensaje += '• Análisis de qué áreas coinciden con el filtro\n\n';
+  mensaje += '💡 Filtro actual: "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"\n';
+  mensaje += '   (debe estar en la columna de Área/Programa)';
+
+  ui.alert('🔍 Diagnóstico Completo', mensaje, ui.ButtonSet.OK);
 }
 
 /**
