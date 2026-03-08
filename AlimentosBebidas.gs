@@ -7259,7 +7259,7 @@ function analizarFiltroDetallado() {
     uuid: buscarIndiceColumnaRef(headersKobo, ['_uuid', 'uuid']),
     programa: buscarIndiceColumnaRef(headersKobo, ['programa que refiere', 'programa']),
     nombre: buscarIndiceColumnaRef(headersKobo, ['nombre completo', 'nombre de la derivacion', 'derivacion']),
-    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado'])
+    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado', 'area', 'área', 'programa de interés', 'servicio', 'formación'])
   };
 
   // Crear hoja de análisis
@@ -7276,8 +7276,8 @@ function analizarFiltroDetallado() {
     'Nombre',
     'Programa (columna)',
     'Área/Interés (columna)',
-    'Área Normalizada',
-    'Contiene "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"?',
+    'Textos Combinados',
+    'Contiene palabras clave?',
     'Estado',
     'Razón'
   ];
@@ -7300,6 +7300,9 @@ function analizarFiltroDetallado() {
     const programaBruto = indKobo.programa >= 0 ? filaKobo[indKobo.programa].toString().trim() : '';
     const areaAplica = indKobo.aplica >= 0 ? filaKobo[indKobo.aplica].toString().trim() : '';
 
+    // Combinar textos para análisis
+    const textosCombinados = [areaAplica, programaBruto].join(' ').toLowerCase();
+
     let estado = '';
     let razon = '';
     let cumpleFiltro = false;
@@ -7312,16 +7315,26 @@ function analizarFiltroDetallado() {
       estado = '❌ INVÁLIDO';
       razon = 'Sin nombre';
     } else {
-      // Aplicar el MISMO filtro que usa la función de importación
-      const filtroNorm = areaAplica.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      cumpleFiltro = filtroNorm.includes(CONFIG_REFERENCIAS.FILTRO_PROGRAMA);
+      // Aplicar el MISMO filtro MEJORADO que usa la función de importación
+      const filtroNorm = textosCombinados.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+      // Buscar todas las palabras clave de Alimentos y Bebidas
+      const esAlimentos = filtroNorm.includes(CONFIG_REFERENCIAS.FILTRO_PROGRAMA) ||
+                          filtroNorm.includes('bebidas') ||
+                          filtroNorm.includes('gastronomia') ||
+                          filtroNorm.includes('barismo') ||
+                          filtroNorm.includes('cocina') ||
+                          filtroNorm.includes('reposteria') ||
+                          filtroNorm.includes('food');
+
+      cumpleFiltro = esAlimentos;
 
       if (cumpleFiltro) {
         estado = '✅ PASA FILTRO';
-        razon = 'Área contiene "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"';
+        razon = 'Encontró palabras clave de Alimentos/Bebidas';
       } else {
         estado = '❌ FILTRADO';
-        razon = 'Área NO contiene "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"';
+        razon = 'NO contiene palabras clave de Alimentos/Bebidas';
       }
     }
 
@@ -7330,7 +7343,7 @@ function analizarFiltroDetallado() {
       nombreRef || '(vacío)',
       programaBruto || '(vacío)',
       areaAplica || '(vacío)',
-      areaAplica ? areaAplica.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : '(vacío)',
+      textosCombinados || '(vacío)',
       cumpleFiltro ? 'SÍ' : 'NO',
       estado,
       razon
