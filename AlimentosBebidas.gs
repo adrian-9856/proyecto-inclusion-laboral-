@@ -1,6 +1,6 @@
 /**
  * =====================================================================
- * SISTEMA DE INCLUSIÓN LABORAL - ÁREA DE TECNOLOGÍA
+ * SISTEMA DE INCLUSIÓN LABORAL - ÁREA DE ALIMENTOS Y BEBIDAS
  * =====================================================================
  *
  * FLUJO SIMPLIFICADO:
