@@ -8,7 +8,7 @@
  * 2. Entrevistas: Final → "Aprobada" (→ Inscritx) / "No aprobada" (→ No Inscritx)
  * 3. Inscritx: "Enviar a Cohorte" → envía a la hoja individual
  * 4. Cohortes: Estado "Finalizada" → pregunta si graduar a todas
- * 5. Hojas individuales: Estado "Graduadx" o "Retiradx"
+ * 5. Hojas individuales: Estado "Graduada" o "Deserción"
  *
  * HOJAS:
  * - Hoja de Interés, Entrevistas, Inscritx, Cohortes
@@ -22,7 +22,7 @@
 // CONFIGURACIÓN GLOBAL
 // =====================================================================
 
-const CONFIG_TECH = {
+const CONFIG_AB = {
   // URL de KoboToolbox para importar Hoja de Interés (formulario principal)
   KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv',
 
@@ -32,13 +32,13 @@ const CONFIG_TECH = {
   // Cohortes disponibles (se llenan dinámicamente desde la hoja Cohortes)
   COHORTES: [],
 
-  // Programas de Tecnología (para Hoja de Interés - viene de Kobo)
-  PROGRAMAS_TECNOLOGIA: [
-    'Marketing Digital',
-    'Programación',
-    'Alfabetización Digital',
-    'Certificación Microsoft',
-    'Servicio al Cliente'
+  // Programas de Alimentos y Bebidas (para Hoja de Interés - viene de Kobo)
+  // Nota: La detección se hace mediante las funciones esTextGastronomia() y esTextBarismo()
+  PROGRAMAS_ALIMENTOS: [
+    'Gastronomía',
+    'Barismo',
+    'Cocina',
+    'Repostería'
   ],
 
   // Responsables del programa
@@ -165,7 +165,7 @@ const CONFIG_TECH = {
 // =====================================================================
 
 function onOpen() {
-  setupMenuTech();
+  setupMenuAB();
   try {
     if (typeof setupMenuReferencias === 'function') {
       setupMenuReferencias();
@@ -173,26 +173,26 @@ function onOpen() {
   } catch(e) { }
 }
 
-function setupMenuTech() {
+function setupMenuAB() {
   try {
     const ui = SpreadsheetApp.getUi();
-    ui.createMenu('💻 Tecnología')
+    ui.createMenu('🍔 Alimentos y Bebidas')
       // ========== ACCIONES PRINCIPALES ==========
       .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
-      .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboTech')
+      .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboAB')
       .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
       .addSeparator()
 
       // ========== REPORTES Y EXPORTACIÓN ==========
       .addSubMenu(ui.createMenu('📊 Reportes y Exportación')
-        .addItem('📊 Actualizar Reportes', 'actualizarReportesTech')
+        .addItem('📊 Actualizar Reportes', 'actualizarReportesAB')
         .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual'))
 
       // ========== COHORTES ==========
       .addSubMenu(ui.createMenu('📋 Cohortes')
-        .addItem('➕ Crear Nueva Cohorte', 'crearNuevaCohorteTech')
+        .addItem('➕ Crear Nueva Cohorte', 'crearNuevaCohorteAB')
         .addItem('📝 Ver/Editar Cohortes', 'verCohortes')
-        .addItem('👥 Enviar Participantes a Cohorte', 'enviarParticipantesACohorteTech')
+        .addItem('👥 Enviar Participantes a Cohorte', 'enviarParticipantesACohorteAB')
         .addSeparator()
         .addItem('📊 Estadísticas por Cohorte', 'estadisticasCohorte')
         .addItem('🔄 Reenviar Graduadx al Seguimiento', 'reenviarDesdeMenuCohorte'))
@@ -229,7 +229,6 @@ function setupMenuTech() {
         .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
         .addItem('✅ Verificar Instalación', 'verificarInstalacion')
         .addItem('🔍 Diagnosticar Campos (Nivel/Zona)', 'diagnosticarCamposNivelYZona')
-        .addItem('🔬 Diagnóstico Detallado (Ver Contenido)', 'diagnosticoDetalladoTransferencia')
         .addSeparator()
         .addSubMenu(ui.createMenu('👤 Responsables')
           .addItem('➕ Agregar Responsable', 'agregarResponsable')
@@ -242,11 +241,11 @@ function setupMenuTech() {
 
       // ========== INSTALACIÓN Y AYUDA ==========
       .addItem('🚀 Instalación Completa', 'instalarTodo')
-      .addItem('🕵️ Diagnóstico Fechas Kobo', 'diagnosticarFechaKoboTech')
+      .addItem('🕵️ Diagnóstico Fechas Kobo', 'diagnosticarFechaKoboAB')
       .addItem('📖 Ver Guía de Uso', 'verGuiaUso')
       .addToUi();
   } catch (e) {
-    Logger.log('No UI context available for setupMenuTech.');
+    Logger.log('No UI context available for setupMenuAB.');
   }
 
   try {
@@ -269,13 +268,13 @@ function verificarEInstalarTriggersAutomaticamente() {
     // Verificar si ya existen los triggers
     let triggerEditarOk = false;
     triggers.forEach(trigger => {
-      if (trigger.getHandlerFunction() === 'alEditarTech') triggerEditarOk = true;
+      if (trigger.getHandlerFunction() === 'alEditarAB') triggerEditarOk = true;
     });
 
     // Si no existe el trigger de edición (crítico para asignar estado "Inscritx"), instalarlo
     if (!triggerEditarOk) {
       Logger.log('⚠️ Trigger onEdit no encontrado. Instalando automáticamente...');
-      ScriptApp.newTrigger('alEditarTech').forSpreadsheet(ss).onEdit().create();
+      ScriptApp.newTrigger('alEditarAB').forSpreadsheet(ss).onEdit().create();
       Logger.log('✅ Trigger onEdit instalado automáticamente');
     }
   } catch (error) {
@@ -287,14 +286,14 @@ function mantenimientoAutomatico() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   try {
     Logger.log('🔧 Iniciando mantenimiento automático...');
-    actualizarReportesTech();
+    actualizarReportesAB();
     Logger.log('✅ Reportes actualizados');
     protegerHojaCreamosIDSiExiste();
     Logger.log('✅ Hoja CREAMOS ID verificada');
     actualizarTodosDesdeDirectorio(true);
     Logger.log('✅ Datos actualizados en todas las hojas desde CREAMOS ID');
   } catch (error) {
-    Logger.log('❌ Error en mantenimiento: ' + error.message);
+    Logger.log('❌ Error en mantenimiento automático: ' + error.message);
   }
 }
 
@@ -466,8 +465,8 @@ function verificarInstalacion() {
   let triggerEditarOk = false;
   let triggerTiempoOk = false;
   triggers.forEach(trigger => {
-    if (trigger.getHandlerFunction() === 'alEditarTech') triggerEditarOk = true;
-    if (trigger.getHandlerFunction() === 'actualizarReportesTech') triggerTiempoOk = true;
+    if (trigger.getHandlerFunction() === 'alEditarAB') triggerEditarOk = true;
+    if (trigger.getHandlerFunction() === 'actualizarReportesAB') triggerTiempoOk = true;
   });
 
   mensaje += (triggerEditarOk ? '✅' : '❌') + ' Trigger al editar\n';
@@ -884,7 +883,7 @@ function crearHojaDetalleEntrevistas() {
   // Congelar fila de encabezados
   sheet.setFrozenRows(1);
 
-  // Anchos de columna (52 valores = 52 headers, A a AZ)
+  // Anchos de columna (52 valores = 52 headers = A a AZ)
   const anchos = [
     100,  // Fecha
     100,  // Creamos ID
@@ -1310,7 +1309,7 @@ function configurarValidaciones() {
     // Género (columna F) - Desplegable con opciones de género
     interes.getRange('F2:F500').setDataValidation(
       SpreadsheetApp.newDataValidation()
-        .requireValueInList(CONFIG_TECH.GENEROS)
+        .requireValueInList(CONFIG_AB.GENEROS)
         .setAllowInvalid(true)
         .build()
     );
@@ -1330,15 +1329,15 @@ function configurarValidaciones() {
   if (entrevistas) {
     // Género (F)
     entrevistas.getRange('F2:F500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.GENEROS).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.GENEROS).setAllowInvalid(true).build()
     );
     // Nivel Educativo (I)
     entrevistas.getRange('I2:I500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.NIVELES_EDUCATIVOS).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.NIVELES_EDUCATIVOS).setAllowInvalid(true).build()
     );
     // Zona (J)
     entrevistas.getRange('J2:J500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.ZONAS).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.ZONAS).setAllowInvalid(true).build()
     );
     // Entrevistador (K)
     entrevistas.getRange('K2:K500').setDataValidation(
@@ -1346,7 +1345,7 @@ function configurarValidaciones() {
     );
     // Estado (N) - Resultado de entrevista (última columna)
     entrevistas.getRange('N2:N500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.RESULTADO_FINAL).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.RESULTADO_FINAL).setAllowInvalid(false).build()
     );
   }
 
@@ -1356,13 +1355,13 @@ function configurarValidaciones() {
   if (seleccionadas) {
     // Género (E)
     seleccionadas.getRange('E2:E500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.GENEROS).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.GENEROS).setAllowInvalid(true).build()
     );
     seleccionadas.getRange('H2:H500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
     );
     seleccionadas.getRange('I2:I500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.ZONAS).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.ZONAS).setAllowInvalid(true).build()
     );
     // Enviar a Cohorte (L) - dropdown dinámico con cohortes activas
     if (cohortes.length > 0) {
@@ -1378,15 +1377,15 @@ function configurarValidaciones() {
   if (graduadas) {
     // Género (E)
     graduadas.getRange('E2:E500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.GENEROS).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.GENEROS).setAllowInvalid(true).build()
     );
     // Nivel Educativo (H)
     graduadas.getRange('H2:H500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
     );
     // Zona (I)
     graduadas.getRange('I2:I500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.ZONAS).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.ZONAS).setAllowInvalid(true).build()
     );
     // Cohorte (J)
     const todasCohortes = obtenerCohortesActuales();
@@ -1402,15 +1401,15 @@ function configurarValidaciones() {
   if (deserciones) {
     // Género (E)
     deserciones.getRange('E2:E500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.GENEROS).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.GENEROS).setAllowInvalid(true).build()
     );
     // Nivel Educativo (H)
     deserciones.getRange('H2:H500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
     );
     // Zona (I)
     deserciones.getRange('I2:I500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.ZONAS).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.ZONAS).setAllowInvalid(true).build()
     );
     // Cohorte (J)
     const todasCohortes = obtenerCohortesActuales();
@@ -1419,7 +1418,7 @@ function configurarValidaciones() {
     );
     // Motivo (K)
     deserciones.getRange('K2:K500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.MOTIVOS_DESERCION).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.MOTIVOS_DESERCION).setAllowInvalid(true).build()
     );
     // Acción (M) - Opción para reenviar a Inscritx
     deserciones.getRange('M2:M500').setDataValidation(
@@ -1433,7 +1432,7 @@ function configurarValidaciones() {
   if (noInscritx) {
     // Género (D)
     noInscritx.getRange('D2:D500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.GENEROS).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.GENEROS).setAllowInvalid(true).build()
     );
     // Etapa (G)
     noInscritx.getRange('G2:G500').setDataValidation(
@@ -1441,7 +1440,7 @@ function configurarValidaciones() {
     );
     // Motivo (H)
     noInscritx.getRange('H2:H500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.MOTIVOS_NO_SELECCION).setAllowInvalid(true).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.MOTIVOS_NO_SELECCION).setAllowInvalid(true).build()
     );
     // Origen (I)
     noInscritx.getRange('I2:I500').setDataValidation(
@@ -1462,7 +1461,7 @@ function configurarValidaciones() {
     );
     // Estado (columna N) - Solo Activa/Finalizada
     cohortesSheet.getRange('N2:N50').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.ESTADOS_COHORTE).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.ESTADOS_COHORTE).setAllowInvalid(false).build()
     );
   }
 
@@ -1491,7 +1490,7 @@ function obtenerCohortesActivas() {
 function obtenerCohortesActuales() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Cohortes');
-  if (!sheet) return CONFIG_TECH.COHORTES;
+  if (!sheet) return CONFIG_AB.COHORTES;
 
   const datos = sheet.getRange('A2:A50').getValues();
   const cohortes = [];
@@ -1500,7 +1499,7 @@ function obtenerCohortesActuales() {
       cohortes.push(fila[0].toString().trim());
     }
   });
-  return cohortes.length > 0 ? cohortes : CONFIG_TECH.COHORTES;
+  return cohortes.length > 0 ? cohortes : CONFIG_AB.COHORTES;
 }
 
 function obtenerResponsablesActuales() {
@@ -1512,7 +1511,7 @@ function obtenerResponsablesActuales() {
       if (responsables.length > 0) return responsables;
     } catch (e) {}
   }
-  return CONFIG_TECH.RESPONSABLES;
+  return CONFIG_AB.RESPONSABLES;
 }
 
 function guardarResponsables(responsables) {
@@ -1570,7 +1569,7 @@ function aplicarFormatos() {
 // TRIGGER PRINCIPAL - AUTOMATIZACIONES SIMPLIFICADAS
 // =====================================================================
 
-function alEditarTech(e) {
+function alEditarAB(e) {
   if (!e || !e.range) return;
 
   const sheet = e.range.getSheet();
@@ -1604,9 +1603,8 @@ function alEditarTech(e) {
   }
 
   // === SELECCIONADAS ===
-  // "Enviar a Cohorte" está en columna K (11) - al seleccionar cohorte se envía
+  // "Enviar a Cohorte" está en columna L (12) - al seleccionar cohorte se envía
   if (hoja === 'Inscritx') {
-    // Enviar a Cohorte está en columna L (12)
     if (columna === 12 && val !== '') {
       procesarEnvioACohorte(sheet, fila, val);
     }
@@ -1650,7 +1648,7 @@ function alEditarTech(e) {
   // === HOJAS DE COHORTES INDIVIDUALES ===
   const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
                             'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte', 'Reportes Mensuales',
-                            'Lista Definitiva', 'Detalle Entrevistas', 'Referencias IL'];
+                            'Lista Definitiva', 'Detalle Entrevistas'];
   if (!hojasPrincipales.includes(hoja)) {
     // Auto-rellenar Fecha (A) y No. (B) cuando se escribe el Nombre (E) manualmente
     if (columna === 5 && val !== '') {
@@ -1661,9 +1659,9 @@ function alEditarTech(e) {
         sheet.getRange(fila, 2).setValue(fila - 1);
       }
     }
-    // Estado está en columna K (11) - "Graduadx" o "Retiradx"
+    // Estado está en columna K (11) - "Graduada" o "Deserción"
     if (columna === 11) {
-      if (val === 'Graduadx') {
+      if (val === 'Graduada') {
         procesarGraduacionIndividual(sheet, fila, hoja);
       } else if (val === 'Retiradx') {
         procesarDesercionEnCohorte(sheet, fila, hoja);
@@ -1697,8 +1695,8 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
 
   const creamosId = getVal('Creamos ID');
   const nombreCompleto = getVal('Nombre Completo');
-
-  Logger.log('>>>> TRASLADO DESDE INTERÉS (tech): ' + nombreCompleto + ' (' + creamosId + ')');
+  
+  Logger.log('>>>> TRASLADO DESDE INTERÉS: ' + nombreCompleto + ' (' + creamosId + ')');
   Logger.log('     Nivel Educativo encontrado: ' + getVal('Nivel Educativo'));
   Logger.log('     Zona encontrada: ' + getVal('Zona'));
 
@@ -1715,14 +1713,9 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       'Creamos ID': creamosId,
       'Nombre Completo': nombreCompleto,
       'Género': getVal('Género'),
-      'Edad': getVal('Edad'),
-      'Teléfono': getVal('Teléfono'),
       'Nivel Educativo': getVal('Nivel Educativo'),
       'Zona': getVal('Zona'),
-      'Etapa': 'Interés inicial',
-      'Motivo': 'No interesado',
-      'Origen': 'Hoja de Interés',
-      'Notas': getVal('Notas')
+      'Motivo': 'No interesado inicial'
     };
 
     for (let [header, valor] of Object.entries(mapping)) {
@@ -1735,7 +1728,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       noInscritx.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
       SpreadsheetApp.flush();
     } catch (e) {
-      Logger.log('⚠️ Error escribiendo en No Inscritx (tech): ' + e.message);
+      Logger.log('⚠️ Error escribiendo en No Inscritx: ' + e.message);
       noInscritx.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
     }
     
@@ -1754,7 +1747,6 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     const registro = new Array(numColsEnt).fill('');
     
     const mapping = {
-      'Fecha': new Date(),
       'Creamos ID': creamosId,
       'DPI': getVal('DPI'),
       'Nombre Completo': nombreCompleto,
@@ -1775,7 +1767,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       entrevistas.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
       SpreadsheetApp.flush();
     } catch (e) {
-      Logger.log('⚠️ Error escribiendo en Entrevistas (tech): ' + e.message);
+      Logger.log('⚠️ Error escribiendo en Entrevistas: ' + e.message);
       entrevistas.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
     }
     
@@ -1829,7 +1821,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       return val;
     };
 
-    Logger.log('>>>> TRASLADO DESDE ENTREVISTAS (Aprobada - tech): ' + getVal('Nombre Completo') + ' (' + creamosId + ')');
+    Logger.log('>>>> TRASLADO DESDE ENTREVISTAS (Aprobada): ' + getVal('Nombre Completo') + ' (' + creamosId + ')');
     Logger.log('     Nivel Educativo: ' + getVal('Nivel Educativo'));
     Logger.log('     Zona: ' + getVal('Zona'));
 
@@ -1855,17 +1847,20 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       if (targetIdx !== undefined) registroInscritx[targetIdx] = valor;
     }
 
-    Logger.log('     Escribiendo en Inscritx (tech): ' + JSON.stringify(registroInscritx));
+    Logger.log('     Escribiendo en Inscritx: ' + JSON.stringify(registroInscritx));
     try {
       seleccionadas.getRange(nuevaFila, 1, 1, registroInscritx.length).setValues([registroInscritx]);
       SpreadsheetApp.flush();
     } catch (e) {
-      Logger.log('⚠️ Error de validación en Inscritx (tech): ' + e.message);
+      Logger.log('⚠️ Error de validación en Inscritx: ' + e.message);
+      // Intentar forzar la escritura de todos los campos excepto los que fallan es complejo en una sola llamada
+      // Por ahora, el catch permite que el script continúe y mostramos aviso.
       seleccionadas.getRange(nuevaFila, 1, 1, registroInscritx.length).setValues([registroInscritx]);
     }
 
     // Autocompletar campos vacíos usando el adaptador robusto
-    autocompletarFilaDesdeDirectorio(seleccionadas, nuevaFila, mapearColumnasParaAutocompletar(seleccionadas));
+    const colMapAuto = mapearColumnasParaAutocompletar(seleccionadas);
+    autocompletarFilaDesdeDirectorio(seleccionadas, nuevaFila, colMapAuto);
 
     // Marcar procesado
     if (filaInteres) {
@@ -1914,13 +1909,15 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       noInscritx.getRange(nuevaFila, 1, 1, registro.length).setBackground('#ffe0b2');
       SpreadsheetApp.flush();
     } catch (e) {
-      Logger.log('⚠️ Error escribiendo en No Inscritx (No Aprobada - tech): ' + e.message);
+      Logger.log('⚠️ Error escribiendo en No Inscritx (No Aprobada): ' + e.message);
       noInscritx.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
     }
 
-    sheet.getRange(fila, 1, 1, colMapEntrevistas ? sheet.getLastColumn() : 1).setBackground('#ffe0b2');
+    sheet.getRange(fila, 1, 1, maxCol).setBackground('#ffe0b2');
     ss.toast('📋 Copiado a "No Inscritx" (registro conservado - Mapeo Dinámico)', 'Entrevista', 3);
   }
+
+  // "Reprogramada" no hace nada automático
 }
 
 /**
@@ -1938,7 +1935,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
 
   // Mostrar motivos de deserción
   let listaMotivos = '';
-  CONFIG_TECH.MOTIVOS_DESERCION.forEach((motivo, idx) => {
+  CONFIG_AB.MOTIVOS_DESERCION.forEach((motivo, idx) => {
     listaMotivos += (idx + 1) + '. ' + motivo + '\n';
   });
 
@@ -1949,18 +1946,18 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
   );
 
   if (respuesta.getSelectedButton() !== ui.Button.OK) {
-    sheet.getRange(fila, 11).setValue(''); // Limpiar Estado
+    sheet.getRange(fila, 11).setValue(''); // Limpiar Estado (columna K)
     return;
   }
 
   const num = parseInt(respuesta.getResponseText().trim());
-  if (isNaN(num) || num < 1 || num > CONFIG_TECH.MOTIVOS_DESERCION.length) {
+  if (isNaN(num) || num < 1 || num > CONFIG_AB.MOTIVOS_DESERCION.length) {
     ui.alert('Número inválido');
-    sheet.getRange(fila, 11).setValue(''); // Limpiar Estado
+    sheet.getRange(fila, 11).setValue(''); // Limpiar Estado (columna K)
     return;
   }
 
-  const motivo = CONFIG_TECH.MOTIVOS_DESERCION[num - 1];
+  const motivo = CONFIG_AB.MOTIVOS_DESERCION[num - 1];
 
   // Agregar a Retiradx
   // Columnas: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Cohorte, Motivo, Notas, Acción
@@ -1987,7 +1984,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
     deserciones.getRange(nuevaFila, 1, 1, 13).setValues([registro]);
     SpreadsheetApp.flush();
   } catch (e) {
-    Logger.log('⚠️ Error escribiendo en Retiradx (tech): ' + e.message);
+    Logger.log('⚠️ Error escribiendo en Retiradx: ' + e.message);
     deserciones.getRange(nuevaFila, 1, 1, 13).setValues([registro]);
   }
 
@@ -2041,6 +2038,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
     const busqueda = buscarPorCreamosID(interes, creamosId);
     const datosInteres = busqueda ? busqueda.datos : null;
 
+    // Mapeo dinámico robusto para reenvío
     const mapping = {
       'Creamos ID': creamosId,
       'DPI': datosInteres ? datosInteres[3] : '',
@@ -2048,7 +2046,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
       'Género': genero,
       'Edad': datosInteres ? datosInteres[6] : '',
       'Teléfono': telefono,
-      'Nivel Educativo': normalizarNivelEducativo(datosInteres ? datosInteres[8] : ''),
+      'Nivel Educativo': datosInteres ? normalizarNivelEducativo(datosInteres[8]) : '',
       'Zona': datosInteres ? datosInteres[9] : '',
       'Entrevistador': 'Eva',
       'Notas': 'Reingreso desde No Inscritx - ' + notas,
@@ -2067,13 +2065,15 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
       entrevistas.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
       SpreadsheetApp.flush();
     } catch (e) {
-      Logger.log('⚠️ Error reenvío a Entrevistas (tech): ' + e.message);
+      Logger.log('⚠️ Error reenvío a Entrevistas: ' + e.message);
       entrevistas.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
     }
 
-    ss.toast('✅ ' + nombre + ' reenviada a Entrevistas', 'Reenvío', 4);
+    // Marcar como reenviado
     sheet.getRange(fila, 11).setValue(''); 
     sheet.getRange(fila, 1, 1, 11).setBackground('#e0e0e0'); 
+
+    ss.toast('✅ ' + nombre + ' reenviada a Entrevistas', 'Reenvío', 4);
   }
 
   if (accion === 'Reenviar a Inscritx') {
@@ -2111,15 +2111,16 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
       seleccionadas.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
       SpreadsheetApp.flush();
     } catch (e) {
-      Logger.log('⚠️ Error reenvío a Inscritx (tech): ' + e.message);
+      Logger.log('⚠️ Error reenvío a Inscritx: ' + e.message);
       seleccionadas.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
     }
 
     autocompletarFilaDesdeDirectorio(seleccionadas, nuevaFila, mapearColumnasParaAutocompletar(seleccionadas));
 
-    ss.toast('✅ ' + nombre + ' reenviada a Inscritx', 'Reenvío', 4);
     sheet.getRange(fila, 11).setValue(''); 
     sheet.getRange(fila, 1, 1, 11).setBackground('#e0e0e0'); 
+
+    ss.toast('✅ ' + nombre + ' reenviada a Inscritx', 'Reenvío', 4);
   }
 }
 
@@ -2157,7 +2158,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
     normalizarNivelEducativo(nivelEducativo),
     zona || '',       // Zona
     'Reingreso desde Deserción (' + cohorteAnterior + ') - ' + notas,
-    'Inscritx',       // Estado
+    'Inscritx',       // Estado (automático)
     ''                // Enviar a Cohorte
   ];
 
@@ -2165,7 +2166,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
     seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
     SpreadsheetApp.flush();
   } catch (e) {
-    Logger.log('⚠️ Error reenvío desde Retiradx (tech): ' + e.message);
+    Logger.log('⚠️ Error reenvío desde Retiradx: ' + e.message);
     seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
   }
 
@@ -2188,7 +2189,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
 }
 
 /**
- * Procesa envío a cohorte desde Inscritx (columna L - Enviar a Cohorte)
+ * Procesa envío a cohorte desde Inscritx (columna J - Enviar a Cohorte)
  * - Verifica cupo disponible
  * - Agrega a la hoja individual de la Cohorte
  * - Marca como enviada en Inscritx (conserva registro)
@@ -2488,7 +2489,7 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
     ui.alert(
       '⚠️ Recordatorio Salesforce',
       graduadasCount + ' participante(s) de la cohorte "' + nombreCohorte + '" han sido graduadas.\n\n' +
-      'Recuerda cambiar la etapa en Salesforce a "Graduadx" para mantener el CRM actualizado.',
+      'Recuerda cambiar la etapa en Salesforce a "Graduada" para mantener el CRM actualizado.',
       ui.ButtonSet.OK
     );
   }
@@ -2549,7 +2550,7 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   SpreadsheetApp.getUi().alert(
     '⚠️ Recordatorio Salesforce',
     datos[4] + ' ha sido graduada.\n\n' +
-    'Recuerda cambiar la etapa en Salesforce a "Graduadx" para mantener el CRM actualizado.',
+    'Recuerda cambiar la etapa en Salesforce a "Graduada" para mantener el CRM actualizado.',
     SpreadsheetApp.getUi().ButtonSet.OK
   );
 }
@@ -2746,7 +2747,7 @@ function instalarV4() {
     '• Resaltar Creamos ID vacíos en hojas de cohorte (naranja)\n' +
     '• Hoja "Lista Definitiva" (si no existe)\n' +
     '• Limpia cohortes eliminadas del desplegable\n' +
-    '• Actualiza validaciones y fórmulas\n\n' +
+    '• Actualiza validaciones y fórmulas\n' +
     '¿Deseas continuar?',
     ui.ButtonSet.YES_NO
   );
@@ -2907,7 +2908,7 @@ function mostrarDialogoMotivoDesercion(nombre) {
   const ui = SpreadsheetApp.getUi();
 
   let listaMotivos = '';
-  CONFIG_TECH.MOTIVOS_DESERCION.forEach((motivo, idx) => {
+  CONFIG_AB.MOTIVOS_DESERCION.forEach((motivo, idx) => {
     listaMotivos += (idx + 1) + '. ' + motivo + '\n';
   });
 
@@ -2922,12 +2923,12 @@ function mostrarDialogoMotivoDesercion(nombre) {
   if (respuesta.getSelectedButton() !== ui.Button.OK) return null;
 
   const num = parseInt(respuesta.getResponseText().trim());
-  if (isNaN(num) || num < 1 || num > CONFIG_TECH.MOTIVOS_DESERCION.length) {
+  if (isNaN(num) || num < 1 || num > CONFIG_AB.MOTIVOS_DESERCION.length) {
     ui.alert('Número inválido');
     return null;
   }
 
-  return CONFIG_TECH.MOTIVOS_DESERCION[num - 1];
+  return CONFIG_AB.MOTIVOS_DESERCION[num - 1];
 }
 
 // =====================================================================
@@ -2960,7 +2961,7 @@ function buscarPorCreamosID(sheet, creamosId) {
 /**
  * Diagnóstico para ver por qué la fecha no está jalando de Kobo
  */
-function diagnosticarFechaKoboTech() {
+function diagnosticarFechaKoboAB() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let ui;
   try {
@@ -2968,7 +2969,7 @@ function diagnosticarFechaKoboTech() {
   } catch(e) { /* Ejecutado desde editor sin UI */ }
   
   const props = PropertiesService.getDocumentProperties();
-  const url = CONFIG_TECH.KOBO_URL; // props.getProperty('KOBO_URL') || CONFIG_TECH.KOBO_URL;
+  const url = CONFIG_AB.KOBO_URL; // props.getProperty('KOBO_URL') || CONFIG_AB.KOBO_URL
 
   try {
     if(ui) ss.toast('🔍 Leyendo URL de Kobo...', 'Diagnóstico', 3);
@@ -3001,13 +3002,24 @@ function diagnosticarFechaKoboTech() {
     msg += 'Índice "start": ' + indiceStart + '\n';
     msg += 'Índice "_submission_time": ' + indiceSubmission + '\n\n';
 
+    // Agregar lista de los primeros 10/15 headers para ver qué nombres exactos recibe
+    msg += '📋 LISTA DE COLUMNAS (Muestra):\n';
+    const limit = Math.min(15, headers.length);
+    for (let i = 0; i < limit; i++) {
+        msg += '[' + i + '] ' + headers[i] + '\n';
+    }
+    msg += '...\n';
+    
+    // Ver si la última columna tiene algo raro
+    msg += 'Última columna: [' + (headers.length-1) + '] ' + headers[headers.length-1] + '\n\n';
+
     // Revisar primeras 3 filas
     for (let i = 1; i <= Math.min(3, rows.length - 1); i++) {
         const fila = rows[i];
         msg += '--- FILA ' + i + ' ---\n';
-        msg += 'Valor en "today": "' + (indiceToday >= 0 ? fila[indiceToday] : 'N/A') + '"\n';
-        msg += 'Valor en "start": "' + (indiceStart >= 0 ? fila[indiceStart] : 'N/A') + '"\n';
-        msg += 'Valor en "_submission_time": "' + (indiceSubmission >= 0 ? fila[indiceSubmission] : 'N/A') + '"\n\n';
+        msg += 'Col 0: "' + (fila[0] ? fila[0] : 'N/A') + '"\n';
+        msg += 'Col 1: "' + (fila[1] ? fila[1] : 'N/A') + '"\n';
+        msg += 'Col 2: "' + (fila[2] ? fila[2] : 'N/A') + '"\n\n';
     }
 
     if(ui) ui.alert('Resultado Diagnóstico', msg, ui.ButtonSet.OK);
@@ -3029,7 +3041,7 @@ function diagnosticarFechaKoboTech() {
 function configurarKoboURL() {
   const ui = SpreadsheetApp.getUi();
   const props = PropertiesService.getDocumentProperties();
-  const urlActual = props.getProperty('KOBO_URL') || CONFIG_TECH.KOBO_URL;
+  const urlActual = props.getProperty('KOBO_URL') || CONFIG_AB.KOBO_URL;
 
   const respuesta = ui.prompt(
     '🔗 Configurar URL de KoboToolbox',
@@ -3067,14 +3079,58 @@ function importarDatosHistoricos() {
  * Importa SOLO DATOS NUEVOS desde KoboToolbox (se actualiza cada 10 minutos)
  * URL FIJA de datos nuevos que se actualiza automáticamente
  */
-function importarDesdeKoboTech() {
+function importarDesdeKoboAB() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
   // URL FIJA de datos nuevos (actualizada cada 10 minutos)
-  const url = CONFIG_TECH.KOBO_URL;
+  const url = CONFIG_AB.KOBO_URL;
 
   importarDesdeKoboInterno(ss, ui, url, '📥 DATOS NUEVOS');
+}
+
+/**
+ * Normaliza texto para comparación (sin tildes, minúsculas, sin espacios extra)
+ */
+function normalizarTexto(texto) {
+  if (!texto) return '';
+  return texto.toString()
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Elimina tildes
+    .replace(/\s+/g, ' ') // Normaliza espacios
+    .trim();
+}
+
+/**
+ * Detecta si el texto contiene indicadores de Gastronomía
+ */
+function esTextGastronomia(texto) {
+  const textoNorm = normalizarTexto(texto);
+  const patronesGastronomia = [
+    'gastronomia',
+    'cocina',
+    'reposteria',
+    'pasteleria',
+    'panaderia',
+    'alimentos y bebidas - gastronomia',
+    'chef'
+  ];
+  return patronesGastronomia.some(patron => textoNorm.includes(patron));
+}
+
+/**
+ * Detecta si el texto contiene indicadores de Barismo
+ */
+function esTextBarismo(texto) {
+  const textoNorm = normalizarTexto(texto);
+  const patronesBarismo = [
+    'barismo',
+    'barista',
+    'cafe',
+    'alimentos y bebidas - barismo',
+    'coffee'
+  ];
+  return patronesBarismo.some(patron => textoNorm.includes(patron));
 }
 
 /**
@@ -3090,9 +3146,9 @@ function importarDesdeKoboTech() {
  * - Inicio/Zona → Zona
  * - ¿Cómo te enteraste de Creamos? → Cómo se enteró
  *
- * FILTRO TECNOLOGÍA:
- * - Inclusión Laboral/.../Tecnología - Marketing = 1
- * - Inclusión Laboral/.../Tecnología - Programación = 1
+ * FILTRO ALIMENTOS Y BEBIDAS:
+ * - Alimentos y Bebidas - Gastronomía
+ * - Alimentos y Bebidas - Barismo
  */
 function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
   try {
@@ -3172,138 +3228,85 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
     // Buscar índices de columnas - Mapeo específico para tu formulario Kobo
     const colIndices = {
       // Fecha de registro (campo 'today', 'start' o 'submission_time' del formulario Kobo)
-      // Priorizamos 'today' o 'start' ya que representan la fecha en que se llenó/inició el formulario
       fechaRegistro: buscarIndiceColumnaExacto(headers, [
-        'today',
-        'start',
-        'Fecha de registro',
-        'Fecha registro',
-        'fecha_registro',
-        'Fecha',
-        'fecha',
-        '_submission_time',
-        'submission_time'
+        'today', 'start', 'Fecha de registro', 'Fecha registro', 'fecha_registro',
+        'Fecha', 'fecha', '_submission_time', 'submission_time'
       ]),
 
       // Creamos ID
-      creamosId: buscarIndiceColumnaExacto(headers, [
-        'Inicio/Creamos ID',
-        'Creamos ID',
-        'creamos_id'
-      ]),
+      creamosId: buscarIndiceColumnaExacto(headers, ['Inicio/Creamos ID', 'Creamos ID', 'creamos_id']),
 
       // DPI
-      dpi: buscarIndiceColumnaExacto(headers, [
-        'Inicio/Número de DPI',
-        'Número de DPI',
-        'DPI'
-      ]),
+      dpi: buscarIndiceColumnaExacto(headers, ['Inicio/Número de DPI', 'Número de DPI', 'DPI']),
 
       // Nombre(s)
-      nombres: buscarIndiceColumnaExacto(headers, [
-        'Inicio/Nombre(s)',
-        'Nombre(s)',
-        'Nombres'
-      ]),
+      nombres: buscarIndiceColumnaExacto(headers, ['Inicio/Nombre(s)', 'Nombre(s)', 'Nombres']),
 
       // Apellido(s)
-      apellidos: buscarIndiceColumnaExacto(headers, [
-        'Inicio/Apellido(s)',
-        'Apellido(s)',
-        'Apellidos'
-      ]),
+      apellidos: buscarIndiceColumnaExacto(headers, ['Inicio/Apellido(s)', 'Apellido(s)', 'Apellidos']),
 
       // Género
       genero: buscarIndiceColumnaExacto(headers, [
-        'Inicio/Género',
-        'Género',
-        'genero',
+        'Inicio/Género', 'Género', 'genero',
         'Inicio/¿Cómo te identificas en cuestiones de género?',
         '¿Cómo te identificas en cuestiones de género?'
       ]),
 
-      // Fecha de nacimiento (para calcular edad)
-      fechaNacimiento: buscarIndiceColumnaExacto(headers, [
-        'Inicio/Fecha de nacimiento',
-        'Fecha de nacimiento'
-      ]),
+      // Fecha de nacimiento (para calcular edad o usar columna directa)
+      fechaNacimiento: buscarIndiceColumnaExacto(headers, ['Inicio/Fecha de nacimiento', 'Fecha de nacimiento', 'Edad']),
 
       // Teléfono
       telefono: buscarIndiceColumnaExacto(headers, [
-        'Inicio/Número de Teléfono',
-        'Número de Teléfono',
-        'Inicio/Número de Móvil/WhatsApp',
-        'Número de Móvil/WhatsApp',
-        'Teléfono'
+        'Inicio/Número de Teléfono', 'Número de Teléfono',
+        'Inicio/Número de Móvil/WhatsApp', 'Número de Móvil/WhatsApp', 'Teléfono'
       ]),
+
+      // Columnas Binarias (Programas específicos - Mapeo unificado)
+      colGastronomia: buscarIndiceColumnaExacto(headers, [
+        'Programas Inclusión Laboral/Gastronomía',
+        '¿Tienes interés en un servicio o formación específica?/Alimentos y Bebidas - Gastronomía'
+      ]),
+      colBarismo: buscarIndiceColumnaExacto(headers, [
+        'Programas Inclusión Laboral/Barismo',
+        '¿Tienes interés en un servicio o formación específica?/Alimentos y Bebidas - Barismo'
+      ]),
+      colFoodManager: buscarIndiceColumnaExacto(headers, [
+        'Programas Inclusión Laboral/Food Manager',
+        '¿Tienes interés en un servicio o formación específica?/Food Manager'
+      ]),
+      
+      // Programas de Tecnología
+      colMarketing: buscarIndiceColumnaExacto(headers, ['Programas Inclusión Laboral/Marketing Digital']),
+      colProgramacion: buscarIndiceColumnaExacto(headers, ['Programas Inclusión Laboral/Programación']),
+      colAlfabetizacion: buscarIndiceColumnaExacto(headers, ['Programas Inclusión Laboral/Alfabetización digital']),
+      colCertificacion: buscarIndiceColumnaExacto(headers, ['Programas Inclusión Laboral/Certificación Microsoft']),
+      colServicioCliente: buscarIndiceColumnaExacto(headers, ['Programas Inclusión Laboral/Servicio al Cliente']),
+      
+      // Otros Programas
+      colOperarixs: buscarIndiceColumnaExacto(headers, ['Programas Inclusión Laboral/Operarixs - Gestión de Residuos']),
+      colAcompanamiento: buscarIndiceColumnaExacto(headers, ['Programas Inclusión Laboral/Acompañamiento Profesional']),
 
       // Nivel Educativo
       nivelEducativo: buscarIndiceColumnaExacto(headers, [
         'Inicio/¿Cuál es tu último nivel de estudios terminado?',
         '¿Cuál es tu último nivel de estudios terminado?',
-        'Nivel educativo',
-        'Inicio/¿Cuál es su último nivel de estudios terminado?',
-        '¿Cuál es su último nivel de estudios terminado?',
-        'Nivel de estudios',
-        'Estudios',
-        'Escolaridad'
+        'Nivel educativo', 'Estudios'
       ]),
 
       // Zona
-      zona: buscarIndiceColumnaExacto(headers, [
-        'Inicio/Zona',
-        'Zona'
-      ]),
+      zona: buscarIndiceColumnaExacto(headers, ['Inicio/Zona', 'Zona']),
 
-      // Redes sociales (sub-columnas de "¿Cuáles son las redes sociales que más utilizas?")
-      // Estas se combinan para formar el valor de "Cómo se enteró"
-      redFacebook: buscarIndiceColumnaExacto(headers, [
-        'Inicio/¿Cuáles son las redes sociales que más utilizas?/Facebook',
-        '¿Cuáles son las redes sociales que más utilizas?/Facebook'
-      ]),
-      redInstagram: buscarIndiceColumnaExacto(headers, [
-        'Inicio/¿Cuáles son las redes sociales que más utilizas?/Instagram',
-        '¿Cuáles son las redes sociales que más utilizas?/Instagram'
-      ]),
-      redTikTok: buscarIndiceColumnaExacto(headers, [
-        'Inicio/¿Cuáles son las redes sociales que más utilizas?/TikTok',
-        '¿Cuáles son las redes sociales que más utilizas?/TikTok'
-      ]),
-      redTwitter: buscarIndiceColumnaExacto(headers, [
-        'Inicio/¿Cuáles son las redes sociales que más utilizas?/Twitter',
-        '¿Cuáles son las redes sociales que más utilizas?/Twitter'
-      ]),
-      redWhatsApp: buscarIndiceColumnaExacto(headers, [
-        'Inicio/¿Cuáles son las redes sociales que más utilizas?/WhatsApp',
-        '¿Cuáles son las redes sociales que más utilizas?/WhatsApp'
-      ]),
+      // Redes sociales (Cómo se enteró)
+      redFacebook: buscarIndiceColumnaExacto(headers, ['Inicio/¿Cuáles son las redes sociales que más utilizas?/Facebook', 'Facebook']),
+      redInstagram: buscarIndiceColumnaExacto(headers, ['Inicio/¿Cuáles son las redes sociales que más utilizas?/Instagram', 'Instagram']),
+      redTikTok: buscarIndiceColumnaExacto(headers, ['Inicio/¿Cuáles son las redes sociales que más utilizas?/TikTok', 'TikTok']),
+      redTwitter: buscarIndiceColumnaExacto(headers, ['Inicio/¿Cuáles son las redes sociales que más utilizas?/Twitter', 'Twitter']),
+      redWhatsApp: buscarIndiceColumnaExacto(headers, ['Inicio/¿Cuáles son las redes sociales que más utilizas?/WhatsApp', 'WhatsApp']),
 
-      // === COLUMNAS ESPECÍFICAS DE PROGRAMAS (Binary 1/0 en nuevos exports de Kobo) ===
-      colMarketing: buscarIndiceColumnaExacto(headers, [
-        '¿Tienes interés en un servicio o formación específica?/Tecnología - Marketing',
-        'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Tecnología - Marketing'
-      ]),
-      colProgramacion: buscarIndiceColumnaExacto(headers, [
-        '¿Tienes interés en un servicio o formación específica?/Tecnología - Programación',
-        'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Tecnología - Programación'
-      ]),
-      colAlfabetizacion: buscarIndiceColumnaExacto(headers, [
-        '¿Tienes interés en un servicio o formación específica?/Alfabetización digital',
-        'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Alfabetización digital'
-      ]),
-      colCertificacion: buscarIndiceColumnaExacto(headers, [
-        '¿Tienes interés en un servicio o formación específica?/Certificación Microsoft',
-        'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Certificación Microsoft'
-      ]),
-      colServicioCliente: buscarIndiceColumnaExacto(headers, [
-        '¿Tienes interés en un servicio o formación específica?/Servicio al Cliente',
-        'Inclusión Laboral/¿Tienes interés en un servicio o formación específica?/Servicio al Cliente'
-      ]),
-
-      // Desea inscribirse en Inclusión Laboral
+      // Interés General (Respaldo)
       deseaInscribirse: buscarIndiceColumnaExacto(headers, [
-        'Inclusión Laboral/¿Deseas inscribirte en el programa de Inclusión Laboral?',
-        '¿Deseas inscribirte en el programa de Inclusión Laboral?'
+        '¿Deseas inscribirte en el programa de Inclusión Laboral?',
+        'Inclusión Laboral/¿Deseas inscribirte en el programa de Inclusión Laboral?'
       ])
     };
 
@@ -3355,46 +3358,54 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
     for (let i = 1; i < rows.length; i++) {
       const fila = rows[i];
 
-      // === FILTRO: Solo registros de TECNOLOGÍA ===
-      // Detectar programas seleccionados mediante las columnas binarias
+      // === DETECCIÓN UNIFICADA DE PROGRAMAS ===
+      const esGastronomia = colIndices.colGastronomia >= 0 && fila[colIndices.colGastronomia] == '1';
+      const esBarismo = colIndices.colBarismo >= 0 && fila[colIndices.colBarismo] == '1';
+      const esFoodManager = colIndices.colFoodManager >= 0 && fila[colIndices.colFoodManager] == '1';
       const esMarketing = colIndices.colMarketing >= 0 && fila[colIndices.colMarketing] == '1';
       const esProgramacion = colIndices.colProgramacion >= 0 && fila[colIndices.colProgramacion] == '1';
       const esAlfabetizacion = colIndices.colAlfabetizacion >= 0 && fila[colIndices.colAlfabetizacion] == '1';
       const esCertificacion = colIndices.colCertificacion >= 0 && fila[colIndices.colCertificacion] == '1';
       const esServicioCliente = colIndices.colServicioCliente >= 0 && fila[colIndices.colServicioCliente] == '1';
+      const esOperarixs = colIndices.colOperarixs >= 0 && fila[colIndices.colOperarixs] == '1';
+      const esAcompanamiento = colIndices.colAcompanamiento >= 0 && fila[colIndices.colAcompanamiento] == '1';
 
-      // Si no tiene ningún programa de tecnología en las columnas binarias, 
-      // buscar como respaldo en el resto de la fila (para compatibilidad con formatos viejos)
-      let esTech = esMarketing || esProgramacion || esAlfabetizacion || esCertificacion || esServicioCliente;
+      // Verificar interés general si no hay programas específicos
+      const deseaInscribirse = (colIndices.deseaInscribirse >= 0 && (fila[colIndices.deseaInscribirse] == '1' || fila[colIndices.deseaInscribirse] == 'Sí')) ? 'Sí' : 'No';
+
+      let esIL = esGastronomia || esBarismo || esFoodManager || esMarketing || esProgramacion || 
+                 esAlfabetizacion || esCertificacion || esServicioCliente || esOperarixs || esAcompanamiento;
       
-      if (!esTech) {
-        for (let col = 0; col < fila.length; col++) {
-          const valor = (fila[col] || '').toString().toLowerCase();
-          if (valor && (valor.includes('marketing') || valor.includes('programacion') || 
-                        valor.includes('programación') || valor.includes('alfabetizacion') ||
-                        valor.includes('alfabetización') || valor.includes('microsoft') ||
-                        valor.includes('servicio al cliente'))) {
-            esTech = true;
-            break;
-          }
-        }
+      // Si no tiene programas pero sí interés general ('Sí'), lo marcamos como IL
+      if (!esIL && deseaInscribirse == 'Sí') {
+        esIL = true;
       }
 
-      // Si no tiene ningún programa de tecnología, omitir
-      if (!esTech) {
+      // Si sigue sin detectarse como Inclusión Laboral, omitir
+      if (!esIL) {
         omitidosNoTech++;
         continue;
       }
 
-      // Obtener el texto de la especialidad (para logs)
-      let textoDetectado = '';
-      if (esMarketing) textoDetectado += ' Marketing';
-      if (esProgramacion) textoDetectado += ' Programación';
-      if (esAlfabetizacion) textoDetectado += ' Alfabetización';
-      if (esCertificacion) textoDetectado += ' Certificación';
-      if (esServicioCliente) textoDetectado += ' Servicio Cliente';
+      // Construir lista de programas para la columna "Servicio/Formación"
+      const programasSeleccionados = [];
+      if (esGastronomia) programasSeleccionados.push('Gastronomía');
+      if (esBarismo) programasSeleccionados.push('Barismo');
+      if (esFoodManager) programasSeleccionados.push('Food Manager');
+      if (esMarketing) programasSeleccionados.push('Marketing Digital');
+      if (esProgramacion) programasSeleccionados.push('Programación');
+      if (esAlfabetizacion) programasSeleccionados.push('Alfabetización digital');
+      if (esCertificacion) programasSeleccionados.push('Certificación Microsoft');
+      if (esServicioCliente) programasSeleccionados.push('Servicio al Cliente');
+      if (esOperarixs) programasSeleccionados.push('Operarixs - Gestión de Residuos');
+      if (esAcompanamiento) programasSeleccionados.push('Acompañamiento Profesional');
       
-      Logger.log('✅ DETECTADO TECH:' + textoDetectado);
+      if (programasSeleccionados.length === 0) {
+        programasSeleccionados.push('Interés General IL');
+      }
+
+      const notasPrograma = programasSeleccionados.join(', ');
+      Logger.log('✅ DETECTADO IL: ' + notasPrograma);
 
       // Obtener Creamos ID y DPI - CONVERTIR A MAYÚSCULAS
       const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim().toUpperCase() : '';
@@ -3417,10 +3428,16 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
         continue;
       }
 
-      // Calcular edad desde fecha de nacimiento
+      // Calcular edad o usar columna directa si existe
       let edad = '';
       if (colIndices.fechaNacimiento >= 0 && fila[colIndices.fechaNacimiento]) {
-        edad = calcularEdad(fila[colIndices.fechaNacimiento]);
+        const valorEdad = fila[colIndices.fechaNacimiento];
+        // Si el valor ya es un número pequeño, probablemente es la edad directa
+        if (!isNaN(valorEdad) && parseInt(valorEdad) < 120) {
+          edad = valorEdad;
+        } else {
+          edad = calcularEdad(valorEdad);
+        }
       }
 
       // Obtener teléfono
@@ -3452,29 +3469,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       if (verificarValorPositivo(fila, colIndices.redWhatsApp)) redesSociales.push('WhatsApp');
       const comoSeEntero = redesSociales.length > 0 ? redesSociales.join(' ') : '';
 
-      // Determinar notas de programas seleccionados
-      let programasSeleccionados = [];
-      if (esMarketing) programasSeleccionados.push('Marketing');
-      if (esProgramacion) programasSeleccionados.push('Programación');
-      if (esAlfabetizacion) programasSeleccionados.push('Alfabetización Digital');
-      if (esCertificacion) programasSeleccionados.push('Certificación Microsoft');
-      if (esServicioCliente) programasSeleccionados.push('Servicio al Cliente');
-
-      const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
-
-      // Obtener datos de las preguntas de Inclusión Laboral
-      const deseaInscribirse = colIndices.deseaInscribirse >= 0 ?
-        (fila[colIndices.deseaInscribirse] || '').toString().trim() : '';
-      
-      // Construir el texto del servicio/formación basado en las columnas binarias
-      let programasNombres = [];
-      if (esMarketing) programasNombres.push('Marketing');
-      if (esProgramacion) programasNombres.push('Programación');
-      if (esAlfabetizacion) programasNombres.push('Alfabetización Digital');
-      if (esCertificacion) programasNombres.push('Certificación Microsoft');
-      if (esServicioCliente) programasNombres.push('Servicio al Cliente');
-      
-      const servicioFormacion = programasNombres.length > 0 ? programasNombres.join(', ') : '';
+      const servicioFormacion = notasPrograma;
 
       // Extender la hoja si nuevaFila supera el número de filas disponibles
       // Obtener la siguiente fila realmente vacía (sin huecos ni sobreescrituras)
@@ -3536,7 +3531,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       // Restaurar dropdown de Género (columna F) para esta fila
       hojaInteres.getRange(nuevaFila, 6).setDataValidation(
         SpreadsheetApp.newDataValidation()
-          .requireValueInList(CONFIG_TECH.GENEROS)
+          .requireValueInList(CONFIG_AB.GENEROS)
           .setAllowInvalid(true)
           .build()
       );
@@ -3555,12 +3550,12 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       importados++;
     }
 
-    const mensaje = '✅ IMPORTACIÓN TECNOLOGÍA FINALIZADA\n\n' +
+    const mensaje = '✅ IMPORTACIÓN ALIMENTOS Y BEBIDAS FINALIZADA\n\n' +
       '📥 Importados: ' + importados + '\n' +
       '🔄 Duplicados omitidos: ' + omitidosDuplicados + '\n' +
-      '🚫 No Tech (omitidos): ' + omitidosNoTech;
+      '🚫 De otros programas (omitidos): ' + omitidosNoTech;
 
-    ss.toast(mensaje, 'Importación Tech', 8);
+    ss.toast(mensaje, 'Importación AB', 8);
     Logger.log(mensaje);
 
     // Actualizar datos faltantes en todas las hojas desde directorio maestro
@@ -3620,7 +3615,7 @@ function verColumnasKobo() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
   const props = PropertiesService.getDocumentProperties();
-  const url = CONFIG_TECH.KOBO_URL; // props.getProperty('KOBO_URL') || CONFIG_TECH.KOBO_URL;
+  const url = CONFIG_AB.KOBO_URL; // props.getProperty('KOBO_URL') || CONFIG_AB.KOBO_URL;
 
   try {
     ss.toast('🔍 Analizando columnas...', 'Análisis', 3);
@@ -3630,7 +3625,14 @@ function verColumnasKobo() {
 
     if (csvData.charCodeAt(0) === 0xFEFF) csvData = csvData.substring(1);
 
-    const rows = parsearCSVManual(csvData, ';');
+    // INTENTAR PARSE TEXTUAL PRIMERO IGUAL QUE EL CÓDIGO REAL
+    let rows = [];
+    try {
+      rows = Utilities.parseCsv(csvData);
+    } catch(e) {
+      rows = parsearCSVManual(csvData, ';');
+    }
+
     const headers = rows[0];
 
     let mensaje = '📊 COLUMNAS TECH ENCONTRADAS:\n\n';
@@ -3760,7 +3762,7 @@ function importarEntrevistasDesdeKobo() {
   const ui = SpreadsheetApp.getUi();
 
   const props = PropertiesService.getDocumentProperties();
-  const url = props.getProperty('KOBO_ENTREVISTAS_URL') || CONFIG_TECH.KOBO_ENTREVISTAS_URL;
+  const url = props.getProperty('KOBO_ENTREVISTAS_URL') || CONFIG_AB.KOBO_ENTREVISTAS_URL;
 
   if (!url) {
     ui.alert('⚠️ URL no configurada', 'Configure la URL de Entrevistas de KoboToolbox primero.', ui.ButtonSet.OK);
@@ -4025,7 +4027,7 @@ function vincularEntrevistasConDetalle() {
 function configurarKoboEntrevistasURL() {
   const ui = SpreadsheetApp.getUi();
   const props = PropertiesService.getDocumentProperties();
-  const urlActual = props.getProperty('KOBO_ENTREVISTAS_URL') || CONFIG_TECH.KOBO_ENTREVISTAS_URL;
+  const urlActual = props.getProperty('KOBO_ENTREVISTAS_URL') || CONFIG_AB.KOBO_ENTREVISTAS_URL;
 
   const respuesta = ui.prompt(
     '🔗 Configurar URL de Entrevistas Kobo',
@@ -4052,7 +4054,7 @@ function probarConexionKobo() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
   const props = PropertiesService.getDocumentProperties();
-  const url = props.getProperty('KOBO_URL') || CONFIG_TECH.KOBO_URL;
+  const url = props.getProperty('KOBO_URL') || CONFIG_AB.KOBO_URL;
 
   if (!url) {
     ui.alert('⚠️ URL no configurada');
@@ -4162,7 +4164,7 @@ function configurarImportacionAutomatica() {
 // GESTIÓN DE COHORTES
 // =====================================================================
 
-function crearNuevaCohorteTech() {
+function crearNuevaCohorteAB() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -4234,7 +4236,7 @@ function crearNuevaCohorteTech() {
   const nuevaFila = obtenerPrimeraFilaVacia(cohortes, 'A');
 
   // Orden: Nombre, Proyecto, Año, FechaInicio, FechaFin, Responsable, Cupo, Inscritas(formula), Graduadx(formula), Retiradx(formula), Ubicación, Horario, Notas, Estado
-  const datosCohorte = [nombre, 'Tecnología', anioActual, fechaInicio, fechaFin, responsable, cupo, '', '', '', '', '', '', estadoInicial];
+  const datosCohorte = [nombre, 'Alimentos y Bebidas', anioActual, fechaInicio, fechaFin, responsable, cupo, '', '', '', '', '', '', estadoInicial];
   cohortes.getRange(nuevaFila, 1, 1, 14).setValues([datosCohorte]);
 
   // Fórmulas: Inscritas cuenta en la hoja individual de la cohorte (resta deserciones)
@@ -4276,7 +4278,7 @@ function crearHojaIndividualCohorte(nombreCohorte) {
     'Teléfono',         // H
     'Nivel Educativo',  // I
     'Zona',             // J
-    'Estado',           // K - Solo opción "Graduada" y "Deserción"
+    'Estado',           // K - Solo opción "Graduadx" y "Retiradx"
     'Año'               // L - Automático (año actual)
   ];
 
@@ -4310,7 +4312,7 @@ function crearHojaIndividualCohorte(nombreCohorte) {
   sheet.getRange('L2:L100').protect().setWarningOnly(true); // Proteger columna Año
 }
 
-function enviarParticipantesACohorteTech() {
+function enviarParticipantesACohorteAB() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -4553,7 +4555,7 @@ function enviarEmailDesercion(nombre, cohorte, motivo) {
 // REPORTES
 // =====================================================================
 
-function actualizarReportesTech() {
+function actualizarReportesAB() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const reporte = ss.getSheetByName('Reporte');
@@ -4605,13 +4607,13 @@ function instalarTriggers() {
     const triggers = ScriptApp.getProjectTriggers();
 
     triggers.forEach(trigger => {
-      if (['alEditarTech', 'actualizarReportesTech'].includes(trigger.getHandlerFunction())) {
+      if (['alEditarAB', 'actualizarReportesAB'].includes(trigger.getHandlerFunction())) {
         ScriptApp.deleteTrigger(trigger);
       }
     });
 
-    ScriptApp.newTrigger('alEditarTech').forSpreadsheet(ss).onEdit().create();
-    ScriptApp.newTrigger('actualizarReportesTech').timeBased().everyHours(1).create();
+    ScriptApp.newTrigger('alEditarAB').forSpreadsheet(ss).onEdit().create();
+    ScriptApp.newTrigger('actualizarReportesAB').timeBased().everyHours(1).create();
 
     ss.toast('✅ Triggers instalados', 'OK', 3);
     return true;
@@ -4737,7 +4739,7 @@ function limpiarTodosLosDatos() {
     interes.getRange('B' + i).setFormula('=IF(E' + i + '<>"",COUNTA($E$2:E' + i + '),"")');
   }
 
-  actualizarReportesTech();
+  actualizarReportesAB();
   ss.toast('✅ Datos eliminados', 'OK', 4);
 }
 
@@ -4833,8 +4835,8 @@ function desinstalarSistema() {
     const triggers = ScriptApp.getProjectTriggers();
     let triggersEliminados = 0;
     triggers.forEach(trigger => {
-      // Solo eliminar triggers específicos del sistema (alEditarTech y actualizarReportesTech)
-      if (['alEditarTech', 'actualizarReportesTech'].includes(trigger.getHandlerFunction())) {
+      // Solo eliminar triggers específicos del sistema (alEditarAB y actualizarReportesAB)
+      if (['alEditarAB', 'actualizarReportesAB'].includes(trigger.getHandlerFunction())) {
         ScriptApp.deleteTrigger(trigger);
         triggersEliminados++;
       }
@@ -5031,7 +5033,7 @@ function limpiarFilasVaciasHojaInteres() {
 // Columnas: Nombre completo | Creamos ID | Año que entró Creamos | Age | Numero de DPI
 // =====================================================================
 
-const NOMBRE_HOJA_CREAMOS_ID_TECH = 'Copy of CREAMOS ID nuevo'; // Modificado por petición del usuario
+const NOMBRE_HOJA_CREAMOS_ID_AB = 'Copy of CREAMOS ID nuevo'; // Modificado por petición del usuario
 
 /**
  * Configura la hoja "Copy of CREAMOS ID nuevo":
@@ -5045,10 +5047,10 @@ function configurarHojaCreamosID() {
   const ui = SpreadsheetApp.getUi();
 
   // Buscar o crear la hoja
-  let hoja = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_TECH);
+  let hoja = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_AB);
   if (!hoja) {
-    hoja = ss.insertSheet(NOMBRE_HOJA_CREAMOS_ID_TECH);
-    Logger.log('Hoja "' + NOMBRE_HOJA_CREAMOS_ID_TECH + '" creada.');
+    hoja = ss.insertSheet(NOMBRE_HOJA_CREAMOS_ID_AB);
+    Logger.log('Hoja "' + NOMBRE_HOJA_CREAMOS_ID_AB + '" creada.');
 
     // Establecer headers
     const headers = [
@@ -5083,7 +5085,7 @@ function configurarHojaCreamosID() {
   proteccion.setDescription('Hoja maestra CREAMOS ID - conectada con Salesforce. NO ELIMINAR.');
   proteccion.setWarningOnly(true); // Advertencia al editar, no bloqueo total (para scripts)
 
-  ss.toast('✅ Hoja "' + NOMBRE_HOJA_CREAMOS_ID_TECH + '" configurada: oculta y protegida', 'CREAMOS ID', 5);
+  ss.toast('✅ Hoja "' + NOMBRE_HOJA_CREAMOS_ID_AB + '" configurada: oculta y protegida', 'CREAMOS ID', 5);
   Logger.log('Hoja CREAMOS ID configurada correctamente.');
 }
 
@@ -5107,11 +5109,11 @@ function autocompletarDesdeCreamosID(silencioso) {
   const ui = silencioso ? null : SpreadsheetApp.getUi();
 
   const hojaInteres = ss.getSheetByName('Hoja de Interés');
-  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_TECH);
+  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_AB);
 
   if (!hojaDirectorio) {
     if (!silencioso) ui.alert('⚠️ Hoja no encontrada',
-      'La hoja "' + NOMBRE_HOJA_CREAMOS_ID_TECH + '" no existe.\nEjecuta primero "Configurar Hoja CREAMOS ID" desde el menú.',
+      'La hoja "' + NOMBRE_HOJA_CREAMOS_ID_AB + '" no existe.\nEjecuta primero "Configurar Hoja CREAMOS ID" desde el menú.',
       ui.ButtonSet.OK);
     return;
   }
@@ -5126,7 +5128,7 @@ function autocompletarDesdeCreamosID(silencioso) {
 
   if (datosDirectorio.length < 2) {
     if (!silencioso) ui.alert('ℹ️ Directorio vacío',
-      'La hoja "' + NOMBRE_HOJA_CREAMOS_ID_TECH + '" no tiene datos.\nImporta los datos desde Salesforce primero.',
+      'La hoja "' + NOMBRE_HOJA_CREAMOS_ID_AB + '" no tiene datos.\nImporta los datos desde Salesforce primero.',
       ui.ButtonSet.OK);
     return;
   }
@@ -5245,7 +5247,7 @@ function autocompletarDesdeCreamosID(silencioso) {
  */
 function detectarColumnasDirectorio() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_TECH);
+  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_AB);
 
   if (!hojaDirectorio) return null;
 
@@ -5305,7 +5307,7 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
   if (!sheet || numFila < 2) return false;
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_TECH);
+  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_AB);
 
   // Si no existe el directorio, no hacer nada
   if (!hojaDirectorio) return false;
@@ -5410,10 +5412,10 @@ function actualizarTodosDesdeDirectorio(silencioso) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = silencioso ? null : SpreadsheetApp.getUi();
 
-  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_TECH);
+  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_AB);
   if (!hojaDirectorio) {
     if (!silencioso) ui.alert('⚠️ Directorio no encontrado',
-      'La hoja "' + NOMBRE_HOJA_CREAMOS_ID_TECH + '" no existe.',
+      'La hoja "' + NOMBRE_HOJA_CREAMOS_ID_AB + '" no existe.',
       ui.ButtonSet.OK);
     return;
   }
@@ -5426,25 +5428,16 @@ function actualizarTodosDesdeDirectorio(silencioso) {
     return;
   }
 
-  // *** NUEVO: Detectar columnas del directorio automáticamente ***
-  const colMapDir = detectarColumnasDirectorio();
-  if (!colMapDir) {
-    if (!silencioso) ui.alert('⚠️ Error en estructura del Directorio',
-      'No se pudieron detectar las columnas del Directorio CREAMOS ID.',
-      ui.ButtonSet.OK);
-    return;
-  }
-
-  // Construir mapas de búsqueda
+  // Construir mapas de búsqueda: Directorio col 0=Nombre, 1=CreamosID, 2=Año, 3=Age, 4=DPI, 5=NivelEducativo, 6=Zona
   const mapPorCreamosId = new Map();
   const mapPorDpi = new Map();
   const mapPorNombre = new Map();
 
   for (let i = 1; i < datosDirectorio.length; i++) {
     const f = datosDirectorio[i];
-    const nombre   = colMapDir.nombre >= 0 && f[colMapDir.nombre] ? f[colMapDir.nombre].toString().trim() : '';
-    const creamosId = colMapDir.creamosId >= 0 && f[colMapDir.creamosId] ? f[colMapDir.creamosId].toString().trim() : '';
-    const dpi       = colMapDir.dpi >= 0 && f[colMapDir.dpi] ? f[colMapDir.dpi].toString().trim() : '';
+    const nombre   = f[0] ? f[0].toString().trim() : '';
+    const creamosId = f[1] ? f[1].toString().trim() : '';
+    const dpi       = f[4] ? f[4].toString().trim() : '';
     if (creamosId) mapPorCreamosId.set(creamosId.toUpperCase(), f);
     if (dpi)       mapPorDpi.set(dpi, f);
     if (nombre)    mapPorNombre.set(nombre.toLowerCase(), f);
@@ -5480,12 +5473,12 @@ function actualizarTodosDesdeDirectorio(silencioso) {
       if (!filaDir && nom) filaDir = mapPorNombre.get(nom.toLowerCase()) || null;
       if (!filaDir) continue;
 
-      const nombreDir  = colMapDir.nombre >= 0 && filaDir[colMapDir.nombre] ? filaDir[colMapDir.nombre].toString().trim() : '';
-      const cIdDir     = colMapDir.creamosId >= 0 && filaDir[colMapDir.creamosId] ? filaDir[colMapDir.creamosId].toString().trim() : '';
-      const edadDir    = colMapDir.edad >= 0 && filaDir[colMapDir.edad] ? filaDir[colMapDir.edad].toString().trim() : '';
-      const dpiDir     = colMapDir.dpi >= 0 && filaDir[colMapDir.dpi] ? filaDir[colMapDir.dpi].toString().trim() : '';
-      const nivelEducativoDir = colMapDir.nivelEducativo >= 0 && filaDir[colMapDir.nivelEducativo] ? filaDir[colMapDir.nivelEducativo].toString().trim() : '';
-      const zonaDir    = colMapDir.zona >= 0 && filaDir[colMapDir.zona] ? filaDir[colMapDir.zona].toString().trim() : '';
+      const nombreDir  = filaDir[0] ? filaDir[0].toString().trim() : '';
+      const cIdDir     = filaDir[1] ? filaDir[1].toString().trim() : '';
+      const edadDir    = filaDir[3] ? filaDir[3].toString().trim() : '';
+      const dpiDir     = filaDir[4] ? filaDir[4].toString().trim() : '';
+      const nivelEducativoDir = filaDir[5] ? filaDir[5].toString().trim() : '';
+      const zonaDir    = filaDir[6] ? filaDir[6].toString().trim() : '';
 
       const filaNum = i + 1;
       let actualizado = false;
@@ -5632,7 +5625,7 @@ function enviarEmailListaGraduadx(nombreCohorte, listaGraduadx) {
       listaTexto +
       '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
       '⚠️ ACCIÓN REQUERIDA EN SALESFORCE:\n' +
-      'Por favor, actualiza la etapa de TODAS las participantes listadas a "Graduadx"\n' +
+      'Por favor, actualiza la etapa de TODAS las participantes listadas a "Graduada"\n' +
       'para mantener el CRM al día.\n\n' +
       'Mensaje automático — Sistema de Inclusión Laboral Tecnología';
 
@@ -5766,7 +5759,7 @@ function instalarTodo() {
     cambios.push('ℹ️ Importación de Kobo: Usar menú después de instalación');
 
     // Actualizar reporte final
-    actualizarReportesTech();
+    actualizarReportesAB();
     cambios.push('✅ Reporte actualizado');
 
     ss.toast(
@@ -5836,8 +5829,8 @@ function crearHojaGuiaUso() {
     ['  →', '"No aprobada" / "No asistió"  →  pasa a "No Inscritx" automáticamente'],
     ['⑤', 'En "Inscritx": usar menú Cohortes → Enviar Participantes a Cohorte'],
     ['⑥', 'En la hoja de la cohorte: cambiar columna Estado (col. I):'],
-    ['  →', '"Graduadx"  →  pasa a "Graduadx" + se envía email automático a Eva con lista'],
-    ['  →', '"Retiradx"  →  pasa a "Retiradx" + se envía email automático a Eva con alerta Salesforce'],
+    ['  →', '"Graduada"  →  pasa a "Graduadx" + se envía email automático a Eva con lista'],
+    ['  →', '"Deserción"  →  pasa a "Retiradx" + se envía email automático a Eva con alerta Salesforce'],
     ['', '', ''],
     // 19 — Sección 3
     ['3. DESCRIPCIÓN DE CADA HOJA', '', ''],
@@ -5886,8 +5879,8 @@ function crearHojaGuiaUso() {
     ['5. ACCIONES EN HOJAS DE COHORTE', '', ''],
     ['Cada hoja de cohorte tiene una columna "Estado" (columna I). Al cambiar ese valor el sistema actúa automáticamente:', '', ''],
     ['ESTADO QUE SE ESCRIBE', 'QUÉ OCURRE AUTOMÁTICAMENTE'],
-    ['Graduadx',     'La participante se mueve a la hoja "Graduadx" + la fila queda verde en la cohorte'],
-    ['Retiradx',     'El sistema pide el motivo + la participante pasa a "Retiradx" + se envía email a Eva'],
+    ['Graduada',     'La participante se mueve a la hoja "Graduadx" + la fila queda verde en la cohorte'],
+    ['Deserción',    'El sistema pide el motivo + la participante pasa a "Retiradx" + se envía email a Eva'],
     ['Para graduar TODA la cohorte de una vez:', 'Menú → Cohortes → Estadísticas por Cohorte → botón "Graduar toda la cohorte"', ''],
     ['', '', ''],
     // Sección 6
@@ -6035,7 +6028,7 @@ function crearHojaGuiaUso() {
 function protegerHojaCreamosIDSiExiste() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const hoja = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_TECH);
+    const hoja = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_AB);
     if (!hoja) return;
 
     // Ocultar si está visible
@@ -6374,96 +6367,6 @@ function exportarDatosNuevos() {
 }
 
 /**
- * DIAGNÓSTICO DETALLADO - Muestra el contenido EXACTO de cada celda
- * para identificar por qué los campos no se están transfiriendo correctamente
- */
-function diagnosticoDetalladoTransferencia() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-
-  let mensaje = '🔍 DIAGNÓSTICO DETALLADO DE TRANSFERENCIA\n\n';
-
-  // === HOJA DE ENTREVISTAS ===
-  const entrevistas = ss.getSheetByName('Entrevistas');
-  if (entrevistas && entrevistas.getLastRow() > 1) {
-    mensaje += '📄 HOJA: ENTREVISTAS\n';
-    mensaje += '─'.repeat(50) + '\n';
-
-    // Leer todos los registros (excluyendo encabezado)
-    const datosEntrevistas = entrevistas.getRange(2, 1, entrevistas.getLastRow() - 1, 14).getValues();
-
-    for (let i = 0; i < Math.min(datosEntrevistas.length, 3); i++) {
-      const fila = datosEntrevistas[i];
-      const filaNum = i + 2;
-
-      mensaje += `\nFila ${filaNum}:\n`;
-      mensaje += `  C - Creamos ID: "${fila[2]}"\n`;
-      mensaje += `  E - Nombre: "${fila[4]}"\n`;
-      mensaje += `  I - Nivel Educativo: "${fila[8]}" (longitud: ${String(fila[8]).length})\n`;
-      mensaje += `  J - Zona: "${fila[9]}" (longitud: ${String(fila[9]).length})\n`;
-      mensaje += `  N - Estado: "${fila[13]}"\n`;
-
-      // Verificar si hay caracteres invisibles
-      const nivelEdu = String(fila[8]);
-      const zona = String(fila[9]);
-      mensaje += `  Nivel Educativo vacío: ${nivelEdu === '' || nivelEdu.trim() === ''}\n`;
-      mensaje += `  Zona vacía: ${zona === '' || zona.trim() === ''}\n`;
-    }
-
-    if (datosEntrevistas.length > 3) {
-      mensaje += `\n... y ${datosEntrevistas.length - 3} registros más\n`;
-    }
-  } else {
-    mensaje += '❌ No hay datos en Entrevistas\n';
-  }
-
-  mensaje += '\n' + '='.repeat(50) + '\n\n';
-
-  // === HOJA DE INSCRITX ===
-  const inscritx = ss.getSheetByName('Inscritx');
-  if (inscritx && inscritx.getLastRow() > 1) {
-    mensaje += '📄 HOJA: INSCRITX\n';
-    mensaje += '─'.repeat(50) + '\n';
-
-    // Leer todos los registros (excluyendo encabezado)
-    const datosInscritx = inscritx.getRange(2, 1, inscritx.getLastRow() - 1, 12).getValues();
-
-    for (let i = 0; i < Math.min(datosInscritx.length, 3); i++) {
-      const fila = datosInscritx[i];
-      const filaNum = i + 2;
-
-      mensaje += `\nFila ${filaNum}:\n`;
-      mensaje += `  B - Creamos ID: "${fila[1]}"\n`;
-      mensaje += `  D - Nombre: "${fila[3]}"\n`;
-      mensaje += `  H - Nivel Educativo: "${fila[7]}" (longitud: ${String(fila[7]).length})\n`;
-      mensaje += `  I - Zona: "${fila[8]}" (longitud: ${String(fila[8]).length})\n`;
-      mensaje += `  K - Estado: "${fila[10]}"\n`;
-
-      // Verificar si hay caracteres invisibles
-      const nivelEdu = String(fila[7]);
-      const zona = String(fila[8]);
-      mensaje += `  Nivel Educativo vacío: ${nivelEdu === '' || nivelEdu.trim() === ''}\n`;
-      mensaje += `  Zona vacía: ${zona === '' || zona.trim() === ''}\n`;
-    }
-
-    if (datosInscritx.length > 3) {
-      mensaje += `\n... y ${datosInscritx.length - 3} registros más\n`;
-    }
-  } else {
-    mensaje += '❌ No hay datos en Inscritx\n';
-  }
-
-  // Mostrar el diagnóstico
-  Logger.log(mensaje);
-  ui.alert('🔍 Diagnóstico Detallado', mensaje, ui.ButtonSet.OK);
-}
-
-/**
- * Obtiene un mapa de nombres de encabezado a índices de columna (0-based)
- * @param {GoogleAppsScript.Spreadsheet.Sheet} hoja - La hoja a analizar
- * @returns {Object} - Mapa de encabezados a índices
- */
-/**
  * Obtiene un mapa de nombres de encabezado a índices de columna (0-based)
  * @param {GoogleAppsScript.Spreadsheet.Sheet} hoja - La hoja a analizar
  * @returns {Object} - Mapa de encabezados a índices. 
@@ -6591,8 +6494,35 @@ function resaltarSiEs2026(range, valorFechaOAnio) {
 }
 
 /**
+ * Escanea las hojas principales y resalta todos los registros del año 2026
+ */
+function resaltarTodos2026() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx', 'Retiradx', 'Graduadx', 'Lista Definitiva'];
+  
+  hojas.forEach(nombre => {
+    const hoja = ss.getSheetByName(nombre);
+    if (!hoja) return;
+    
+    const data = hoja.getDataRange().getValues();
+    if (data.length <= 1) return;
+    
+    const colMap = obtenerMapaColumnas(hoja);
+    // Buscar columna de fecha o año
+    const colIdx = colMap['fecha'] || colMap['fec'] || colMap['año'] || colMap['anio'] || 0;
+    
+    for (let i = 1; i < data.length; i++) {
+       const valor = data[i][colIdx];
+       resaltarSiEs2026(hoja.getRange(i + 1, 1, 1, hoja.getLastColumn()), valor);
+    }
+  });
+  
+  ss.toast('✅ Resaltado 2026 completado en hojas principales', 'Formato', 5);
+}
+
+/**
  * =====================================================================
- * MÓDULO: REFERENCIAS INCLUSIÓN LABORAL (VERSIÓN TECNOLOGÍA)
+ * MÓDULO: REFERENCIAS INCLUSIÓN LABORAL (VERSIÓN ALIMENTOS Y BEBIDAS)
  * =====================================================================
  */
 
@@ -6601,7 +6531,7 @@ const CONFIG_REFERENCIAS = {
   NOMBRE_HOJA: 'Referencias IL',
   HOJA_DESTINO: 'Entrevistas',
   OPCION_ENVIAR: 'Enviar a Entrevista',
-  FILTRO_PROGRAMA: 'tecnolog' // Filtro clave para ignorar acentos: "tecnología", "tecnologia"
+  FILTRO_PROGRAMA: 'alimentos' // Filtro clave para Alimentos y Bebidas
 };
 
 function setupMenuReferencias() {
@@ -6796,7 +6726,7 @@ function importarReferenciasNuevas(silencioso) {
     const nombreRef = indKobo.nombre >= 0 ? filaKobo[indKobo.nombre].toString().trim() : '';
     if (!uuidActual || (!nombreRef && indKobo.nombre >= 0)) continue;
     
-    // VERIFICACIÓN DE FILTRO PARA TECNOLOGÍA
+    // VERIFICACIÓN DE FILTRO PARA ALIMENTOS Y BEBIDAS
     const programaBruto = indKobo.programa >= 0 ? filaKobo[indKobo.programa].toString().trim() : '';
     const areaAplica = indKobo.aplica >= 0 ? filaKobo[indKobo.aplica].toString().trim() : '';
     
@@ -6804,7 +6734,7 @@ function importarReferenciasNuevas(silencioso) {
     const filtroNorm = areaAplica.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     
     if (!filtroNorm.includes(CONFIG_REFERENCIAS.FILTRO_PROGRAMA)) {
-      continue; // IGNORAR SI NO ES REFERENCIA DE TECNOLOGIA
+      continue; // IGNORAR SI NO ES REFERENCIA DE ALIMENTOS Y BEBIDAS
     }
 
     if (!uuidsExistentes.has(uuidActual)) {
@@ -6838,7 +6768,7 @@ function importarReferenciasNuevas(silencioso) {
   if (nuevasFilas.length > 0) {
     const ultimaFilaConDatos = hoja.getLastRow();
     hoja.getRange(ultimaFilaConDatos + 1, 1, nuevasFilas.length, nuevasFilas[0].length).setValues(nuevasFilas);
-    if (ui) ui.alert('Éxito', 'Se importaron ' + nuevosAgregados + ' referencias nuevas de la rama TECNOLOGÍA.', ui.ButtonSet.OK);
+    if (ui) ui.alert('Éxito', 'Se importaron ' + nuevosAgregados + ' referencias nuevas de la rama ALIMENTOS Y BEBIDAS.', ui.ButtonSet.OK);
   } else {
     if (ui) ui.alert('Información', 'Todo está al día. No se encontraron registros nuevos en Kobo para este programa.', ui.ButtonSet.OK);
   }
@@ -6900,7 +6830,7 @@ function procesarAccionReferencias(sheet, fila, accion) {
   const aplica = getValRef('¿Aplica para puesto y por qué?');
   const obsOrig = getValRef('Observaciones / Comentarios adicionales');
   
-  let obs = "[REFERENCIA IL - TECNOLOGÍA]\n";
+  let obs = "[REFERENCIA IL - ALIMENTOS Y BEBIDAS]\n";
   if (prog) obs += "Origen: " + prog + "\n";
   if (aplica) obs += "Aplica: " + aplica + "\n";
   if (obsOrig) obs += "Nota: " + obsOrig;
@@ -6913,20 +6843,13 @@ function procesarAccionReferencias(sheet, fila, accion) {
   hojaDestino.getRange(primerFilaVacia, 1, 1, nuevaFilaDest.length).setValues([nuevaFilaDest]);
   
   // Formato visual distintivo en Entrevistas
-  hojaDestino.getRange(primerFilaVacia, 1, 1, nuevaFilaDest.length).setBackground('#e3f2fd'); // Azul Tech claro
+  hojaDestino.getRange(primerFilaVacia, 1, 1, nuevaFilaDest.length).setBackground('#fff3e0'); // Naranja suave para AB
   
   // Limpiar/Marcar en origen
   const colAccion = headersRef.indexOf('Acción') + 1;
   sheet.getRange(fila, colAccion).setValue('Enviado a Entrevista').setBackground('#c8e6c9');
   
-  // Autocompletar datos usando la lógica existente en tech.gs si es posible
-  if (typeof autocompletarDesdeCreamosID === 'function') {
-    try {
-      autocompletarDesdeCreamosID(true);
-    } catch(e) {}
-  }
-  
-  ss.toast('✅ Referencia de Tecnología enviada a Entrevistas', 'Completado', 5);
+  ss.toast('✅ Referencia de Alimentos y Bebidas enviada a Entrevistas', 'Completado', 5);
 }
 
 // =====================================================================
