@@ -6856,6 +6856,7 @@ function setupMenuReferencias() {
     .addItem('Importar (Solo Nuevos)', 'importarReferenciasNuevas')
     .addItem('📥 Importar TODAS (sin filtro)', 'importarTodasReferencias')
     .addSeparator()
+    .addItem('🔬 Análisis Detallado (FILA x FILA)', 'analizarFiltroDetallado')
     .addItem('🔍 Ver Datos de Kobo (DEBUG)', 'verDatosKoboCrudos')
     .addItem('📊 Diagnóstico Completo', 'diagnosticarReferenciasKobo')
     .addSeparator()
@@ -7263,6 +7264,204 @@ function verDatosKoboCrudos() {
   mensaje += '   (debe estar en la columna de Área/Programa)';
 
   ui.alert('🔍 Diagnóstico Completo', mensaje, ui.ButtonSet.OK);
+}
+
+/**
+ * ========================================================================
+ * ANÁLISIS DETALLADO FILA POR FILA
+ * ========================================================================
+ * Muestra exactamente qué ve el código en cada registro y por qué se filtra
+ */
+function analizarFiltroDetallado() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  ss.toast('Analizando filtros...', '🔬 Análisis Detallado', 5);
+
+  // Descargar datos
+  let csvData;
+  try {
+    const response = UrlFetchApp.fetch(CONFIG_REFERENCIAS.KOBO_URL);
+    csvData = response.getContentText('UTF-8');
+  } catch (e) {
+    ui.alert('Error', 'No se pudo conectar a Kobo: ' + e.message, ui.ButtonSet.OK);
+    return;
+  }
+
+  let koboData;
+  try {
+    koboData = Utilities.parseCsv(csvData, ';');
+  } catch (e) {
+    koboData = parsearCSVManualIL(csvData, ';');
+  }
+
+  if (!koboData || koboData.length <= 1) {
+    ui.alert('Sin Datos', 'No hay datos en Kobo para analizar.', ui.ButtonSet.OK);
+    return;
+  }
+
+  const headersKobo = koboData[0];
+
+  // Mapeo dinámico (igual que en la función de importación)
+  const indKobo = {
+    uuid: buscarIndiceColumnaRef(headersKobo, ['_uuid', 'uuid']),
+    programa: buscarIndiceColumnaRef(headersKobo, ['programa que refiere', 'programa']),
+    nombre: buscarIndiceColumnaRef(headersKobo, ['nombre completo', 'nombre de la derivacion', 'derivacion']),
+    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado'])
+  };
+
+  // Crear hoja de análisis
+  let hojaAnalisis = ss.getSheetByName('DEBUG - Análisis Filtro');
+  if (hojaAnalisis) {
+    hojaAnalisis.clear();
+  } else {
+    hojaAnalisis = ss.insertSheet('DEBUG - Análisis Filtro');
+  }
+
+  // Encabezados del análisis
+  const encabezados = [
+    'Fila',
+    'Nombre',
+    'Programa (columna)',
+    'Área/Interés (columna)',
+    'Área Normalizada',
+    'Contiene "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"?',
+    'Estado',
+    'Razón'
+  ];
+
+  hojaAnalisis.getRange(1, 1, 1, encabezados.length).setValues([encabezados]);
+  hojaAnalisis.getRange(1, 1, 1, encabezados.length)
+    .setBackground('#4285f4')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold');
+
+  const resultados = [];
+
+  // Analizar cada fila
+  for (let i = 1; i < koboData.length; i++) {
+    const filaKobo = koboData[i];
+    const fila = i + 1; // +1 porque en Sheets las filas empiezan en 1, +1 más por encabezado
+
+    const uuidActual = indKobo.uuid >= 0 ? filaKobo[indKobo.uuid].toString().trim() : '';
+    const nombreRef = indKobo.nombre >= 0 ? filaKobo[indKobo.nombre].toString().trim() : '';
+    const programaBruto = indKobo.programa >= 0 ? filaKobo[indKobo.programa].toString().trim() : '';
+    const areaAplica = indKobo.aplica >= 0 ? filaKobo[indKobo.aplica].toString().trim() : '';
+
+    let estado = '';
+    let razon = '';
+    let cumpleFiltro = false;
+
+    // Verificar UUID y nombre
+    if (!uuidActual) {
+      estado = '❌ INVÁLIDO';
+      razon = 'Sin UUID';
+    } else if (!nombreRef) {
+      estado = '❌ INVÁLIDO';
+      razon = 'Sin nombre';
+    } else {
+      // Aplicar el MISMO filtro que usa la función de importación
+      const filtroNorm = areaAplica.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      cumpleFiltro = filtroNorm.includes(CONFIG_REFERENCIAS.FILTRO_PROGRAMA);
+
+      if (cumpleFiltro) {
+        estado = '✅ PASA FILTRO';
+        razon = 'Área contiene "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"';
+      } else {
+        estado = '❌ FILTRADO';
+        razon = 'Área NO contiene "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"';
+      }
+    }
+
+    resultados.push([
+      fila,
+      nombreRef || '(vacío)',
+      programaBruto || '(vacío)',
+      areaAplica || '(vacío)',
+      areaAplica ? areaAplica.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : '(vacío)',
+      cumpleFiltro ? 'SÍ' : 'NO',
+      estado,
+      razon
+    ]);
+  }
+
+  // Escribir resultados
+  if (resultados.length > 0) {
+    hojaAnalisis.getRange(2, 1, resultados.length, encabezados.length).setValues(resultados);
+
+    // Colorear según estado
+    for (let i = 0; i < resultados.length; i++) {
+      const filaSheet = i + 2;
+      const estado = resultados[i][6];
+
+      if (estado === '✅ PASA FILTRO') {
+        hojaAnalisis.getRange(filaSheet, 7).setBackground('#c8e6c9'); // Verde
+      } else if (estado === '❌ FILTRADO') {
+        hojaAnalisis.getRange(filaSheet, 7).setBackground('#ffcdd2'); // Rojo
+      } else {
+        hojaAnalisis.getRange(filaSheet, 7).setBackground('#fff9c4'); // Amarillo
+      }
+    }
+  }
+
+  // Agregar información adicional
+  const infoCol = encabezados.length + 2;
+  hojaAnalisis.getRange(1, infoCol).setValue('📊 RESUMEN');
+  hojaAnalisis.getRange(1, infoCol, 1, 2)
+    .setBackground('#34a853')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold');
+
+  let pasanFiltro = 0;
+  let filtrados = 0;
+  let invalidos = 0;
+
+  resultados.forEach(r => {
+    if (r[6] === '✅ PASA FILTRO') pasanFiltro++;
+    else if (r[6] === '❌ FILTRADO') filtrados++;
+    else invalidos++;
+  });
+
+  hojaAnalisis.getRange(2, infoCol).setValue('Total registros:');
+  hojaAnalisis.getRange(2, infoCol + 1).setValue(resultados.length);
+
+  hojaAnalisis.getRange(3, infoCol).setValue('✅ Pasan filtro:');
+  hojaAnalisis.getRange(3, infoCol + 1).setValue(pasanFiltro);
+  hojaAnalisis.getRange(3, infoCol + 1).setBackground('#c8e6c9');
+
+  hojaAnalisis.getRange(4, infoCol).setValue('❌ Filtrados:');
+  hojaAnalisis.getRange(4, infoCol + 1).setValue(filtrados);
+  hojaAnalisis.getRange(4, infoCol + 1).setBackground('#ffcdd2');
+
+  hojaAnalisis.getRange(5, infoCol).setValue('⚠️ Inválidos:');
+  hojaAnalisis.getRange(5, infoCol + 1).setValue(invalidos);
+  hojaAnalisis.getRange(5, infoCol + 1).setBackground('#fff9c4');
+
+  hojaAnalisis.getRange(7, infoCol).setValue('🔍 Filtro usado:');
+  hojaAnalisis.getRange(7, infoCol + 1).setValue(CONFIG_REFERENCIAS.FILTRO_PROGRAMA);
+
+  hojaAnalisis.getRange(8, infoCol).setValue('📝 Columna analizada:');
+  hojaAnalisis.getRange(8, infoCol + 1).setValue(
+    indKobo.aplica >= 0 ? headersKobo[indKobo.aplica] : 'NO ENCONTRADA'
+  );
+
+  // Auto-ajustar columnas
+  hojaAnalisis.autoResizeColumns(1, encabezados.length);
+  hojaAnalisis.setFrozenRows(1);
+
+  ss.setActiveSheet(hojaAnalisis);
+  ss.toast('✅ Análisis completado', 'Listo', 3);
+
+  let mensaje = '🔬 Análisis Detallado Completado\n\n';
+  mensaje += 'Registros totales: ' + resultados.length + '\n';
+  mensaje += '✅ Pasan filtro: ' + pasanFiltro + '\n';
+  mensaje += '❌ Filtrados: ' + filtrados + '\n';
+  mensaje += '⚠️ Inválidos: ' + invalidos + '\n\n';
+  mensaje += 'Revisa la hoja "DEBUG - Análisis Filtro" para ver\n';
+  mensaje += 'EXACTAMENTE qué está viendo el código en cada registro\n';
+  mensaje += 'y por qué se filtra o se acepta.';
+
+  ui.alert('🔬 Análisis Completo', mensaje, ui.ButtonSet.OK);
 }
 
 /**
