@@ -1635,8 +1635,16 @@ function alEditarAB(e) {
     }
   }
 
-  // === REFERENCIAS IL ===
-  // Acción de enviar a entrevista (Dinámico)
+  // === REFERENCIAS DE PROGRAMAS ===
+  // ¿Tiene Hoja de Interés? está en columna M (13) - marca con color
+  if (hoja === 'Referencias de Programas') {
+    if (columna === 13 && (val === 'Sí' || val === 'No')) {
+      procesarMarcaHojaInteres(sheet, fila, val);
+    }
+  }
+
+  // === REFERENCIAS IL (LEGACY) ===
+  // Acción de enviar a entrevista (Dinámico) - Mantener por compatibilidad
   if (hoja === 'Referencias IL') {
     const tituloColumna = sheet.getRange(1, columna).getValue().toString().trim();
     if ((tituloColumna === 'Acción' || columna === sheet.getLastColumn()) && val === 'Enviar a Entrevista') {
@@ -1649,7 +1657,7 @@ function alEditarAB(e) {
   // === HOJAS DE COHORTES INDIVIDUALES ===
   const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
                             'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte', 'Reportes Mensuales',
-                            'Lista Definitiva', 'Detalle Entrevistas'];
+                            'Lista Definitiva', 'Detalle Entrevistas', 'Referencias de Programas', 'Referencias IL'];
   if (!hojasPrincipales.includes(hoja)) {
     // Auto-rellenar Fecha (A) y No. (B) cuando se escribe el Nombre (E) manualmente
     if (columna === 5 && val !== '') {
@@ -2930,6 +2938,96 @@ function mostrarDialogoMotivoDesercion(nombre) {
   }
 
   return CONFIG_AB.MOTIVOS_DESERCION[num - 1];
+}
+
+/**
+ * Procesa el marcado de "¿Tiene Hoja de Interés?" en Referencias de Programas
+ * Solo marca con color, NO envía a ninguna hoja
+ * - Sí → Marca con verde claro (#c8e6c9)
+ * - No → Marca con rojo claro (#ffcdd2)
+ */
+function procesarMarcaHojaInteres(sheet, fila, tieneHoja) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  if (tieneHoja === 'Sí') {
+    sheet.getRange(fila, 13).setBackground('#c8e6c9'); // Verde claro
+    ss.toast('✅ Marcado como "Sí tiene hoja de interés"', 'Completado', 2);
+  }
+
+  if (tieneHoja === 'No') {
+    sheet.getRange(fila, 13).setBackground('#ffcdd2'); // Rojo claro
+    ss.toast('❌ Marcado como "No tiene hoja de interés"', 'Completado', 2);
+  }
+}
+
+/**
+ * Actualiza masivamente todas las marcas de "¿Tiene Hoja de Interés?"
+ * en Referencias de Programas sin eliminar registros
+ * Marca con colores: Sí=verde, No=rojo
+ */
+function actualizarReferenciasInteresMasivamente() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const sheet = ss.getSheetByName('Referencias de Programas');
+  if (!sheet) {
+    ui.alert('⚠️ Error', 'No existe la hoja "Referencias de Programas"', ui.ButtonSet.OK);
+    return;
+  }
+
+  const ultimaFila = sheet.getLastRow();
+  if (ultimaFila < 2) {
+    ui.alert('ℹ️ Sin registros', 'No hay registros para procesar en "Referencias de Programas"', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Confirmar con el usuario
+  const respuesta = ui.alert(
+    '📋 Actualizar Hojas de Interés',
+    'Se procesarán ' + (ultimaFila - 1) + ' registros en "Referencias de Programas".\n\n' +
+    'Esta acción marcará con colores según "¿Tiene Hoja de Interés?":\n' +
+    '• Sí → Verde claro\n' +
+    '• No → Rojo claro\n\n' +
+    'NO se eliminarán registros.\n\n' +
+    '¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    ss.toast('❌ Operación cancelada', 'Cancelado', 2);
+    return;
+  }
+
+  let procesados = 0;
+  let marcadosSi = 0;
+  let marcadosNo = 0;
+
+  // Procesar todas las filas
+  for (let fila = 2; fila <= ultimaFila; fila++) {
+    const tieneHoja = sheet.getRange(fila, 13).getValue(); // Columna M
+
+    if (tieneHoja === 'Sí') {
+      sheet.getRange(fila, 13).setBackground('#c8e6c9'); // Verde claro
+      marcadosSi++;
+      procesados++;
+    } else if (tieneHoja === 'No') {
+      sheet.getRange(fila, 13).setBackground('#ffcdd2'); // Rojo claro
+      marcadosNo++;
+      procesados++;
+    }
+  }
+
+  // Mostrar resumen
+  ui.alert(
+    '✅ Actualización Completada',
+    'Registros procesados: ' + procesados + '\n\n' +
+    '✅ Marcados "Sí": ' + marcadosSi + '\n' +
+    '❌ Marcados "No": ' + marcadosNo + '\n\n' +
+    'Los registros se han marcado con colores correctamente.',
+    ui.ButtonSet.OK
+  );
+
+  ss.toast('✅ Actualización masiva completada: ' + procesados + ' registros procesados', 'Completado', 4);
 }
 
 // =====================================================================
