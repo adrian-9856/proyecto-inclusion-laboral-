@@ -6796,6 +6796,9 @@ function setupMenuReferencias() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📋 Referencias de Programas')
     .addItem('Importar (Solo Nuevos)', 'importarReferenciasNuevas')
+    .addItem('📥 Importar TODAS (sin filtro)', 'importarTodasReferencias')
+    .addSeparator()
+    .addItem('🔍 Diagnóstico: Ver Datos Kobo', 'diagnosticarReferenciasKobo')
     .addSeparator()
     .addItem('▶️ Activar Auto-Update (5 min)', 'configurarAutoUpdateReferencias')
     .addItem('⏸️ Detener Auto-Update', 'detenerAutoUpdateReferencias')
@@ -7038,6 +7041,312 @@ function importarReferenciasNuevas(silencioso) {
     if (ui) ui.alert('Éxito', 'Se importaron ' + nuevosAgregados + ' referencias nuevas de la rama ALIMENTOS Y BEBIDAS.', ui.ButtonSet.OK);
   } else {
     if (ui) ui.alert('Información', 'Todo está al día. No se encontraron registros nuevos en Kobo para este programa.', ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * ========================================================================
+ * FUNCIÓN DE DIAGNÓSTICO: Ver datos de Kobo y filtros aplicados
+ * ========================================================================
+ * Esta función muestra información detallada sobre los datos en Kobo
+ * y por qué algunos registros no se están importando.
+ */
+function diagnosticarReferenciasKobo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  ui.alert('🔍 Diagnóstico de Referencias Kobo',
+    'Esta función analizará los datos de Kobo y mostrará:\n\n' +
+    '• Total de registros en Kobo\n' +
+    '• Registros que coinciden con el filtro "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"\n' +
+    '• Registros ya importados\n' +
+    '• Registros nuevos disponibles\n\n' +
+    'Los resultados se mostrarán en el log y en un mensaje.',
+    ui.ButtonSet.OK);
+
+  // Descargar datos de Kobo
+  let csvData;
+  try {
+    ss.toast('Descargando datos de Kobo...', 'Diagnóstico', 5);
+    const response = UrlFetchApp.fetch(CONFIG_REFERENCIAS.KOBO_URL);
+    csvData = response.getContentText('UTF-8');
+  } catch (e) {
+    ui.alert('Error', 'No se pudo conectar a KoboToolbox.\nDetalle: ' + e.message, ui.ButtonSet.OK);
+    return;
+  }
+
+  // Parsear CSV
+  let koboData;
+  try {
+    koboData = Utilities.parseCsv(csvData, ';');
+  } catch (e) {
+    koboData = parsearCSVManualIL(csvData, ';');
+  }
+
+  if (!koboData || koboData.length <= 1) {
+    ui.alert('Aviso', 'No hay datos en el formulario de Kobo.', ui.ButtonSet.OK);
+    return;
+  }
+
+  const headersKobo = koboData[0];
+  const totalRegistros = koboData.length - 1; // Sin contar encabezados
+
+  // Mapeo de columnas
+  const indKobo = {
+    uuid: buscarIndiceColumnaRef(headersKobo, ['_uuid', 'uuid']),
+    programa: buscarIndiceColumnaRef(headersKobo, ['programa que refiere', 'programa']),
+    nombre: buscarIndiceColumnaRef(headersKobo, ['nombre completo', 'nombre de la derivacion', 'derivacion']),
+    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado'])
+  };
+
+  // Obtener UUIDs ya importados
+  let hoja = ss.getSheetByName(CONFIG_REFERENCIAS.NOMBRE_HOJA);
+  const uuidsExistentes = new Set();
+
+  if (hoja) {
+    const datosHoja = hoja.getDataRange().getValues();
+    const headersHoja = datosHoja[0];
+    const colUuidHojaIdx = headersHoja.indexOf('_uuid');
+
+    if (colUuidHojaIdx >= 0) {
+      for (let i = 1; i < datosHoja.length; i++) {
+        if (datosHoja[i][colUuidHojaIdx]) {
+          uuidsExistentes.add(datosHoja[i][colUuidHojaIdx].toString().trim());
+        }
+      }
+    }
+  }
+
+  // Analizar registros
+  let registrosFiltrados = 0;
+  let registrosYaImportados = 0;
+  let registrosNuevos = 0;
+  let registrosInvalidos = 0;
+  const areasEncontradas = new Set();
+  const programasEncontrados = new Set();
+
+  Logger.log('=== DIAGNÓSTICO DE REFERENCIAS KOBO ===');
+  Logger.log('URL: ' + CONFIG_REFERENCIAS.KOBO_URL);
+  Logger.log('Filtro aplicado: "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"');
+  Logger.log('Total de registros en Kobo: ' + totalRegistros);
+  Logger.log('');
+
+  for (let i = 1; i < koboData.length; i++) {
+    const filaKobo = koboData[i];
+    const uuidActual = indKobo.uuid >= 0 ? filaKobo[indKobo.uuid].toString().trim() : '';
+    const nombreRef = indKobo.nombre >= 0 ? filaKobo[indKobo.nombre].toString().trim() : '';
+    const programaBruto = indKobo.programa >= 0 ? filaKobo[indKobo.programa].toString().trim() : '';
+    const areaAplica = indKobo.aplica >= 0 ? filaKobo[indKobo.aplica].toString().trim() : '';
+
+    // Registrar áreas y programas encontrados
+    if (areaAplica) areasEncontradas.add(areaAplica);
+    if (programaBruto) programasEncontrados.add(programaBruto);
+
+    // Verificar si es válido
+    if (!uuidActual || !nombreRef) {
+      registrosInvalidos++;
+      Logger.log('Registro ' + i + ' INVÁLIDO (sin UUID o nombre)');
+      continue;
+    }
+
+    // Verificar filtro
+    const filtroNorm = areaAplica.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const cumpleFiltro = filtroNorm.includes(CONFIG_REFERENCIAS.FILTRO_PROGRAMA);
+
+    if (!cumpleFiltro) {
+      registrosFiltrados++;
+      Logger.log('Registro ' + i + ' FILTRADO: Área "' + areaAplica + '" no contiene "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"');
+      continue;
+    }
+
+    // Verificar si ya fue importado
+    if (uuidsExistentes.has(uuidActual)) {
+      registrosYaImportados++;
+      Logger.log('Registro ' + i + ' YA IMPORTADO: ' + nombreRef);
+    } else {
+      registrosNuevos++;
+      Logger.log('Registro ' + i + ' NUEVO: ' + nombreRef + ' (Área: ' + areaAplica + ')');
+    }
+  }
+
+  Logger.log('');
+  Logger.log('=== RESUMEN ===');
+  Logger.log('Total en Kobo: ' + totalRegistros);
+  Logger.log('Inválidos (sin UUID/nombre): ' + registrosInvalidos);
+  Logger.log('Filtrados (no coinciden con "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"): ' + registrosFiltrados);
+  Logger.log('Ya importados: ' + registrosYaImportados);
+  Logger.log('Nuevos disponibles: ' + registrosNuevos);
+  Logger.log('');
+  Logger.log('Áreas encontradas en Kobo:');
+  areasEncontradas.forEach(area => Logger.log('  - ' + area));
+  Logger.log('');
+  Logger.log('Programas encontrados en Kobo:');
+  programasEncontrados.forEach(prog => Logger.log('  - ' + prog));
+
+  // Mostrar resultado al usuario
+  let mensaje = '📊 DIAGNÓSTICO COMPLETO\n\n';
+  mensaje += '📋 Total de registros en Kobo: ' + totalRegistros + '\n\n';
+  mensaje += '❌ Inválidos (sin UUID/nombre): ' + registrosInvalidos + '\n';
+  mensaje += '🔍 Filtrados (no son "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '"): ' + registrosFiltrados + '\n';
+  mensaje += '✅ Ya importados anteriormente: ' + registrosYaImportados + '\n';
+  mensaje += '🆕 Nuevos disponibles para importar: ' + registrosNuevos + '\n\n';
+
+  if (areasEncontradas.size > 0) {
+    mensaje += '📌 Áreas encontradas en Kobo:\n';
+    areasEncontradas.forEach(area => mensaje += '  • ' + area + '\n');
+  }
+
+  mensaje += '\n💡 TIP: Si ves áreas que deberían importarse pero están siendo filtradas,\n';
+  mensaje += 'verifica que contengan la palabra "' + CONFIG_REFERENCIAS.FILTRO_PROGRAMA + '" o ajusta el filtro.\n\n';
+  mensaje += '📝 Revisa la consola (Ver → Registros) para más detalles.';
+
+  ui.alert('🔍 Diagnóstico Completo', mensaje, ui.ButtonSet.OK);
+
+  // Si hay registros nuevos, preguntar si desea importar
+  if (registrosNuevos > 0) {
+    const respuesta = ui.alert('Importar Ahora',
+      '¿Deseas importar los ' + registrosNuevos + ' registros nuevos ahora?',
+      ui.ButtonSet.YES_NO);
+
+    if (respuesta === ui.Button.YES) {
+      importarReferenciasNuevas(false);
+    }
+  }
+}
+
+/**
+ * ========================================================================
+ * IMPORTAR TODAS LAS REFERENCIAS (SIN FILTRO DE PROGRAMA)
+ * ========================================================================
+ * Útil para diagnóstico o cuando se quiere ver TODOS los datos de Kobo
+ */
+function importarTodasReferencias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const confirmar = ui.alert('⚠️ Importar TODAS las referencias',
+    'Esta opción importará TODOS los registros de Kobo,\n' +
+    'sin filtrar por programa.\n\n' +
+    '¿Estás seguro de continuar?',
+    ui.ButtonSet.YES_NO);
+
+  if (confirmar !== ui.Button.YES) {
+    return;
+  }
+
+  let hoja = ss.getSheetByName(CONFIG_REFERENCIAS.NOMBRE_HOJA);
+  if (!hoja) {
+    hoja = crearHojaReferencias();
+  }
+
+  let csvData;
+  try {
+    ss.toast('Descargando datos de Kobo...', 'Importando', 5);
+    const response = UrlFetchApp.fetch(CONFIG_REFERENCIAS.KOBO_URL);
+    csvData = response.getContentText('UTF-8');
+  } catch (e) {
+    ui.alert('Error', 'No se pudo conectar a KoboToolbox.\nDetalle: ' + e.message, ui.ButtonSet.OK);
+    return;
+  }
+
+  let koboData;
+  try {
+    koboData = Utilities.parseCsv(csvData, ';');
+  } catch (e) {
+    koboData = parsearCSVManualIL(csvData, ';');
+  }
+
+  if (!koboData || koboData.length <= 1) {
+    ui.alert('Aviso', 'No hay datos en el formulario de Kobo.', ui.ButtonSet.OK);
+    return;
+  }
+
+  const headersKobo = koboData[0];
+
+  const indKobo = {
+    fecha: buscarIndiceColumnaRef(headersKobo, ['start', '_submission_time']),
+    uuid: buscarIndiceColumnaRef(headersKobo, ['_uuid', 'uuid']),
+    programa: buscarIndiceColumnaRef(headersKobo, ['programa que refiere', 'programa']),
+    responsable: buscarIndiceColumnaRef(headersKobo, ['responsable que deriva', 'nombre del responsable', 'responsable']),
+    nombre: buscarIndiceColumnaRef(headersKobo, ['nombre completo', 'nombre de la derivacion', 'derivacion']),
+    dpi: buscarIndiceColumnaRef(headersKobo, ['dpi / cui', 'cui', 'dpi']),
+    edad: buscarIndiceColumnaRef(headersKobo, ['edad']),
+    telefono: buscarIndiceColumnaRef(headersKobo, ['telefono', 'teléfono', 'tel', 'celular']),
+    nivelEdu: buscarIndiceColumnaRef(headersKobo, ['último nivel académico aprobado', 'nivel educativo', 'nivel académico', 'nivel cursado', 'escolaridad', 'grado académico', 'nivel de estudios', 'estudios', 'educación']),
+    zona: buscarIndiceColumnaRef(headersKobo, ['zona / colonia', 'zona de residencia', 'zona', 'colonia']),
+    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado']),
+    observaciones: buscarIndiceColumnaRef(headersKobo, ['observaciones', 'comentarios', 'notas'])
+  };
+
+  const datosHoja = hoja.getDataRange().getValues();
+  const headersHoja = datosHoja[0];
+  const colUuidHojaIdx = headersHoja.indexOf('_uuid');
+
+  const uuidsExistentes = new Set();
+  if (colUuidHojaIdx >= 0) {
+    for (let i = 1; i < datosHoja.length; i++) {
+      if (datosHoja[i][colUuidHojaIdx]) {
+        uuidsExistentes.add(datosHoja[i][colUuidHojaIdx].toString().trim());
+      }
+    }
+  }
+
+  let nuevosAgregados = 0;
+  const nuevasFilas = [];
+
+  for (let i = 1; i < koboData.length; i++) {
+    const filaKobo = koboData[i];
+    const uuidActual = indKobo.uuid >= 0 ? filaKobo[indKobo.uuid].toString().trim() : '';
+    const nombreRef = indKobo.nombre >= 0 ? filaKobo[indKobo.nombre].toString().trim() : '';
+
+    if (!uuidActual || !nombreRef) continue;
+
+    // SIN FILTRO DE PROGRAMA - importar todo
+
+    if (!uuidsExistentes.has(uuidActual)) {
+      const nuevaFila = new Array(headersHoja.length).fill('');
+
+      const setVal = (nombreCol, valor) => {
+        const idx = headersHoja.indexOf(nombreCol);
+        if (idx >= 0) nuevaFila[idx] = valor;
+      };
+
+      const programaBruto = indKobo.programa >= 0 ? filaKobo[indKobo.programa] : '';
+      const areaAplica = indKobo.aplica >= 0 ? filaKobo[indKobo.aplica] : '';
+
+      setVal('Fecha', indKobo.fecha >= 0 ? filaKobo[indKobo.fecha] : '');
+      setVal('_uuid', uuidActual);
+      setVal('Programa', programaBruto);
+      setVal('Nombre del responsable que deriva', indKobo.responsable >= 0 ? filaKobo[indKobo.responsable] : '');
+      setVal('Nombre Completo (según DPI)', nombreRef);
+      setVal('DPI', indKobo.dpi >= 0 ? filaKobo[indKobo.dpi] : '');
+      setVal('Edad', indKobo.edad >= 0 ? filaKobo[indKobo.edad] : '');
+      setVal('Teléfono', indKobo.telefono >= 0 ? filaKobo[indKobo.telefono] : '');
+      setVal('Nivel educativo', indKobo.nivelEdu >= 0 ? filaKobo[indKobo.nivelEdu] : '');
+      setVal('zona', indKobo.zona >= 0 ? filaKobo[indKobo.zona] : '');
+      setVal('¿En qué área está interesado/a?', areaAplica);
+      setVal('Observaciones / Comentarios adicionales', indKobo.observaciones >= 0 ? filaKobo[indKobo.observaciones] : '');
+      setVal('¿Se realizó hoja de interés?', 'No');
+
+      nuevasFilas.push(nuevaFila);
+      uuidsExistentes.add(uuidActual);
+      nuevosAgregados++;
+    }
+  }
+
+  if (nuevasFilas.length > 0) {
+    const ultimaFilaConDatos = hoja.getLastRow();
+    hoja.getRange(ultimaFilaConDatos + 1, 1, nuevasFilas.length, nuevasFilas[0].length).setValues(nuevasFilas);
+
+    const colAccionIdx = headersHoja.indexOf('¿Se realizó hoja de interés?') + 1;
+    if (colAccionIdx > 0) {
+      hoja.getRange(ultimaFilaConDatos + 1, colAccionIdx, nuevasFilas.length, 1)
+        .setBackground('#ffcdd2');
+    }
+
+    ui.alert('Éxito', 'Se importaron ' + nuevosAgregados + ' referencias nuevas (SIN filtro de programa).', ui.ButtonSet.OK);
+  } else {
+    ui.alert('Información', 'No hay registros nuevos en Kobo (todos ya fueron importados).', ui.ButtonSet.OK);
   }
 }
 
