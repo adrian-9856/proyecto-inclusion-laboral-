@@ -4311,13 +4311,38 @@ function configurarImportacionAutomatica() {
 // GESTIÓN DE COHORTES
 // =====================================================================
 
+/**
+ * Obtiene el siguiente número disponible para una cohorte con el mismo nombre base
+ * @param {string} nombreBase - El nombre base de la cohorte (ej: "barismo")
+ * @param {number} anio - El año de la cohorte
+ * @returns {number} El siguiente número disponible
+ */
+function obtenerSiguienteNumeroCohorte(nombreBase, anio) {
+  const cohortesExistentes = obtenerCohortesActuales();
+  const patron = new RegExp('^' + nombreBase + ' (\\d+) \\(' + anio + '\\)$', 'i');
+  const numerosExistentes = [];
+
+  cohortesExistentes.forEach(function(cohorte) {
+    const match = cohorte.match(patron);
+    if (match) {
+      numerosExistentes.push(parseInt(match[1]));
+    }
+  });
+
+  if (numerosExistentes.length === 0) {
+    return 1;
+  }
+
+  return Math.max.apply(null, numerosExistentes) + 1;
+}
+
 function crearNuevaCohorteAB() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   const respNombre = ui.prompt(
     '➕ Crear Nueva Cohorte - Paso 1/4',
-    'Ingresa el NOMBRE de la nueva cohorte:\n\nEjemplos: "SAC Cohorte III", "Computación Cohorte II"',
+    'Ingresa el NOMBRE de la nueva cohorte:\n\nEjemplos: "SAC Cohorte III", "Computación Cohorte II"\n\n(Se agregará automáticamente un número y el año)',
     ui.ButtonSet.OK_CANCEL
   );
   if (respNombre.getSelectedButton() !== ui.Button.OK) return;
@@ -4326,13 +4351,10 @@ function crearNuevaCohorteAB() {
 
   // Agregar año actual automáticamente entre paréntesis
   const anioActual = new Date().getFullYear();
-  const nombre = nombreBase + ' (' + anioActual + ')';
 
-  const cohortesExistentes = obtenerCohortesActuales();
-  if (cohortesExistentes.includes(nombre)) {
-    ui.alert('❌ Ya existe una cohorte con ese nombre: "' + nombre + '"');
-    return;
-  }
+  // Obtener el siguiente número disponible para esta cohorte
+  const numeroCohorte = obtenerSiguienteNumeroCohorte(nombreBase, anioActual);
+  const nombre = nombreBase + ' ' + numeroCohorte + ' (' + anioActual + ')';
 
   const respCupo = ui.prompt(
     '➕ Crear Nueva Cohorte - Paso 2/4',
