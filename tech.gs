@@ -1162,13 +1162,13 @@ function crearHojaListaDefinitiva() {
 }
 
 /**
- * HOJA DE INTERÉS - PROGRAMAS
+ * HOJA DE REFERENCIAS DE PROGRAMAS
  * Reemplaza la anterior "Referencias IL"
  */
 function crearHojaReferenciasProgramas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss.getSheetByName('Hoja de Interés - Programas')) return;
-  const sheet = ss.insertSheet('Hoja de Interés - Programas');
+  if (ss.getSheetByName('Referencias de Programas')) return;
+  const sheet = ss.insertSheet('Referencias de Programas');
 
   const headers = [
     'Fecha',            // A
@@ -1691,7 +1691,7 @@ function alEditarTech(e) {
   // === REFERENCIAS DE PROGRAMAS ===
   // ¿Se realizó hoja de interés? - verificar y marcar con colores
   // Mantiene compatibilidad con "Referencias IL" (legacy)
-  if (hoja === 'Hoja de Interés - Programas' || hoja === 'Referencias IL') {
+  if (hoja === 'Referencias de Programas' || hoja === 'Referencias IL') {
     const tituloColumna = sheet.getRange(1, columna).getValue().toString().trim();
     if (tituloColumna === '¿Se realizó hoja de interés?' && (val === 'Se realizó hoja de interés' || val === 'No')) {
       if (typeof procesarAccionReferencias === 'function') {
@@ -1703,7 +1703,7 @@ function alEditarTech(e) {
   // === HOJAS DE COHORTES INDIVIDUALES ===
   const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
                             'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte', 'Reportes Mensuales',
-                            'Lista Definitiva', 'Detalle Entrevistas', 'Referencias IL', 'Hoja de Interés - Programas'];
+                            'Lista Definitiva', 'Detalle Entrevistas', 'Referencias IL', 'Referencias de Programas'];
   if (!hojasPrincipales.includes(hoja)) {
     // Auto-rellenar Fecha (A) y No. (B) cuando se escribe el Nombre (E) manualmente
     if (columna === 5 && val !== '') {
@@ -2985,7 +2985,7 @@ function mostrarDialogoMotivoDesercion(nombre) {
 
 /**
  * Procesa marca de "¿Tiene Hoja de Interés?" en Hoja de Interés
- * - "Sí" → Marca con color verde y copia a Hoja de Interés - Programas
+ * - "Sí" → Marca con color verde y copia a Referencias de Programas
  * - "No" → Marca con color rojo
  * REEMPLAZA la lógica anterior de envío a lista de espera
  */
@@ -2994,9 +2994,9 @@ function procesarMarcaHojaInteres(sheet, fila, tieneHoja) {
   const datos = sheet.getRange(fila, 1, 1, 17).getValues()[0];
 
   if (tieneHoja === 'Sí') {
-    const referenciasPrograms = ss.getSheetByName('Hoja de Interés - Programas');
+    const referenciasPrograms = ss.getSheetByName('Referencias de Programas');
     if (!referenciasPrograms) {
-      ss.toast('⚠️ La hoja "Hoja de Interés - Programas" no existe. Créala primero.', 'Error', 3);
+      ss.toast('⚠️ La hoja "Referencias de Programas" no existe. Créala primero.', 'Error', 3);
       return;
     }
 
@@ -3024,7 +3024,7 @@ function procesarMarcaHojaInteres(sheet, fila, tieneHoja) {
 
     // Marcar la columna Q con color VERDE en Hoja de Interés
     sheet.getRange(fila, 17).setBackground('#c8e6c9'); // Verde claro
-    ss.toast('✅ Registro copiado a "Hoja de Interés - Programas" (Sí tiene hoja de interés)', 'Completado', 3);
+    ss.toast('✅ Registro copiado a "Referencias de Programas" (Sí tiene hoja de interés)', 'Completado', 3);
   }
 
   if (tieneHoja === 'No') {
@@ -3037,7 +3037,7 @@ function procesarMarcaHojaInteres(sheet, fila, tieneHoja) {
 /**
  * Actualiza masivamente todas las marcas de "¿Tiene Hoja de Interés?"
  * en la Hoja de Interés sin eliminar registros
- * - Copia los "Sí" a Hoja de Interés - Programas
+ * - Copia los "Sí" a Referencias de Programas
  * - Marca con colores: Sí=verde, No=rojo
  */
 function actualizarHojasInteresMasivamente() {
@@ -3050,9 +3050,9 @@ function actualizarHojasInteresMasivamente() {
     return;
   }
 
-  const referenciasPrograms = ss.getSheetByName('Hoja de Interés - Programas');
+  const referenciasPrograms = ss.getSheetByName('Referencias de Programas');
   if (!referenciasPrograms) {
-    ui.alert('⚠️ Error', 'No existe la hoja "Hoja de Interés - Programas". Créala primero.', ui.ButtonSet.OK);
+    ui.alert('⚠️ Error', 'No existe la hoja "Referencias de Programas". Créala primero.', ui.ButtonSet.OK);
     return;
   }
 
@@ -3066,7 +3066,7 @@ function actualizarHojasInteresMasivamente() {
   const respuesta = ui.alert(
     '📋 Actualización Masiva',
     'Esta acción procesará todos los registros en la columna "¿Tiene Hoja de Interés?" (columna Q).\n\n' +
-    '• Los que tienen "Sí" se copiarán a "Hoja de Interés - Programas" y se marcarán en VERDE.\n' +
+    '• Los que tienen "Sí" se copiarán a "Referencias de Programas" y se marcarán en VERDE.\n' +
     '• Los que tienen "No" se marcarán en ROJO.\n\n' +
     '⚠️ NO se eliminarán registros.\n\n' +
     '¿Continuar?',
@@ -3082,7 +3082,7 @@ function actualizarHojasInteresMasivamente() {
   let copiados = 0;
   let marcados = 0;
 
-  // Obtener IDs existentes en Hoja de Interés - Programas para evitar duplicados
+  // Obtener IDs existentes en Referencias de Programas para evitar duplicados
   const datosRef = referenciasPrograms.getDataRange().getValues();
   const idsExistentes = new Set();
   for (let i = 1; i < datosRef.length; i++) {
@@ -3101,7 +3101,7 @@ function actualizarHojasInteresMasivamente() {
 
     // Procesar según el valor
     if (tieneHoja === 'Sí') {
-      const referenciasPrograms = ss.getSheetByName('Hoja de Interés - Programas');
+      const referenciasPrograms = ss.getSheetByName('Referencias de Programas');
       if (referenciasPrograms) {
         const nuevaFila = obtenerPrimeraFilaVacia(referenciasPrograms, 'C');
 
@@ -3111,7 +3111,7 @@ function actualizarHojasInteresMasivamente() {
           hojaInteres.getRange(fila, 17).setBackground('#c8e6c9');
           marcados++;
         } else {
-          // No existe, copiar a Hoja de Interés - Programas
+          // No existe, copiar a Referencias de Programas
           const registro = [
             new Date(),           // A - Fecha
             nuevaFila - 1,        // B - No.
@@ -3147,7 +3147,7 @@ function actualizarHojasInteresMasivamente() {
   // Mostrar resumen
   const mensaje = '✅ ACTUALIZACIÓN COMPLETADA\n\n' +
     '📊 Registros procesados: ' + procesados + '\n' +
-    '📋 Copiados a Hoja de Interés - Programas: ' + copiados + '\n' +
+    '📋 Copiados a Referencias de Programas: ' + copiados + '\n' +
     '🎨 Celdas marcadas con color: ' + marcados;
 
   ui.alert('Completado', mensaje, ui.ButtonSet.OK);
@@ -6844,7 +6844,7 @@ function resaltarSiEs2026(range, valorFechaOAnio) {
 
 const CONFIG_REFERENCIAS = {
   KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/afuD8C8AzoLfd4o5ksTWUw/export-settings/es52swrnjWcz8NnhY5Wyng3/data.csv',
-  NOMBRE_HOJA: 'Hoja de Interés - Programas',
+  NOMBRE_HOJA: 'Referencias de Programas',
   HOJA_DESTINO: 'Entrevistas',
   OPCION_ENVIAR: 'Se realizó hoja de interés',
   FILTRO_PROGRAMA: 'tecnolog' // Filtro clave para ignorar acentos: "tecnología", "tecnologia"
@@ -6852,7 +6852,7 @@ const CONFIG_REFERENCIAS = {
 
 function setupMenuReferencias() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('📋 Hoja de Interés - Programas')
+  ui.createMenu('📋 Referencias de Programas')
     .addItem('Importar (Solo Nuevos)', 'importarReferenciasNuevas')
     .addSeparator()
     .addItem('▶️ Activar Auto-Update (5 min)', 'configurarAutoUpdateReferencias')
@@ -6874,7 +6874,7 @@ function configurarAutoUpdateReferencias() {
     .everyMinutes(5)
     .create();
     
-  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Auto-Update cada 5 min activado.', 'Hoja de Interés - Programas', 5);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Auto-Update cada 5 min activado.', 'Referencias de Programas', 5);
 }
 
 function detenerAutoUpdateReferencias(silencioso) {
@@ -6940,7 +6940,7 @@ function crearHojaReferencias() {
     
     hoja.setFrozenRows(1);
     
-    Logger.log('Hoja Hoja de Interés - Programas creada.');
+    Logger.log('Hoja Referencias de Programas creada.');
   }
   
   // Siempre re-aplicar validación a la columna de hoja de interés
