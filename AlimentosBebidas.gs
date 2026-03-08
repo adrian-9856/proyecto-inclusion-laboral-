@@ -1161,13 +1161,13 @@ function crearHojaListaDefinitiva() {
 }
 
 /**
- * HOJA DE REFERENCIAS DE PROGRAMAS
+ * HOJA DE INTERÉS - PROGRAMAS
  * Reemplaza la anterior "Referencias IL"
  */
 function crearHojaReferenciasProgramas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss.getSheetByName('Referencias de Programas')) return;
-  const sheet = ss.insertSheet('Referencias de Programas');
+  if (ss.getSheetByName('Hoja de Interés - Programas')) return;
+  const sheet = ss.insertSheet('Hoja de Interés - Programas');
 
   const headers = [
     'Fecha',            // A
@@ -1684,7 +1684,7 @@ function alEditarAB(e) {
 
   // === REFERENCIAS DE PROGRAMAS ===
   // ¿Tiene Hoja de Interés? está en columna M (13) - marca con color
-  if (hoja === 'Referencias de Programas') {
+  if (hoja === 'Hoja de Interés - Programas') {
     if (columna === 13 && (val === 'Sí' || val === 'No')) {
       procesarMarcaHojaInteres(sheet, fila, val);
     }
@@ -1693,7 +1693,7 @@ function alEditarAB(e) {
   // === REFERENCIAS DE PROGRAMAS ===
   // Acción de verificar hojas de interés (marcar con colores)
   // Mantiene compatibilidad con "Referencias IL" (legacy)
-  if (hoja === 'Referencias de Programas' || hoja === 'Referencias IL') {
+  if (hoja === 'Hoja de Interés - Programas' || hoja === 'Referencias IL') {
     const tituloColumna = sheet.getRange(1, columna).getValue().toString().trim();
     if (tituloColumna === 'Acción' && (val === 'Se realizó hoja de interés' || val === 'No')) {
       if (typeof procesarAccionReferencias === 'function') {
@@ -1705,7 +1705,7 @@ function alEditarAB(e) {
   // === HOJAS DE COHORTES INDIVIDUALES ===
   const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
                             'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte', 'Reportes Mensuales',
-                            'Lista Definitiva', 'Detalle Entrevistas', 'Referencias de Programas', 'Referencias IL'];
+                            'Lista Definitiva', 'Detalle Entrevistas', 'Hoja de Interés - Programas', 'Referencias IL'];
   if (!hojasPrincipales.includes(hoja)) {
     // Auto-rellenar Fecha (A) y No. (B) cuando se escribe el Nombre (E) manualmente
     if (columna === 5 && val !== '') {
@@ -2989,7 +2989,7 @@ function mostrarDialogoMotivoDesercion(nombre) {
 }
 
 /**
- * Procesa el marcado de "¿Tiene Hoja de Interés?" en Referencias de Programas
+ * Procesa el marcado de "¿Tiene Hoja de Interés?" en Hoja de Interés - Programas
  * Solo marca con color, NO envía a ninguna hoja
  * - Sí → Marca con verde claro (#c8e6c9)
  * - No → Marca con rojo claro (#ffcdd2)
@@ -3010,29 +3010,29 @@ function procesarMarcaHojaInteres(sheet, fila, tieneHoja) {
 
 /**
  * Actualiza masivamente todas las marcas de "¿Tiene Hoja de Interés?"
- * en Referencias de Programas sin eliminar registros
+ * en Hoja de Interés - Programas sin eliminar registros
  * Marca con colores: Sí=verde, No=rojo
  */
 function actualizarReferenciasInteresMasivamente() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
-  const sheet = ss.getSheetByName('Referencias de Programas');
+  const sheet = ss.getSheetByName('Hoja de Interés - Programas');
   if (!sheet) {
-    ui.alert('⚠️ Error', 'No existe la hoja "Referencias de Programas"', ui.ButtonSet.OK);
+    ui.alert('⚠️ Error', 'No existe la hoja "Hoja de Interés - Programas"', ui.ButtonSet.OK);
     return;
   }
 
   const ultimaFila = sheet.getLastRow();
   if (ultimaFila < 2) {
-    ui.alert('ℹ️ Sin registros', 'No hay registros para procesar en "Referencias de Programas"', ui.ButtonSet.OK);
+    ui.alert('ℹ️ Sin registros', 'No hay registros para procesar en "Hoja de Interés - Programas"', ui.ButtonSet.OK);
     return;
   }
 
   // Confirmar con el usuario
   const respuesta = ui.alert(
     '📋 Actualizar Hojas de Interés',
-    'Se procesarán ' + (ultimaFila - 1) + ' registros en "Referencias de Programas".\n\n' +
+    'Se procesarán ' + (ultimaFila - 1) + ' registros en "Hoja de Interés - Programas".\n\n' +
     'Esta acción marcará con colores según "¿Tiene Hoja de Interés?":\n' +
     '• Sí → Verde claro\n' +
     '• No → Rojo claro\n\n' +
@@ -6697,7 +6697,7 @@ function resaltarTodos2026() {
 
 const CONFIG_REFERENCIAS = {
   KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/afuD8C8AzoLfd4o5ksTWUw/export-settings/es52swrnjWcz8NnhY5Wyng3/data.csv',
-  NOMBRE_HOJA: 'Referencias de Programas',
+  NOMBRE_HOJA: 'Hoja de Interés - Programas',
   HOJA_DESTINO: 'Entrevistas',
   OPCION_ENVIAR: 'Se realizó hoja de interés',
   FILTRO_PROGRAMA: 'alimentos' // Filtro clave para Alimentos y Bebidas
@@ -6705,7 +6705,7 @@ const CONFIG_REFERENCIAS = {
 
 function setupMenuReferencias() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('📋 Referencias de Programas')
+  ui.createMenu('📋 Hoja de Interés - Programas')
     .addItem('Importar (Solo Nuevos)', 'importarReferenciasNuevas')
     .addSeparator()
     .addItem('▶️ Activar Auto-Update (5 min)', 'configurarAutoUpdateReferencias')
@@ -6727,7 +6727,7 @@ function configurarAutoUpdateReferencias() {
     .everyMinutes(5)
     .create();
     
-  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Auto-Update cada 5 min activado.', 'Referencias de Programas', 5);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Auto-Update cada 5 min activado.', 'Hoja de Interés - Programas', 5);
 }
 
 function detenerAutoUpdateReferencias(silencioso) {
@@ -6793,7 +6793,7 @@ function crearHojaReferencias() {
     
     hoja.setFrozenRows(1);
     
-    Logger.log('Hoja Referencias de Programas creada.');
+    Logger.log('Hoja Hoja de Interés - Programas creada.');
   }
   
   // Siempre re-aplicar validación a la columna de acción
