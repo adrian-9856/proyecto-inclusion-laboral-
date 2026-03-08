@@ -181,7 +181,6 @@ function setupMenuTech() {
       .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
       .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboTech')
       .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
-      .addItem('📋 Actualizar Hojas de Interés Masivamente', 'actualizarHojasInteresMasivamente')
       .addSeparator()
 
       // ========== REPORTES Y EXPORTACIÓN ==========

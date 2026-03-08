@@ -181,7 +181,6 @@ function setupMenuAB() {
       .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
       .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboAB')
       .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
-      .addItem('📋 Actualizar Hojas de Interés Masivamente', 'actualizarReferenciasInteresMasivamente')
       .addSeparator()
 
       // ========== REPORTES Y EXPORTACIÓN ==========
