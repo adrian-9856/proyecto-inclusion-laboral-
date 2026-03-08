@@ -7018,7 +7018,7 @@ function importarReferenciasNuevas(silencioso) {
     telefono: buscarIndiceColumnaRef(headersKobo, ['telefono', 'teléfono', 'tel', 'celular']),
     nivelEdu: buscarIndiceColumnaRef(headersKobo, ['último nivel académico aprobado', 'nivel educativo', 'nivel académico', 'nivel cursado', 'escolaridad', 'grado académico', 'nivel de estudios', 'estudios', 'educación']),
     zona: buscarIndiceColumnaRef(headersKobo, ['zona / colonia', 'zona de residencia', 'zona', 'colonia']),
-    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado']),
+    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado', 'area', 'área', 'programa de interés', 'servicio', 'formación']),
     observaciones: buscarIndiceColumnaRef(headersKobo, ['observaciones', 'comentarios', 'notas'])
   };
   
@@ -7050,11 +7050,20 @@ function importarReferenciasNuevas(silencioso) {
     // VERIFICACIÓN DE FILTRO PARA TECNOLOGÍA
     const programaBruto = indKobo.programa >= 0 ? filaKobo[indKobo.programa].toString().trim() : '';
     const areaAplica = indKobo.aplica >= 0 ? filaKobo[indKobo.aplica].toString().trim() : '';
-    
-    // El Kobo guarda "Tecnología" o "Alimentos" en el campo de "área", no en "programa"
-    const filtroNorm = areaAplica.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    
-    if (!filtroNorm.includes(CONFIG_REFERENCIAS.FILTRO_PROGRAMA)) {
+
+    // Buscar en múltiples campos: área, programa
+    const textosCombinados = [areaAplica, programaBruto].join(' ').toLowerCase();
+    const filtroNorm = textosCombinados.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    // Buscar "tecnologia", "tecnología", "marketing", "programacion", etc.
+    const esTecnologia = filtroNorm.includes(CONFIG_REFERENCIAS.FILTRO_PROGRAMA) ||
+                         filtroNorm.includes('marketing') ||
+                         filtroNorm.includes('programacion') ||
+                         filtroNorm.includes('alfabetizacion') ||
+                         filtroNorm.includes('microsoft') ||
+                         filtroNorm.includes('servicio al cliente');
+
+    if (!esTecnologia) {
       continue; // IGNORAR SI NO ES REFERENCIA DE TECNOLOGIA
     }
 
@@ -7694,7 +7703,7 @@ function importarTodasReferencias() {
     telefono: buscarIndiceColumnaRef(headersKobo, ['telefono', 'teléfono', 'tel', 'celular']),
     nivelEdu: buscarIndiceColumnaRef(headersKobo, ['último nivel académico aprobado', 'nivel educativo', 'nivel académico', 'nivel cursado', 'escolaridad', 'grado académico', 'nivel de estudios', 'estudios', 'educación']),
     zona: buscarIndiceColumnaRef(headersKobo, ['zona / colonia', 'zona de residencia', 'zona', 'colonia']),
-    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado']),
+    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado', 'area', 'área', 'programa de interés', 'servicio', 'formación']),
     observaciones: buscarIndiceColumnaRef(headersKobo, ['observaciones', 'comentarios', 'notas'])
   };
 
