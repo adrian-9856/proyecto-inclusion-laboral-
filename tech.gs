@@ -1689,11 +1689,11 @@ function alEditarTech(e) {
   }
 
   // === REFERENCIAS DE PROGRAMAS ===
-  // Acción de enviar a entrevista (Dinámico)
+  // Acción de verificar hojas de interés (marcar con colores)
   // Mantiene compatibilidad con "Referencias IL" (legacy)
   if (hoja === 'Referencias de Programas' || hoja === 'Referencias IL') {
     const tituloColumna = sheet.getRange(1, columna).getValue().toString().trim();
-    if ((tituloColumna === 'Acción' || columna === sheet.getLastColumn()) && val === 'Enviar a Entrevista') {
+    if (tituloColumna === 'Acción' && (val === 'Se realizó hoja de interés' || val === 'No')) {
       if (typeof procesarAccionReferencias === 'function') {
         procesarAccionReferencias(sheet, fila, val);
       }
@@ -6824,7 +6824,7 @@ const CONFIG_REFERENCIAS = {
   KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/afuD8C8AzoLfd4o5ksTWUw/export-settings/es52swrnjWcz8NnhY5Wyng3/data.csv',
   NOMBRE_HOJA: 'Referencias de Programas',
   HOJA_DESTINO: 'Entrevistas',
-  OPCION_ENVIAR: 'Enviar a Entrevista',
+  OPCION_ENVIAR: 'Se realizó hoja de interés',
   FILTRO_PROGRAMA: 'tecnolog' // Filtro clave para ignorar acentos: "tecnología", "tecnologia"
 };
 
@@ -6930,7 +6930,7 @@ function crearHojaReferencias() {
     const rangoAccion = hoja.getRange(2, colAccionIdx, Math.max(hoja.getMaxRows() - 1, 100));
     rangoAccion.setDataValidation(
       SpreadsheetApp.newDataValidation()
-        .requireValueInList([CONFIG_REFERENCIAS.OPCION_ENVIAR], true)
+        .requireValueInList(['No', CONFIG_REFERENCIAS.OPCION_ENVIAR], true)
         .setAllowInvalid(false)
         .build()
     );
@@ -7052,7 +7052,8 @@ function importarReferenciasNuevas(silencioso) {
       setVal('zona', indKobo.zona >= 0 ? filaKobo[indKobo.zona] : '');
       setVal('¿En qué área está interesado/a?', indKobo.aplica >= 0 ? filaKobo[indKobo.aplica] : '');
       setVal('Observaciones / Comentarios adicionales', indKobo.observaciones >= 0 ? filaKobo[indKobo.observaciones] : '');
-      
+      setVal('Acción', 'No'); // Por defecto: No se ha realizado hoja de interés
+
       nuevasFilas.push(nuevaFila);
       uuidsExistentes.add(uuidActual); 
       nuevosAgregados++;
@@ -7062,6 +7063,14 @@ function importarReferenciasNuevas(silencioso) {
   if (nuevasFilas.length > 0) {
     const ultimaFilaConDatos = hoja.getLastRow();
     hoja.getRange(ultimaFilaConDatos + 1, 1, nuevasFilas.length, nuevasFilas[0].length).setValues(nuevasFilas);
+
+    // Pintar de rojo la columna "Acción" para las nuevas filas (porque son "No")
+    const colAccionIdx = headersHoja.indexOf('Acción') + 1;
+    if (colAccionIdx > 0) {
+      hoja.getRange(ultimaFilaConDatos + 1, colAccionIdx, nuevasFilas.length, 1)
+        .setBackground('#ffcdd2'); // Rojo claro
+    }
+
     if (ui) ui.alert('Éxito', 'Se importaron ' + nuevosAgregados + ' referencias nuevas de la rama TECNOLOGÍA.', ui.ButtonSet.OK);
   } else {
     if (ui) ui.alert('Información', 'Todo está al día. No se encontraron registros nuevos en Kobo para este programa.', ui.ButtonSet.OK);
@@ -7069,88 +7078,23 @@ function importarReferenciasNuevas(silencioso) {
 }
 
 function procesarAccionReferencias(sheet, fila, accion) {
-  if (accion !== CONFIG_REFERENCIAS.OPCION_ENVIAR) return;
-  
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hojaDestino = ss.getSheetByName(CONFIG_REFERENCIAS.HOJA_DESTINO);
-  const ui = SpreadsheetApp.getUi();
-  
-  if (!hojaDestino) {
-    ui.alert('Error', 'La hoja destino "' + CONFIG_REFERENCIAS.HOJA_DESTINO + '" no existe. Crea la hoja Entrevistas primero.', ui.ButtonSet.OK);
-    // Limpiar el dropdown
-    sheet.getRange(fila, sheet.getLastColumn()).clearContent();
-    return;
+  // Solo procesar cuando se marca "Se realizó hoja de interés"
+  if (accion === CONFIG_REFERENCIAS.OPCION_ENVIAR) {
+    // Marcar con color verde (ya se realizó hoja de interés)
+    const headersRef = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const colAccion = headersRef.indexOf('Acción') + 1;
+    if (colAccion > 0) {
+      sheet.getRange(fila, colAccion).setBackground('#c8e6c9'); // Verde claro
+    }
+    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Marcado como hoja de interés realizada', 'Actualizado', 3);
+  } else if (accion === 'No') {
+    // Marcar con color rojo (no se ha realizado)
+    const headersRef = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const colAccion = headersRef.indexOf('Acción') + 1;
+    if (colAccion > 0) {
+      sheet.getRange(fila, colAccion).setBackground('#ffcdd2'); // Rojo claro
+    }
   }
-  
-  // Obtener datos de la fila de referencia
-  const headersRef = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const datosRef = sheet.getRange(fila, 1, 1, sheet.getLastColumn()).getValues()[0];
-  
-  const getValRef = (nombre) => {
-    const idx = headersRef.indexOf(nombre);
-    return idx >= 0 ? datosRef[idx] : '';
-  };
-  
-  // Preparar fila para Entrevistas
-  const headersDest = hojaDestino.getRange(1, 1, 1, hojaDestino.getLastColumn()).getValues()[0];
-  const nuevaFilaDest = new Array(headersDest.length).fill('');
-  
-  // Mapear columnas dinámicamente ignorando mayúsculas/minúsculas y acentos
-  const normalize = (str) => {
-    if (!str) return '';
-    return str.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  }
-  
-  const headersDestNorm = headersDest.map(h => normalize(h));
-  
-  const setValDestInfo = (nombreBuscado, valor) => {
-    const normBuscado = normalize(nombreBuscado);
-    let idx = headersDestNorm.findIndex(h => h.includes(normBuscado));
-    if (idx >= 0) nuevaFilaDest[idx] = valor;
-  };
-  
-  // Mapeos
-  setValDestInfo('Fecha', new Date()); 
-  setValDestInfo('DPI', getValRef('DPI'));
-  setValDestInfo('Nombre', getValRef('Nombre de la derivación'));
-  setValDestInfo('Edad', getValRef('Edad'));
-  setValDestInfo('Tel', getValRef('Teléfono')); // A veces es Tel o Teléfono
-  setValDestInfo('Nivel Edu', getValRef('Nivel educativo'));
-  setValDestInfo('Zona', getValRef('Zona de Residencia'));
-  setValDestInfo('Entrevistador', getValRef('Responsable')); 
-  
-  // Combinar campos en Observaciones
-  const prog = getValRef('Programa');
-  const aplica = getValRef('¿Aplica para puesto y por qué?');
-  const obsOrig = getValRef('Observaciones / Comentarios adicionales');
-  
-  let obs = "[REFERENCIA IL - TECNOLOGÍA]\n";
-  if (prog) obs += "Origen: " + prog + "\n";
-  if (aplica) obs += "Aplica: " + aplica + "\n";
-  if (obsOrig) obs += "Nota: " + obsOrig;
-                                 
-  setValDestInfo('Observacion', obs); // Observacion o Observaciones
-  setValDestInfo('Estado', 'Pendiente'); 
-  
-  // Insertar en hoja destino
-  const primerFilaVacia = obtenerPrimeraFilaVaciaRef(hojaDestino, 'E'); 
-  hojaDestino.getRange(primerFilaVacia, 1, 1, nuevaFilaDest.length).setValues([nuevaFilaDest]);
-  
-  // Formato visual distintivo en Entrevistas
-  hojaDestino.getRange(primerFilaVacia, 1, 1, nuevaFilaDest.length).setBackground('#e3f2fd'); // Azul Tech claro
-  
-  // Limpiar/Marcar en origen
-  const colAccion = headersRef.indexOf('Acción') + 1;
-  sheet.getRange(fila, colAccion).setValue('Enviado a Entrevista').setBackground('#c8e6c9');
-  
-  // Autocompletar datos usando la lógica existente en tech.gs si es posible
-  if (typeof autocompletarDesdeCreamosID === 'function') {
-    try {
-      autocompletarDesdeCreamosID(true);
-    } catch(e) {}
-  }
-  
-  ss.toast('✅ Referencia de Tecnología enviada a Entrevistas', 'Completado', 5);
 }
 
 // =====================================================================
