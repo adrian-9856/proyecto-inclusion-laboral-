@@ -1689,11 +1689,11 @@ function alEditarTech(e) {
   }
 
   // === REFERENCIAS DE PROGRAMAS ===
-  // Acción de verificar hojas de interés (marcar con colores)
+  // ¿Se realizó hoja de interés? - verificar y marcar con colores
   // Mantiene compatibilidad con "Referencias IL" (legacy)
   if (hoja === 'Hoja de Interés - Programas' || hoja === 'Referencias IL') {
     const tituloColumna = sheet.getRange(1, columna).getValue().toString().trim();
-    if (tituloColumna === 'Acción' && (val === 'Se realizó hoja de interés' || val === 'No')) {
+    if (tituloColumna === '¿Se realizó hoja de interés?' && (val === 'Se realizó hoja de interés' || val === 'No')) {
       if (typeof procesarAccionReferencias === 'function') {
         procesarAccionReferencias(sheet, fila, val);
       }
@@ -6901,13 +6901,13 @@ function crearHojaReferencias() {
   if (!hoja) {
     hoja = ss.insertSheet(CONFIG_REFERENCIAS.NOMBRE_HOJA);
     
-    // Configurar encabezados basados en Kobo + Acción
+    // Configurar encabezados basados en Kobo + ¿Se realizó hoja de interés?
     const headers = [
-      'Fecha', 
-      '_uuid', 
-      'Programa', 
-      'Nombre del responsable que deriva', 
-      'Nombre Completo (según DPI)', 
+      'Fecha',
+      '_uuid',
+      'Programa',
+      'Nombre del responsable que deriva',
+      'Nombre Completo (según DPI)',
       'DPI',
       'Edad',
       'Teléfono',
@@ -6915,7 +6915,7 @@ function crearHojaReferencias() {
       'zona',
       '¿En qué área está interesado/a?',
       'Observaciones / Comentarios adicionales',
-      'Acción' 
+      '¿Se realizó hoja de interés?' 
     ];
     
     hoja.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -6943,10 +6943,10 @@ function crearHojaReferencias() {
     Logger.log('Hoja Hoja de Interés - Programas creada.');
   }
   
-  // Siempre re-aplicar validación a la columna de acción
+  // Siempre re-aplicar validación a la columna de hoja de interés
   const ultimaCol = hoja.getLastColumn();
   const headersRow = hoja.getRange(1, 1, 1, ultimaCol).getValues()[0];
-  const colAccionIdx = headersRow.indexOf('Acción') + 1;
+  const colAccionIdx = headersRow.indexOf('¿Se realizó hoja de interés?') + 1;
   
   if (colAccionIdx > 0) {
     const rangoAccion = hoja.getRange(2, colAccionIdx, Math.max(hoja.getMaxRows() - 1, 100));
@@ -7008,13 +7008,13 @@ function importarReferenciasNuevas(silencioso) {
     programa: buscarIndiceColumnaRef(headersKobo, ['programa que refiere', 'programa']),
     responsable: buscarIndiceColumnaRef(headersKobo, ['responsable que deriva', 'nombre del responsable', 'responsable']),
     nombre: buscarIndiceColumnaRef(headersKobo, ['nombre completo', 'nombre de la derivacion', 'derivacion']),
-    dpi: buscarIndiceColumnaRef(headersKobo, ['dpi / cui', 'cui']),
+    dpi: buscarIndiceColumnaRef(headersKobo, ['dpi / cui', 'cui', 'dpi']),
     edad: buscarIndiceColumnaRef(headersKobo, ['edad']),
-    telefono: buscarIndiceColumnaRef(headersKobo, ['telefono', 'teléfono']),
-    nivelEdu: buscarIndiceColumnaRef(headersKobo, ['nivel académico', 'nivel cursado', 'nivel educativo']),
-    zona: buscarIndiceColumnaRef(headersKobo, ['zona / colonia', 'zona de residencia', 'zona']),
-    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto']),
-    observaciones: buscarIndiceColumnaRef(headersKobo, ['observaciones', 'comentarios'])
+    telefono: buscarIndiceColumnaRef(headersKobo, ['telefono', 'teléfono', 'tel', 'celular']),
+    nivelEdu: buscarIndiceColumnaRef(headersKobo, ['nivel educativo', 'nivel académico', 'nivel cursado', 'escolaridad', 'grado académico', 'nivel de estudios', 'estudios', 'educación']),
+    zona: buscarIndiceColumnaRef(headersKobo, ['zona / colonia', 'zona de residencia', 'zona', 'colonia']),
+    aplica: buscarIndiceColumnaRef(headersKobo, ['en qué área', 'aplica para puesto', 'área de interés', 'interesado']),
+    observaciones: buscarIndiceColumnaRef(headersKobo, ['observaciones', 'comentarios', 'notas'])
   };
   
   // Obtener UUIDs existentes en la hoja
@@ -7074,20 +7074,20 @@ function importarReferenciasNuevas(silencioso) {
       setVal('zona', indKobo.zona >= 0 ? filaKobo[indKobo.zona] : '');
       setVal('¿En qué área está interesado/a?', indKobo.aplica >= 0 ? filaKobo[indKobo.aplica] : '');
       setVal('Observaciones / Comentarios adicionales', indKobo.observaciones >= 0 ? filaKobo[indKobo.observaciones] : '');
-      setVal('Acción', 'No'); // Por defecto: No se ha realizado hoja de interés
+      setVal('¿Se realizó hoja de interés?', 'No'); // Por defecto: No se ha realizado hoja de interés
 
       nuevasFilas.push(nuevaFila);
-      uuidsExistentes.add(uuidActual); 
+      uuidsExistentes.add(uuidActual);
       nuevosAgregados++;
     }
   }
-  
+
   if (nuevasFilas.length > 0) {
     const ultimaFilaConDatos = hoja.getLastRow();
     hoja.getRange(ultimaFilaConDatos + 1, 1, nuevasFilas.length, nuevasFilas[0].length).setValues(nuevasFilas);
 
-    // Pintar de rojo la columna "Acción" para las nuevas filas (porque son "No")
-    const colAccionIdx = headersHoja.indexOf('Acción') + 1;
+    // Pintar de rojo la columna "¿Se realizó hoja de interés?" para las nuevas filas (porque son "No")
+    const colAccionIdx = headersHoja.indexOf('¿Se realizó hoja de interés?') + 1;
     if (colAccionIdx > 0) {
       hoja.getRange(ultimaFilaConDatos + 1, colAccionIdx, nuevasFilas.length, 1)
         .setBackground('#ffcdd2'); // Rojo claro
@@ -7104,7 +7104,7 @@ function procesarAccionReferencias(sheet, fila, accion) {
   if (accion === CONFIG_REFERENCIAS.OPCION_ENVIAR) {
     // Marcar con color verde (ya se realizó hoja de interés)
     const headersRef = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const colAccion = headersRef.indexOf('Acción') + 1;
+    const colAccion = headersRef.indexOf('¿Se realizó hoja de interés?') + 1;
     if (colAccion > 0) {
       sheet.getRange(fila, colAccion).setBackground('#c8e6c9'); // Verde claro
     }
@@ -7112,7 +7112,7 @@ function procesarAccionReferencias(sheet, fila, accion) {
   } else if (accion === 'No') {
     // Marcar con color rojo (no se ha realizado)
     const headersRef = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const colAccion = headersRef.indexOf('Acción') + 1;
+    const colAccion = headersRef.indexOf('¿Se realizó hoja de interés?') + 1;
     if (colAccion > 0) {
       sheet.getRange(fila, colAccion).setBackground('#ffcdd2'); // Rojo claro
     }
