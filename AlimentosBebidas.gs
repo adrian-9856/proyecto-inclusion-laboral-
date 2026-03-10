@@ -2288,19 +2288,34 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   const colMapCohorte = obtenerMapaColumnas(hojaCohorte);
 
   // VALIDACIÓN: Verificar que no esté duplicado
-  if (creamosId && creamosId.toString().trim() !== '') {
-    const idxCreamosIdCohorte = colMapCohorte['creamos id'];
-    if (idxCreamosIdCohorte !== undefined) {
-      const datosCohorte = hojaCohorte.getDataRange().getValues();
-      for (let i = 1; i < datosCohorte.length; i++) {
-        const idExistente = datosCohorte[i][idxCreamosIdCohorte] ? datosCohorte[i][idxCreamosIdCohorte].toString().trim() : '';
-        if (idExistente === creamosId.toString().trim()) {
-          ss.toast('⚠️ ' + nombre + ' ya está en la cohorte "' + cohorteDestino + '"', 'Duplicado', 4);
-          const colEnvio = colMapInscritx['enviar a cohorte'];
-          if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
-          return;
-        }
+  const idxCreamosIdCohorte = colMapCohorte['creamos id'];
+  const idxNombreCohorte = colMapCohorte['nombre completo'];
+  const datosCohorte = hojaCohorte.getDataRange().getValues();
+
+  for (let i = 1; i < datosCohorte.length; i++) {
+    let esDuplicado = false;
+
+    // Verificar por Creamos ID si existe
+    if (creamosId && creamosId.toString().trim() !== '' && idxCreamosIdCohorte !== undefined) {
+      const idExistente = datosCohorte[i][idxCreamosIdCohorte] ? datosCohorte[i][idxCreamosIdCohorte].toString().trim() : '';
+      if (idExistente !== '' && idExistente === creamosId.toString().trim()) {
+        esDuplicado = true;
       }
+    }
+
+    // Verificar por Nombre Completo (fallback si no hay Creamos ID o validación adicional)
+    if (!esDuplicado && nombre && nombre.toString().trim() !== '' && idxNombreCohorte !== undefined) {
+      const nombreExistente = datosCohorte[i][idxNombreCohorte] ? datosCohorte[i][idxNombreCohorte].toString().trim().toLowerCase() : '';
+      if (nombreExistente !== '' && nombreExistente === nombre.toString().trim().toLowerCase()) {
+        esDuplicado = true;
+      }
+    }
+
+    if (esDuplicado) {
+      ss.toast('⚠️ ' + nombre + ' ya está en la cohorte "' + cohorteDestino + '"', 'Duplicado', 4);
+      const colEnvio = colMapInscritx['enviar a cohorte'];
+      if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
+      return;
     }
   }
 
