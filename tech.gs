@@ -3896,7 +3896,8 @@ function actualizarNotasDesdeKoboTech() {
     ss.toast('🔄 Actualizando notas desde Kobo...', 'Actualización', 3);
 
     // === PASO 1: Obtener datos de Kobo usando JSON API (sin límite de 200) ===
-    const assetId = 'akz5K2bGfvvisQaE7VaHev';
+    // Usar el asset ID del formulario actual (C_01_Hoja de Interés 2026)
+    const assetId = 'auvEELWQEgiwF54W4pGpV5';
     const url = 'https://kf.kobotoolbox.org/api/v2/assets/' + assetId + '/data.json?limit=30000';
 
     const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
@@ -4106,50 +4107,41 @@ function actualizarNotasPorFiltroTech(filtro) {
     const tipoRegistro = filtro === 'historicas' ? 'históricos' : 'nuevos (2026)';
     ss.toast('🔄 Actualizando notas de registros ' + tipoRegistro + '...', 'Actualización', 3);
 
-    // === PASO 1: Obtener datos de Kobo ===
-    const url = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esuV4RKqQhYUUaUizfWBP8S/data.csv';
+    // === PASO 1: Obtener datos de Kobo usando JSON API (sin límite de 200) ===
+    // Usar el asset ID del formulario actual (C_01_Hoja de Interés 2026)
+    const assetId = 'auvEELWQEgiwF54W4pGpV5';
+    const url = 'https://kf.kobotoolbox.org/api/v2/assets/' + assetId + '/data.json?limit=30000';
+
     const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
-    let csvData = response.getContentText('UTF-8');
+    const responseCode = response.getResponseCode();
 
-    if (csvData.charCodeAt(0) === 0xFEFF) csvData = csvData.substring(1);
-
-    const rows = parsearCSVManual(csvData, ';');
-    if (rows.length < 2) {
-      throw new Error('No hay datos en Kobo para actualizar');
+    if (responseCode !== 200) {
+      throw new Error('Error HTTP: ' + responseCode + '. No se pudo conectar con Kobo.');
     }
 
-    const headers = rows[0];
+    const jsonData = JSON.parse(response.getContentText('UTF-8'));
 
-    // Mapear columnas de Kobo
-    const colIndices = {
-      creamosId: buscarIndiceColumnaExacto(headers, [
-        'Inicio/CREAMOS ID', 'CREAMOS ID', 'creamosid', 'creamos_id'
-      ]),
-      dpi: buscarIndiceColumnaExacto(headers, [
-        'Inicio/DPI (Documento Personal de Identificación)', 'DPI', 'dpi'
-      ]),
-      observaciones: buscarIndiceColumnaExacto(headers, [
-        'Observaciones / Comentarios adicionales',
-        'Observaciones',
-        'Comentarios adicionales',
-        'Comentarios',
-        'Notas'
-      ])
-    };
+    if (!jsonData.results || jsonData.results.length === 0) {
+      throw new Error('No hay datos en Kobo para actualizar');
+    }
 
     // Crear mapa de observaciones por CreamosID y DPI
     const observacionesPorId = new Map();
     const observacionesPorDpi = new Map();
 
-    for (let i = 1; i < rows.length; i++) {
-      const fila = rows[i];
-      const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim().toUpperCase() : '';
-      const dpi = colIndices.dpi >= 0 ? fila[colIndices.dpi].toString().trim() : '';
-      const observaciones = colIndices.observaciones >= 0 ? fila[colIndices.observaciones].toString().trim() : '';
+    for (let i = 0; i < jsonData.results.length; i++) {
+      const registro = jsonData.results[i];
+
+      // Buscar campos en el JSON (pueden tener diferentes nombres)
+      const creamosId = (registro['Inicio/CREAMOS_ID'] || registro['CREAMOS_ID'] || registro['creamosid'] || '').toString().trim().toUpperCase();
+      const dpi = (registro['Inicio/DPI_Documento_Personal_de_Identificaci_n_'] || registro['DPI'] || registro['dpi'] || '').toString().trim();
+      const observaciones = (registro['Observaciones_Comentarios_adicionales'] || registro['Observaciones'] || registro['Comentarios_adicionales'] || registro['Comentarios'] || registro['Notas'] || '').toString().trim();
 
       if (creamosId) observacionesPorId.set(creamosId, observaciones);
       if (dpi) observacionesPorDpi.set(dpi, observaciones);
     }
+
+    Logger.log('Total de registros obtenidos de Kobo: ' + jsonData.results.length);
 
     // === PASO 2: Actualizar registros existentes con filtro ===
     const hojaInteres = ss.getSheetByName('Hoja de Interés');
