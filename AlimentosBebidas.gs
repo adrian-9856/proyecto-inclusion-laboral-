@@ -1809,7 +1809,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   else if (estado === 'Entrevista agendada') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'D');
+    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'E');  // Columna E = Nombre Completo (siempre tiene valor)
 
     const numColsEnt = entrevistas.getLastColumn();
     const registro = new Array(numColsEnt).fill('');
@@ -2100,7 +2100,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
   if (accion === 'Reenviar a Entrevistas') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'D');
+    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'E');  // Columna E = Nombre Completo (siempre tiene valor)
 
     // Buscar datos adicionales en Hoja de Interés
     const interes = ss.getSheetByName('Hoja de Interés');
@@ -2377,7 +2377,7 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   // --- 1. Preparar y escribir en Hoja de Cohorte ---
   const numColsCohorte = hojaCohorte.getLastColumn();
   const registroCohorte = new Array(numColsCohorte).fill('');
-  const nuevaFilaCohorte = obtenerPrimeraFilaVacia(hojaCohorte, 'D');
+  const nuevaFilaCohorte = obtenerPrimeraFilaVacia(hojaCohorte, 'E');  // Columna E = Nombre Completo (siempre tiene valor)
 
   // Obtener notas originales de Inscritx (si existen)
   const notasOriginales = getInscritxVal('Notas');
@@ -2414,7 +2414,7 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   const listaDefinitiva = ss.getSheetByName('Lista Definitiva');
   if (listaDefinitiva) {
     const colMapListaDef = obtenerMapaColumnas(listaDefinitiva);
-    const nuevaFilaDef = obtenerPrimeraFilaVacia(listaDefinitiva, 'D');
+    const nuevaFilaDef = obtenerPrimeraFilaVacia(listaDefinitiva, 'E');  // Columna E = Nombre Completo (siempre tiene valor)
     const numColsDef = listaDefinitiva.getLastColumn();
     const registroDef = new Array(numColsDef).fill('');
 
