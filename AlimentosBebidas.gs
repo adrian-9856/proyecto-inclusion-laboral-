@@ -4665,7 +4665,8 @@ function importarEntrevistasDesdeKobo() {
         'No'                                           // AZ: Vinculado
       ];
 
-      const nuevaFila = detalleSheet.getLastRow() + 1;
+      // Usar obtenerPrimeraFilaVacia para prevenir sobrescrituras
+      const nuevaFila = obtenerPrimeraFilaVacia(detalleSheet, 'B');
       detalleSheet.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
       idsExistentes.add(creamosId);
       importados++;
