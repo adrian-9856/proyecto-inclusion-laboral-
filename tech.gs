@@ -3750,7 +3750,11 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       const servicioFormacion = programasNombres.length > 0 ? programasNombres.join(', ') : '';
 
       // Obtener observaciones/comentarios de Kobo para la columna Notas
-      const observacionesKobo = colIndices.observaciones >= 0 ? fila[colIndices.observaciones].toString().trim() : '';
+      // Primero limpiar, luego importar, si no hay nota dejar en blanco
+      let observacionesKobo = '';
+      if (colIndices.observaciones >= 0 && fila[colIndices.observaciones] != null && fila[colIndices.observaciones] !== '') {
+        observacionesKobo = fila[colIndices.observaciones].toString().trim();
+      }
 
       // Extender la hoja si nuevaFila supera el número de filas disponibles
       // Obtener la siguiente fila realmente vacía (sin huecos ni sobreescrituras)

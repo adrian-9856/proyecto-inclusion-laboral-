@@ -3755,7 +3755,11 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       const comoSeEntero = redesSociales.length > 0 ? redesSociales.join(' ') : '';
 
       // Obtener observaciones/comentarios de Kobo para la columna Notas
-      const observacionesKobo = colIndices.observaciones >= 0 ? fila[colIndices.observaciones].toString().trim() : '';
+      // Primero limpiar, luego importar, si no hay nota dejar en blanco
+      let observacionesKobo = '';
+      if (colIndices.observaciones >= 0 && fila[colIndices.observaciones] != null && fila[colIndices.observaciones] !== '') {
+        observacionesKobo = fila[colIndices.observaciones].toString().trim();
+      }
 
       const servicioFormacion = notasPrograma;
 
