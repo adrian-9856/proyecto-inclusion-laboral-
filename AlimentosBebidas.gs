@@ -4074,9 +4074,9 @@ function actualizarNotasHistoricasAB() {
   // Confirmar acción
   const respuesta = ui.alert(
     '📚 Actualizar Notas Históricas',
-    'Esta acción actualizará la columna "Notas" solo de los registros HISTÓRICOS (antes de 2026).\n\n' +
+    'Esta acción actualizará la columna "Notas" de TODOS los registros históricos.\n\n' +
     '✅ Se mantendrán todos los demás datos\n' +
-    '✅ Solo se actualizarán registros anteriores a 2026\n\n' +
+    '✅ Se actualizarán registros de todos los años\n\n' +
     '¿Deseas continuar?',
     ui.ButtonSet.YES_NO
   );
@@ -4193,7 +4193,7 @@ function actualizarNotasPorFiltroAB(filtro) {
 
     for (let i = 1; i < datos.length; i++) {
       const fila = datos[i];
-      const fechaRegistro = fila[1]; // Columna B - Fecha de Registro
+      const fechaRegistro = fila[0]; // Columna A - Fecha de Registro
       const creamosId = fila[2] ? fila[2].toString().trim().toUpperCase() : ''; // Columna C
       const dpi = fila[3] ? fila[3].toString().trim() : ''; // Columna D
       const notasActuales = fila[12] ? fila[12].toString().trim() : ''; // Columna M
@@ -4205,10 +4205,10 @@ function actualizarNotasPorFiltroAB(filtro) {
         const anio = fechaRegistro.getFullYear();
 
         if (filtro === 'historicas') {
-          // Históricos: antes de 2026
-          cumpleFiltro = (anio < 2026);
+          // Históricos: TODOS los registros
+          cumpleFiltro = true;
         } else if (filtro === 'nuevas') {
-          // Nuevos: 2026
+          // Nuevos: solo 2026
           cumpleFiltro = (anio === 2026);
         }
       } else if (typeof fechaRegistro === 'string' && fechaRegistro.trim() !== '') {
@@ -4218,10 +4218,26 @@ function actualizarNotasPorFiltroAB(filtro) {
           const anio = fecha.getFullYear();
 
           if (filtro === 'historicas') {
-            cumpleFiltro = (anio < 2026);
+            // Históricos: TODOS los registros
+            cumpleFiltro = true;
           } else if (filtro === 'nuevas') {
+            // Nuevos: solo 2026
             cumpleFiltro = (anio === 2026);
           }
+        } else {
+          // Si no se puede parsear la fecha
+          if (filtro === 'historicas') {
+            cumpleFiltro = true; // Incluir en históricos
+          } else if (filtro === 'nuevas') {
+            cumpleFiltro = true; // Considerar como nuevo si no hay fecha válida
+          }
+        }
+      } else {
+        // Si no hay fecha válida
+        if (filtro === 'historicas') {
+          cumpleFiltro = true; // Incluir en históricos
+        } else if (filtro === 'nuevas') {
+          cumpleFiltro = true; // Considerar como nuevo si no hay fecha
         }
       }
 
