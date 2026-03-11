@@ -3734,7 +3734,11 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       if (verificarValorPositivo(fila, colIndices.redWhatsApp)) redesSociales.push('WhatsApp');
       const comoSeEntero = redesSociales.length > 0 ? redesSociales.join(' ') : '';
 
-      // Determinar notas de programas seleccionados
+      // Obtener datos de las preguntas de Inclusión Laboral
+      const deseaInscribirse = colIndices.deseaInscribirse >= 0 ?
+        (fila[colIndices.deseaInscribirse] || '').toString().trim() : '';
+
+      // Construir el texto del servicio/formación basado en las columnas binarias
       let programasSeleccionados = [];
       if (esMarketing) programasSeleccionados.push('Marketing');
       if (esProgramacion) programasSeleccionados.push('Programación');
@@ -3742,21 +3746,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       if (esCertificacion) programasSeleccionados.push('Certificación Microsoft');
       if (esServicioCliente) programasSeleccionados.push('Servicio al Cliente');
 
-      const notasPrograma = 'Kobo: ' + programasSeleccionados.join(', ');
-
-      // Obtener datos de las preguntas de Inclusión Laboral
-      const deseaInscribirse = colIndices.deseaInscribirse >= 0 ?
-        (fila[colIndices.deseaInscribirse] || '').toString().trim() : '';
-      
-      // Construir el texto del servicio/formación basado en las columnas binarias
-      let programasNombres = [];
-      if (esMarketing) programasNombres.push('Marketing');
-      if (esProgramacion) programasNombres.push('Programación');
-      if (esAlfabetizacion) programasNombres.push('Alfabetización Digital');
-      if (esCertificacion) programasNombres.push('Certificación Microsoft');
-      if (esServicioCliente) programasNombres.push('Servicio al Cliente');
-      
-      const servicioFormacion = programasNombres.length > 0 ? programasNombres.join(', ') : '';
+      const servicioFormacion = programasSeleccionados.length > 0 ? programasSeleccionados.join(', ') : '';
 
       // Obtener observaciones/comentarios de Kobo para la columna Notas
       // Primero limpiar, luego importar, si no hay nota dejar en blanco

@@ -3698,8 +3698,8 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
         programasSeleccionados.push('Interés General IL');
       }
 
-      const notasPrograma = programasSeleccionados.join(', ');
-      Logger.log('✅ DETECTADO IL: ' + notasPrograma);
+      const servicioFormacion = programasSeleccionados.join(', ');
+      Logger.log('✅ DETECTADO IL: ' + servicioFormacion);
 
       // Obtener Creamos ID y DPI - CONVERTIR A MAYÚSCULAS
       const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim().toUpperCase() : '';
@@ -3769,8 +3769,6 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       if (colIndices.observaciones >= 0 && fila[colIndices.observaciones] != null && fila[colIndices.observaciones] !== '') {
         observacionesKobo = fila[colIndices.observaciones].toString().trim();
       }
-
-      const servicioFormacion = notasPrograma;
 
       // Extender la hoja si nuevaFila supera el número de filas disponibles
       // Obtener la siguiente fila realmente vacía (sin huecos ni sobreescrituras)
