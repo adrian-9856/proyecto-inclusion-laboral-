@@ -181,6 +181,7 @@ function setupMenuTech() {
       .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
       .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboTech')
       .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
+      .addItem('📝 Actualizar Notas desde Kobo', 'actualizarNotasDesdeKoboTech')
       .addSeparator()
 
       // ========== REPORTES Y EXPORTACIÓN ==========
@@ -3820,6 +3821,133 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
   } catch (error) {
     ss.toast('❌ Error: ' + error.message, 'Error de Importación', 5);
     Logger.log('❌ Error importando desde Kobo: ' + error.message);
+    Logger.log(error.stack);
+  }
+}
+
+/**
+ * =====================================================================
+ * ACTUALIZAR NOTAS DE REGISTROS EXISTENTES DESDE KOBO
+ * =====================================================================
+ *
+ * Esta función actualiza la columna "Notas" (M) de los registros existentes
+ * con las observaciones/comentarios de Kobo, sin borrar ni modificar nada más.
+ *
+ * Útil para aplicar correcciones de mapeo sin tener que reimportar todo.
+ */
+function actualizarNotasDesdeKoboTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Confirmar acción
+  const respuesta = ui.alert(
+    '🔄 Actualizar Notas desde Kobo',
+    'Esta acción actualizará la columna "Notas" de todos los registros existentes con los comentarios de Kobo.\n\n' +
+    '✅ Se mantendrán todos los demás datos\n' +
+    '✅ Solo se actualizará la columna M (Notas)\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    ss.toast('❌ Operación cancelada', 'Actualización cancelada', 3);
+    return;
+  }
+
+  try {
+    ss.toast('🔄 Actualizando notas desde Kobo...', 'Actualización', 3);
+
+    // === PASO 1: Obtener datos de Kobo ===
+    const url = CONFIG_TECH.KOBO_URL;
+    const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+    let csvData = response.getContentText('UTF-8');
+
+    if (csvData.charCodeAt(0) === 0xFEFF) csvData = csvData.substring(1);
+
+    const rows = parsearCSVManual(csvData, ';');
+    if (rows.length < 2) {
+      throw new Error('No hay datos en Kobo para actualizar');
+    }
+
+    const headers = rows[0];
+
+    // Mapear columnas de Kobo
+    const colIndices = {
+      creamosId: buscarIndiceColumnaExacto(headers, [
+        'Inicio/CREAMOS ID', 'CREAMOS ID', 'creamosid', 'creamos_id'
+      ]),
+      dpi: buscarIndiceColumnaExacto(headers, [
+        'Inicio/DPI (Documento Personal de Identificación)', 'DPI', 'dpi'
+      ]),
+      observaciones: buscarIndiceColumnaExacto(headers, [
+        'Observaciones / Comentarios adicionales',
+        'Observaciones',
+        'Comentarios adicionales',
+        'Comentarios',
+        'Notas'
+      ])
+    };
+
+    // Crear mapa de observaciones por CreamosID y DPI
+    const observacionesPorId = new Map();
+    const observacionesPorDpi = new Map();
+
+    for (let i = 1; i < rows.length; i++) {
+      const fila = rows[i];
+      const creamosId = colIndices.creamosId >= 0 ? fila[colIndices.creamosId].toString().trim().toUpperCase() : '';
+      const dpi = colIndices.dpi >= 0 ? fila[colIndices.dpi].toString().trim() : '';
+      const observaciones = colIndices.observaciones >= 0 ? fila[colIndices.observaciones].toString().trim() : '';
+
+      if (creamosId) observacionesPorId.set(creamosId, observaciones);
+      if (dpi) observacionesPorDpi.set(dpi, observaciones);
+    }
+
+    // === PASO 2: Actualizar registros existentes ===
+    const hojaInteres = ss.getSheetByName('Hoja de Interés');
+    const datos = hojaInteres.getDataRange().getValues();
+
+    let actualizados = 0;
+    let sinCoincidencia = 0;
+    let sinCambios = 0;
+
+    for (let i = 1; i < datos.length; i++) {
+      const fila = datos[i];
+      const creamosId = fila[2] ? fila[2].toString().trim().toUpperCase() : ''; // Columna C
+      const dpi = fila[3] ? fila[3].toString().trim() : ''; // Columna D
+      const notasActuales = fila[12] ? fila[12].toString().trim() : ''; // Columna M
+
+      // Buscar observaciones en Kobo
+      let observacionesKobo = '';
+      if (creamosId && observacionesPorId.has(creamosId)) {
+        observacionesKobo = observacionesPorId.get(creamosId);
+      } else if (dpi && observacionesPorDpi.has(dpi)) {
+        observacionesKobo = observacionesPorDpi.get(dpi);
+      } else {
+        sinCoincidencia++;
+        continue;
+      }
+
+      // Solo actualizar si hay cambios
+      if (observacionesKobo !== notasActuales) {
+        hojaInteres.getRange(i + 1, 13).setValue(observacionesKobo); // Columna M
+        actualizados++;
+      } else {
+        sinCambios++;
+      }
+    }
+
+    const mensaje = '✅ ACTUALIZACIÓN DE NOTAS FINALIZADA\n\n' +
+      '🔄 Registros actualizados: ' + actualizados + '\n' +
+      '✓ Sin cambios: ' + sinCambios + '\n' +
+      '⚠ Sin coincidencia en Kobo: ' + sinCoincidencia;
+
+    ui.alert('Actualización completada', mensaje, ui.ButtonSet.OK);
+    ss.toast(mensaje, 'Actualización completada', 8);
+    Logger.log(mensaje);
+
+  } catch (error) {
+    ss.toast('❌ Error: ' + error.message, 'Error de Actualización', 5);
+    Logger.log('❌ Error actualizando notas: ' + error.message);
     Logger.log(error.stack);
   }
 }
