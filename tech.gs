@@ -201,6 +201,8 @@ function setupMenuTech() {
       // ========== COHORTES ==========
       .addSubMenu(ui.createMenu('📋 Cohortes')
         .addItem('➕ Crear Nueva Cohorte', 'crearNuevaCohorteTech')
+        .addItem('🗑️ Eliminar Cohorte', 'eliminarCohorteTech')
+        .addSeparator()
         .addItem('📝 Ver/Editar Cohortes', 'verCohortes')
         .addItem('👥 Enviar Participantes a Cohorte', 'enviarParticipantesACohorteTech')
         .addSeparator()
@@ -229,6 +231,7 @@ function setupMenuTech() {
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
+        .addItem('🔧 Reparar Fórmulas Cohortes', 'repararFormulasCohortes')
         .addItem('🔧 Reparar Hoja de Interés (con backup)', 'repararHojaInteresTech')
         .addSeparator()
         .addItem('🧹 Limpiar Filas Vacías', 'limpiarFilasVaciasHojaInteres')
@@ -1006,8 +1009,8 @@ function crearHojaCohortes() {
 
   // Las fórmulas se actualizan cuando se crea la cohorte individual
   for (let i = 2; i <= 20; i++) {
-    // Inscritas: cuenta participantes en la hoja individual de la cohorte
-    sheet.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!E:E"),"<>")-1,0))');
+    // Inscritas: cuenta participantes en la hoja individual de la cohorte, restando los que están en Retiradx
+    sheet.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!E:E"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
     sheet.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + i + '),0)');
     sheet.getRange('J' + i).setFormula('=IFERROR(COUNTIF(Retiradx!H:H,A' + i + '),0)');
   }
@@ -4866,6 +4869,17 @@ function obtenerSiguienteNumeroCohorte(nombreBase, anio) {
     return 1;
   }
 
+  // Ordenar los números existentes
+  numerosExistentes.sort(function(a, b) { return a - b; });
+
+  // Buscar el primer número disponible (reutilizar números de cohortes eliminadas)
+  for (let i = 1; i <= numerosExistentes.length + 1; i++) {
+    if (!numerosExistentes.includes(i)) {
+      return i;
+    }
+  }
+
+  // Si no hay huecos, usar el siguiente número después del máximo
   return Math.max.apply(null, numerosExistentes) + 1;
 }
 
@@ -5012,6 +5026,100 @@ function crearHojaIndividualCohorte(nombreCohorte) {
   sheet.getRange('A2:A100').protect().setWarningOnly(true);
   sheet.getRange('B2:B100').protect().setWarningOnly(true);
   sheet.getRange('L2:L100').protect().setWarningOnly(true); // Proteger columna Año
+}
+
+/**
+ * Elimina una cohorte correctamente:
+ * - Elimina la fila de la hoja Cohortes
+ * - Elimina la hoja individual de la cohorte
+ * - Actualiza los desplegables en todas las hojas
+ */
+function eliminarCohorteTech() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cohortesSheet = ss.getSheetByName('Cohortes');
+
+  if (!cohortesSheet) {
+    ui.alert('⚠️ No se encontró la hoja Cohortes');
+    return;
+  }
+
+  // Obtener todas las cohortes
+  const datos = cohortesSheet.getDataRange().getValues();
+  const cohortes = [];
+  for (let i = 1; i < datos.length; i++) {
+    if (datos[i][0] && datos[i][0].toString().trim() !== '') {
+      cohortes.push({
+        nombre: datos[i][0].toString().trim(),
+        fila: i + 1,
+        inscritas: datos[i][7] || 0,
+        graduadx: datos[i][8] || 0,
+        retiradx: datos[i][9] || 0
+      });
+    }
+  }
+
+  if (cohortes.length === 0) {
+    ui.alert('⚠️ No hay cohortes para eliminar');
+    return;
+  }
+
+  // Crear lista de opciones con información
+  const opciones = cohortes.map(c =>
+    c.nombre + ' (Inscritas: ' + c.inscritas + ', Graduadx: ' + c.graduadx + ', Retiradx: ' + c.retiradx + ')'
+  );
+
+  // Preguntar cuál eliminar
+  const respuesta = ui.prompt(
+    '🗑️ Eliminar Cohorte',
+    'Ingresa el NÚMERO de la cohorte a eliminar:\n\n' +
+    opciones.map((o, i) => (i + 1) + '. ' + o).join('\n') +
+    '\n\n⚠️ ADVERTENCIA: Esta acción NO se puede deshacer.\nSe eliminará la cohorte de la hoja Cohortes Y su hoja individual.',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta.getSelectedButton() !== ui.Button.OK) return;
+
+  const numero = parseInt(respuesta.getResponseText().trim());
+  if (isNaN(numero) || numero < 1 || numero > cohortes.length) {
+    ui.alert('❌ Número inválido');
+    return;
+  }
+
+  const cohorteSeleccionada = cohortes[numero - 1];
+
+  // Confirmar si tiene participantes
+  const total = cohorteSeleccionada.inscritas + cohorteSeleccionada.graduadx + cohorteSeleccionada.retiradx;
+  if (total > 0) {
+    const confirmacion = ui.alert(
+      '⚠️ ADVERTENCIA',
+      'La cohorte "' + cohorteSeleccionada.nombre + '" tiene ' + total + ' participante(s) registrado(s).\n\n' +
+      '¿Estás seguro/a de eliminarla?\n\nNOTA: Las participantes graduadas y retiradas NO se eliminarán de sus respectivas hojas.',
+      ui.ButtonSet.YES_NO
+    );
+    if (confirmacion !== ui.Button.YES) return;
+  }
+
+  // Eliminar la fila de la hoja Cohortes
+  cohortesSheet.deleteRow(cohorteSeleccionada.fila);
+
+  // Eliminar la hoja individual si existe
+  const hojaIndividual = ss.getSheetByName(cohorteSeleccionada.nombre);
+  if (hojaIndividual) {
+    ss.deleteSheet(hojaIndividual);
+  }
+
+  // Actualizar desplegables
+  configurarValidaciones();
+
+  ui.alert(
+    '✅ Cohorte eliminada',
+    'La cohorte "' + cohorteSeleccionada.nombre + '" ha sido eliminada correctamente.\n\n' +
+    'Los desplegables han sido actualizados.',
+    ui.ButtonSet.OK
+  );
+
+  Logger.log('✅ Cohorte eliminada: ' + cohorteSeleccionada.nombre);
 }
 
 function enviarParticipantesACohorteTech() {
@@ -6375,6 +6483,33 @@ function repararFormulasReporte() {
   reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(Entrevistas!D:D,"<>",Entrevistas!I:I,""),0)');
 
   Logger.log('✅ Fórmulas del Reporte reparadas');
+}
+
+/**
+ * Repara las fórmulas de la hoja Cohortes para que cuenten correctamente
+ * restando las deserciones de la hoja individual de cada cohorte
+ */
+function repararFormulasCohortes() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cohortes = ss.getSheetByName('Cohortes');
+  if (!cohortes) return;
+
+  const ultimaFila = cohortes.getLastRow();
+
+  for (let i = 2; i <= ultimaFila; i++) {
+    const nombreCohorte = cohortes.getRange('A' + i).getValue();
+    if (nombreCohorte && nombreCohorte.toString().trim() !== '') {
+      // Inscritas: cuenta participantes en la hoja individual, restando los que están en Retiradx
+      cohortes.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!E:E"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
+      // Graduadx: cuenta en la hoja Graduadx
+      cohortes.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + i + '),0)');
+      // Retiradx: cuenta en la hoja Retiradx (aunque también están marcados en la hoja individual)
+      cohortes.getRange('J' + i).setFormula('=IFERROR(COUNTIF(Retiradx!H:H,A' + i + '),0)');
+    }
+  }
+
+  Logger.log('✅ Fórmulas de Cohortes reparadas');
+  ss.toast('✅ Fórmulas de Cohortes reparadas correctamente', 'Reparación completada', 3);
 }
 
 // =====================================================================
