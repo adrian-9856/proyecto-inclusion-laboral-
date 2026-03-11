@@ -2415,12 +2415,12 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   }
 
     // --- 3. Marcar como procesado en Inscritx ---
-    const colNotas = colMapInscritx['notas'];
     const colEnvio = colMapInscritx['enviar a cohorte'];
 
-    if (colNotas !== undefined) sheet.getRange(fila, colNotas + 1).setValue('Enviada a ' + cohorteDestino);
+    // NO sobrescribir las notas originales - solo limpiar el dropdown de envío
     if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
 
+    // Marcar con color gris para indicar que fue procesada
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#e0e0e0');
 
     ss.toast('✅ ' + nombre + ' enviada a cohorte "' + cohorteDestino + '"', 'Completado', 4);
