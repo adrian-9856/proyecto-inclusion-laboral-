@@ -3209,12 +3209,18 @@ function actualizarHojasInteresMasivamente() {
 // =====================================================================
 
 function obtenerPrimeraFilaVacia(sheet, columnaReferencia) {
-  const columnaIndex = columnaReferencia.charCodeAt(0) - 64;
-  for (let i = 2; i <= 500; i++) {
-    const valor = sheet.getRange(i, columnaIndex).getValue();
-    if (!valor || valor.toString().trim() === '') return i;
+  // Leer todos los valores de la columna de una vez (más eficiente y previene sobrescrituras)
+  const valores = sheet.getRange(columnaReferencia + '1:' + columnaReferencia).getValues();
+
+  // Buscar desde el final hacia arriba para encontrar la última fila con datos
+  for (let i = valores.length - 1; i >= 0; i--) {
+    if (valores[i][0] && valores[i][0].toString().trim() !== '') {
+      return i + 2; // Siguiente fila después de la última con datos
+    }
   }
-  return 501;
+
+  // Si no hay datos, empezar en fila 2 (después del encabezado)
+  return 2;
 }
 
 function buscarPorCreamosID(sheet, creamosId) {
