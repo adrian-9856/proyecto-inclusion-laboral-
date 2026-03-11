@@ -2392,9 +2392,9 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
     'Teléfono': getInscritxVal('Teléfono'),
     'Nivel Educativo': getInscritxVal('Nivel Educativo'),
     'Zona': getInscritxVal('Zona'),
-    'Notas': notasOriginales || '',  // Copiar notas originales
-    'Estado': 'Activa',
-    'Año': new Date().getFullYear()
+    'Estado': 'Activa'
+    // NO incluir 'Año' aquí - se restaurará con fórmula después
+    // NO incluir 'Notas' - no debe copiarse a la hoja de cohorte individual
   };
 
   for (let [header, valor] of Object.entries(mappingCohorte)) {
@@ -2404,8 +2404,9 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
 
   hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, registroCohorte.length).setValues([registroCohorte]);
 
-  // Restaurar fórmula de No. (columna B) que setValues sobreescribe
-  hojaCohorte.getRange('B' + nuevaFilaCohorte).setFormula('=IF(E' + nuevaFilaCohorte + '<>"",COUNTA($E$2:E' + nuevaFilaCohorte + '),"")');
+  // Restaurar fórmulas que setValues sobrescribe
+  hojaCohorte.getRange('B' + nuevaFilaCohorte).setFormula('=IF(E' + nuevaFilaCohorte + '<>"",COUNTA($E$2:E' + nuevaFilaCohorte + '),"")');  // No.
+  hojaCohorte.getRange('L' + nuevaFilaCohorte).setFormula('=IF(E' + nuevaFilaCohorte + '<>"",YEAR(A' + nuevaFilaCohorte + '),"")');  // Año
 
   // --- 2. Registrar en Lista Definitiva ---
   const listaDefinitiva = ss.getSheetByName('Lista Definitiva');
