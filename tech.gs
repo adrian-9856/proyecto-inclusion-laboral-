@@ -3886,7 +3886,8 @@ function actualizarNotasDesdeKoboTech() {
     ss.toast('🔄 Actualizando notas desde Kobo...', 'Actualización', 3);
 
     // === PASO 1: Obtener datos de Kobo ===
-    const url = CONFIG_TECH.KOBO_URL;
+    // Usar URL de datos HISTÓRICOS para obtener TODOS los registros
+    const url = 'https://kf.kobotoolbox.org/api/v2/assets/akz5K2bGfvvisQaE7VaHev/export-settings/esuV4RKqQhYUUaUizfWBP8S/data.csv';
     const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
     let csvData = response.getContentText('UTF-8');
 
