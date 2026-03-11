@@ -2404,6 +2404,9 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
 
   hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, registroCohorte.length).setValues([registroCohorte]);
 
+  // Restaurar fórmula de No. (columna B) que setValues sobreescribe
+  hojaCohorte.getRange('B' + nuevaFilaCohorte).setFormula('=IF(E' + nuevaFilaCohorte + '<>"",COUNTA($E$2:E' + nuevaFilaCohorte + '),"")');
+
   // --- 2. Registrar en Lista Definitiva ---
   const listaDefinitiva = ss.getSheetByName('Lista Definitiva');
   if (listaDefinitiva) {
@@ -3077,6 +3080,9 @@ function procesarMarcaHojaInteres(sheet, fila, tieneHoja) {
 
     referenciasPrograms.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
 
+    // Restaurar fórmula de No. (columna B) que setValues sobreescribe
+    referenciasPrograms.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",COUNTA($E$2:E' + nuevaFila + '),"")');
+
     // Marcar la columna Q con color VERDE en Hoja de Interés
     sheet.getRange(fila, 17).setBackground('#c8e6c9'); // Verde claro
     ss.toast('✅ Registro copiado a "Referencias de Programas" (Sí tiene hoja de interés)', 'Completado', 3);
@@ -3185,6 +3191,10 @@ function actualizarHojasInteresMasivamente() {
           ];
 
           referenciasPrograms.getRange(nuevaFila, 1, 1, 14).setValues([registro]);
+
+          // Restaurar fórmula de No. (columna B) que setValues sobreescribe
+          referenciasPrograms.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",COUNTA($E$2:E' + nuevaFila + '),"")');
+
           hojaInteres.getRange(fila, 17).setBackground('#c8e6c9'); // Verde
 
           if (creamosId) idsExistentes.add(creamosId);
