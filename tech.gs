@@ -229,6 +229,7 @@ function setupMenuTech() {
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
+        .addItem('🔧 Reparar Hoja de Interés (con backup)', 'repararHojaInteresTech')
         .addSeparator()
         .addItem('🧹 Limpiar Filas Vacías', 'limpiarFilasVaciasHojaInteres')
         .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
@@ -8273,6 +8274,115 @@ function procesarAccionReferencias(sheet, fila, accion) {
     if (colAccion > 0) {
       sheet.getRange(fila, colAccion).setBackground('#ffcdd2'); // Rojo claro
     }
+  }
+}
+
+// =====================================================================
+// REPARACIÓN DE HOJA DE INTERÉS
+// =====================================================================
+
+/**
+ * Repara la Hoja de Interés eliminándola y recreándola con estructura correcta
+ * IMPORTANTE: Hace backup automático antes de eliminar
+ */
+function repararHojaInteresTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Confirmar acción
+  const respuesta = ui.alert(
+    '⚠️ Reparar Hoja de Interés',
+    '⚠️ ATENCIÓN: Esta acción hará lo siguiente:\n\n' +
+    '1. Creará un BACKUP de tu Hoja de Interés actual\n' +
+    '2. Eliminará la Hoja de Interés\n' +
+    '3. La recreará con la estructura correcta\n' +
+    '4. Te permitirá restaurar los datos del backup\n\n' +
+    '⚠️ El backup se llamará "Hoja de Interés (BACKUP AAAA-MM-DD)"\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    ss.toast('❌ Operación cancelada', 'Reparación cancelada', 3);
+    return;
+  }
+
+  try {
+    const hojaOriginal = ss.getSheetByName('Hoja de Interés');
+
+    if (!hojaOriginal) {
+      ui.alert('❌ Error', 'No se encontró la Hoja de Interés', ui.ButtonSet.OK);
+      return;
+    }
+
+    // PASO 1: Crear backup
+    ss.toast('📋 Creando backup...', 'Reparación', 3);
+    const fechaBackup = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+    const nombreBackup = 'Hoja de Interés (BACKUP ' + fechaBackup + ')';
+    const backup = hojaOriginal.copyTo(ss);
+    backup.setName(nombreBackup);
+    backup.setTabColor('#ff9800'); // Naranja para identificar backup
+
+    // PASO 2: Eliminar hoja original
+    ss.toast('🗑️ Eliminando hoja original...', 'Reparación', 3);
+    ss.deleteSheet(hojaOriginal);
+
+    // PASO 3: Recrear con estructura correcta
+    ss.toast('🔨 Recreando con estructura correcta...', 'Reparación', 3);
+    const nuevaHoja = ss.insertSheet('Hoja de Interés');
+
+    // Llamar a la función de creación
+    crearHojaInteres();
+
+    // PASO 4: Mover la nueva hoja al principio
+    ss.setActiveSheet(nuevaHoja);
+    ss.moveActiveSheet(1);
+
+    // PASO 5: Preguntar si quiere restaurar datos
+    const restaurar = ui.alert(
+      '✅ Hoja recreada correctamente',
+      '✅ La Hoja de Interés se ha recreado con la estructura correcta.\n\n' +
+      '📋 Tu backup está en: "' + nombreBackup + '"\n\n' +
+      '¿Deseas restaurar los datos del backup?\n' +
+      '(Esto copiará todas las filas de datos, excepto los encabezados)',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (restaurar === ui.Button.YES) {
+      ss.toast('📥 Restaurando datos...', 'Reparación', 3);
+
+      // Obtener datos del backup (sin encabezados)
+      const datosBackup = backup.getDataRange().getValues();
+      if (datosBackup.length > 1) {
+        const soloDatos = datosBackup.slice(1); // Saltar encabezados
+
+        // Pegar datos en la nueva hoja (desde fila 2)
+        nuevaHoja.getRange(2, 1, soloDatos.length, soloDatos[0].length).setValues(soloDatos);
+
+        ui.alert(
+          '✅ Reparación completada',
+          '✅ La Hoja de Interés se reparó exitosamente\n\n' +
+          '📊 Datos restaurados: ' + soloDatos.length + ' registros\n' +
+          '📋 Backup disponible en: "' + nombreBackup + '"\n\n' +
+          '🔄 Ahora puedes usar "Actualizar Notas desde Kobo" para corregir las notas',
+          ui.ButtonSet.OK
+        );
+      }
+    } else {
+      ui.alert(
+        '✅ Reparación completada',
+        '✅ La Hoja de Interés se recreó con la estructura correcta\n\n' +
+        '📋 Tu backup está en: "' + nombreBackup + '"\n\n' +
+        '💡 Puedes copiar los datos manualmente desde el backup si lo necesitas',
+        ui.ButtonSet.OK
+      );
+    }
+
+    ss.toast('✅ Reparación completada exitosamente', 'Éxito', 5);
+
+  } catch (error) {
+    Logger.log('ERROR en repararHojaInteresTech: ' + error);
+    ui.alert('❌ Error', 'Error al reparar la Hoja de Interés:\n' + error.message, ui.ButtonSet.OK);
   }
 }
 
