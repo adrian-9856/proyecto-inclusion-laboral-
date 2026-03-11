@@ -2250,11 +2250,23 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
 function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
+  // LOCK: Prevenir condición de carrera al procesar múltiples envíos simultáneos
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000); // Esperar hasta 30 segundos
+  } catch (e) {
+    ss.toast('⚠️ El sistema está ocupado. Intente nuevamente en unos segundos.', 'Error', 4);
+    const colMapTemp = obtenerMapaColumnas(sheet);
+    const colEnvioTemp = colMapTemp['enviar a cohorte'];
+    if (colEnvioTemp !== undefined) sheet.getRange(fila, colEnvioTemp + 1).setValue('');
+    return;
+  }
+
   // Obtener mapa de columnas de Inscritx
   const colMapInscritx = obtenerMapaColumnas(sheet);
   const maxCol = sheet.getLastColumn();
   const datosInscritx = sheet.getRange(fila, 1, 1, maxCol).getValues()[0];
-  
+
   // Helper robusto para Inscritx
   const getInscritxVal = (nombre) => {
     const idx = colMapInscritx[nombre.toLowerCase()];
@@ -2264,13 +2276,14 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   const creamosId = getInscritxVal('Creamos ID');
   const nombre = getInscritxVal('Nombre Completo');
 
-  // VALIDACIÓN: Verificar que el nombre no esté vacío
-  if (!nombre || nombre.toString().trim() === '') {
-    ss.toast('⚠️ El nombre está vacío. No se puede enviar a la cohorte.', 'Error', 4);
-    const colEnvio = colMapInscritx['enviar a cohorte'];
-    if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
-    return;
-  }
+  try {
+    // VALIDACIÓN: Verificar que el nombre no esté vacío
+    if (!nombre || nombre.toString().trim() === '') {
+      ss.toast('⚠️ El nombre está vacío. No se puede enviar a la cohorte.', 'Error', 4);
+      const colEnvio = colMapInscritx['enviar a cohorte'];
+      if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
+      return;
+    }
 
   // Verificar que la cohorte existe
   const hojaCohorte = ss.getSheetByName(cohorteDestino);
@@ -2349,6 +2362,9 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   const registroCohorte = new Array(numColsCohorte).fill('');
   const nuevaFilaCohorte = obtenerPrimeraFilaVacia(hojaCohorte, 'D');
 
+  // Obtener notas originales de Inscritx (si existen)
+  const notasOriginales = getInscritxVal('Notas');
+
   const mappingCohorte = {
     'Fecha': new Date(),
     'Fecha Selección': new Date(),
@@ -2361,6 +2377,7 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
     'Teléfono': getInscritxVal('Teléfono'),
     'Nivel Educativo': getInscritxVal('Nivel Educativo'),
     'Zona': getInscritxVal('Zona'),
+    'Notas': notasOriginales || '',  // Copiar notas originales
     'Estado': 'Activa',
     'Año': new Date().getFullYear()
   };
@@ -2392,16 +2409,20 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
     listaDefinitiva.getRange(nuevaFilaDef, 1, 1, registroDef.length).setValues([registroDef]);
   }
 
-  // --- 3. Marcar como procesado en Inscritx ---
-  const colNotas = colMapInscritx['notas'];
-  const colEnvio = colMapInscritx['enviar a cohorte'];
-  
-  if (colNotas !== undefined) sheet.getRange(fila, colNotas + 1).setValue('Enviada a ' + cohorteDestino);
-  if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
-  
-  sheet.getRange(fila, 1, 1, maxCol).setBackground('#e0e0e0');
+    // --- 3. Marcar como procesado en Inscritx ---
+    const colNotas = colMapInscritx['notas'];
+    const colEnvio = colMapInscritx['enviar a cohorte'];
 
-  ss.toast('✅ ' + nombre + ' enviada a cohorte "' + cohorteDestino + '"', 'Completado', 4);
+    if (colNotas !== undefined) sheet.getRange(fila, colNotas + 1).setValue('Enviada a ' + cohorteDestino);
+    if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
+
+    sheet.getRange(fila, 1, 1, maxCol).setBackground('#e0e0e0');
+
+    ss.toast('✅ ' + nombre + ' enviada a cohorte "' + cohorteDestino + '"', 'Completado', 4);
+  } finally {
+    // UNLOCK: Siempre liberar el lock
+    lock.releaseLock();
+  }
 }
 
 /**
