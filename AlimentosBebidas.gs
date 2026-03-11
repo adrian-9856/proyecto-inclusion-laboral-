@@ -1815,6 +1815,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     const registro = new Array(numColsEnt).fill('');
     
     const mapping = {
+      'Fecha Entrevista': new Date(),  // Nombre correcto de columna A en Entrevistas
       'Creamos ID': creamosId,
       'DPI': getVal('DPI'),
       'Nombre Completo': nombreCompleto,
@@ -2108,6 +2109,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
 
     // Mapeo dinámico robusto para reenvío
     const mapping = {
+      'Fecha Entrevista': new Date(),  // Agregar fecha de reenvío
       'Creamos ID': creamosId,
       'DPI': datosInteres ? datosInteres[3] : '',
       'Nombre Completo': nombre,
@@ -2117,7 +2119,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
       'Nivel Educativo': datosInteres ? normalizarNivelEducativo(datosInteres[8]) : '',
       'Zona': datosInteres ? datosInteres[9] : '',
       'Entrevistador': 'Eva',
-      'Notas': 'Reingreso desde No Inscritx - ' + notas,
+      'Observaciones': 'Reingreso desde No Inscritx - ' + notas,  // Columna correcta es 'Observaciones', no 'Notas'
       'Estado': ''
     };
 
