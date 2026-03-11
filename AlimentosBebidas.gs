@@ -3558,6 +3558,15 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       deseaInscribirse: buscarIndiceColumnaExacto(headers, [
         '¿Deseas inscribirte en el programa de Inclusión Laboral?',
         'Inclusión Laboral/¿Deseas inscribirte en el programa de Inclusión Laboral?'
+      ]),
+
+      // Observaciones/Comentarios adicionales
+      observaciones: buscarIndiceColumnaExacto(headers, [
+        'Observaciones / Comentarios adicionales',
+        'Observaciones',
+        'Comentarios adicionales',
+        'Comentarios',
+        'Notas'
       ])
     };
 
@@ -3720,6 +3729,9 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       if (verificarValorPositivo(fila, colIndices.redWhatsApp)) redesSociales.push('WhatsApp');
       const comoSeEntero = redesSociales.length > 0 ? redesSociales.join(' ') : '';
 
+      // Obtener observaciones/comentarios de Kobo para la columna Notas
+      const observacionesKobo = colIndices.observaciones >= 0 ? fila[colIndices.observaciones].toString().trim() : '';
+
       const servicioFormacion = notasPrograma;
 
       // Extender la hoja si nuevaFila supera el número de filas disponibles
@@ -3751,22 +3763,22 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
 
       // Preparar registro
       const registro = [
-        fechaParaHoja,     // A: Fecha Registro (valor fijo, no fórmula dinámica)
-        '',                // B: No. (fórmula automática)
-        creamosId,         // C: Creamos ID
-        dpi,               // D: DPI
-        nombreCompleto,    // E: Nombre Completo
-        genero,            // F: Género
-        edad,              // G: Edad
-        telefono,          // H: Teléfono
-        nivelEducativo,    // I: Nivel Educativo
-        zona,              // J: Zona
-        comoSeEntero,      // K: Cómo se enteró
-        '',                // L: Responsable
-        notasPrograma,     // M: Notas
-        deseaInscribirse,  // N: ¿Deseas inscribirte?
-        servicioFormacion, // O: Servicio/Formación de Interés
-        ''                 // P: Estado (vacío para que el dropdown funcione)
+        fechaParaHoja,      // A: Fecha Registro (valor fijo, no fórmula dinámica)
+        '',                 // B: No. (fórmula automática)
+        creamosId,          // C: Creamos ID
+        dpi,                // D: DPI
+        nombreCompleto,     // E: Nombre Completo
+        genero,             // F: Género
+        edad,               // G: Edad
+        telefono,           // H: Teléfono
+        nivelEducativo,     // I: Nivel Educativo
+        zona,               // J: Zona
+        comoSeEntero,       // K: Cómo se enteró
+        '',                 // L: Responsable
+        observacionesKobo,  // M: Notas (comentarios/observaciones de Kobo)
+        deseaInscribirse,   // N: ¿Deseas inscribirte?
+        servicioFormacion,  // O: Servicio/Formación de Interés (programas seleccionados)
+        ''                  // P: Estado (vacío para que el dropdown funcione)
       ];
 
       hojaInteres.getRange(nuevaFila, 1, 1, 16).setValues([registro]);
