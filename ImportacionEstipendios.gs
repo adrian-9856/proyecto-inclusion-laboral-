@@ -10,7 +10,7 @@
 
 const CONFIG = {
   // Token de API de Kobo (obtener desde: https://kf.kobotoolbox.org/token/)
-  KOBO_TOKEN: 'TU_TOKEN_AQUI', // ⚠️ CAMBIAR POR TU TOKEN REAL
+  KOBO_TOKEN: '64cc018b88067397addd36b09288be8b6539cf39',
 
   // URL del CSV de Kobo
   KOBO_CSV_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aNpJWVRoxxQ5a8pwBQVJac/export-settings/esqLSo9A8oFvxVwZKUXwADx/data.csv',
