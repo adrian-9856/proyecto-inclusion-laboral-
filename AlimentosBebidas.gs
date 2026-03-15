@@ -5333,21 +5333,55 @@ function enviarParticipantesACohorteAB() {
     const datosInteres = buscarPorCreamosID(interes, p.creamosId);
     const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
+    // ⚠️ CORRECCIÓN: Verificar si solo tiene CreamosID (sin nombre ni otros datos)
+    let soloTieneID = false;
+    if (datosInteres && datosInteres.datos) {
+      // Columnas importantes: [3]=DPI, [4]=Nombre, [5]=Género, [6]=Edad, [8]=NivelEdu, [9]=Zona
+      const tieneCreamosId = datosInteres.datos[2] && datosInteres.datos[2].toString().trim() !== '';
+      const tieneOtrosDatos = (datosInteres.datos[3] && datosInteres.datos[3].toString().trim() !== '') ||
+                              (datosInteres.datos[4] && datosInteres.datos[4].toString().trim() !== '') ||
+                              (datosInteres.datos[5] && datosInteres.datos[5].toString().trim() !== '') ||
+                              (datosInteres.datos[6] && datosInteres.datos[6].toString().trim() !== '') ||
+                              (datosInteres.datos[8] && datosInteres.datos[8].toString().trim() !== '') ||
+                              (datosInteres.datos[9] && datosInteres.datos[9].toString().trim() !== '');
+      soloTieneID = tieneCreamosId && !tieneOtrosDatos;
+    }
+
     // Columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
-    const registro = [
-      nuevaFila - 1,                               // No
-      p.creamosId,                                 // CreamosID
-      datosInteres ? datosInteres.datos[3] : '',   // DPI
-      p.nombre,                                    // Nombre
-      datosInteres ? datosInteres.datos[5] : '',   // Género
-      datosInteres ? datosInteres.datos[6] : '',   // Edad
-      p.datos[4],                                  // Teléfono
-      datosInteres ? datosInteres.datos[8] : '',   // Nivel Educativo
-      datosInteres ? datosInteres.datos[9] : '',   // Zona
-      p.datos[8] || '',                            // Notas
-      'Inscritx',                                  // Estado (automático)
-      ''                                           // Enviar a Cohorte (vacío)
-    ];
+    let registro;
+    if (soloTieneID) {
+      // Si solo tiene ID → Enviar SOLO ID y datos mínimos (no enviar campos vacíos que sobrescriban)
+      registro = [
+        nuevaFila - 1,       // No
+        p.creamosId,         // CreamosID
+        '',                  // DPI - VACÍO (no sobrescribir)
+        p.nombre || '',      // Nombre (del origen)
+        '',                  // Género - VACÍO (no sobrescribir)
+        '',                  // Edad - VACÍO (no sobrescribir)
+        p.datos[4] || '',    // Teléfono (del origen)
+        '',                  // Nivel Educativo - VACÍO (no sobrescribir)
+        '',                  // Zona - VACÍO (no sobrescribir)
+        p.datos[8] || '',    // Notas
+        'Inscritx',          // Estado (automático)
+        ''                   // Enviar a Cohorte (vacío)
+      ];
+    } else {
+      // Si tiene información completa → Enviar TODO
+      registro = [
+        nuevaFila - 1,                               // No
+        p.creamosId,                                 // CreamosID
+        datosInteres ? datosInteres.datos[3] : '',   // DPI
+        p.nombre,                                    // Nombre
+        datosInteres ? datosInteres.datos[5] : '',   // Género
+        datosInteres ? datosInteres.datos[6] : '',   // Edad
+        p.datos[4],                                  // Teléfono
+        datosInteres ? datosInteres.datos[8] : '',   // Nivel Educativo
+        datosInteres ? datosInteres.datos[9] : '',   // Zona
+        p.datos[8] || '',                            // Notas
+        'Inscritx',                                  // Estado (automático)
+        ''                                           // Enviar a Cohorte (vacío)
+      ];
+    }
 
     seleccionadas.getRange(nuevaFila, 1, 1, 12).setValues([registro]);
     entrevistas.getRange(p.fila, 1, 1, 11).setBackground('#c8e6c9');
