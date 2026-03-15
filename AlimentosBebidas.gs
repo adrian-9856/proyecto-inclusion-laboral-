@@ -1841,7 +1841,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   else if (estado === 'Entrevista agendada') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'C');  // Columna C = CreamosID (evita sobrescritura si solo tiene ID)
+    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'E');  // Columna E = Nombre (evita sobrescritura cuando no hay CreamosID)
 
     const numColsEnt = entrevistas.getLastColumn();
     const registro = new Array(numColsEnt).fill('');
@@ -1906,7 +1906,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     // Mover a Inscritx
     const seleccionadas = ss.getSheetByName('Inscritx');
     const colMapInscritx = obtenerMapaColumnas(seleccionadas);
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'B');
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');  // Columna D = Nombre (evita sobrescritura cuando no hay CreamosID)
 
     // Preparar registro para Inscritx de forma dinámica
     const numColumnasInscritx = seleccionadas.getLastColumn();
@@ -2064,7 +2064,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
   // Agregar a Retiradx
   // Columnas: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Cohorte, Motivo, Notas, Acción
   const deserciones = ss.getSheetByName('Retiradx');
-  const nuevaFila = obtenerPrimeraFilaVacia(deserciones, 'B');
+  const nuevaFila = obtenerPrimeraFilaVacia(deserciones, 'D');  // Columna D = Nombre (evita sobrescritura cuando no hay CreamosID)
 
   const registro = [
     new Date(),
@@ -2134,7 +2134,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
   if (accion === 'Reenviar a Entrevistas') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'C');  // Columna C = CreamosID (evita sobrescritura si solo tiene ID)
+    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'E');  // Columna E = Nombre (evita sobrescritura cuando no hay CreamosID)
 
     // Buscar datos adicionales en Hoja de Interés
     const interes = ss.getSheetByName('Hoja de Interés');
@@ -2183,7 +2183,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
   if (accion === 'Reenviar a Inscritx') {
     const seleccionadas = ss.getSheetByName('Inscritx');
     const colMapInscritx = obtenerMapaColumnas(seleccionadas);
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'B');
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');  // Columna D = Nombre (evita sobrescritura cuando no hay CreamosID)
 
     // Buscar datos adicionales en Hoja de Interés
     const interes = ss.getSheetByName('Hoja de Interés');
@@ -2248,7 +2248,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
   const notas = datos[11];
 
   const seleccionadas = ss.getSheetByName('Inscritx');
-  const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'B');
+  const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');  // Columna D = Nombre (evita sobrescritura cuando no hay CreamosID)
 
   // Columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
   const registro = [
@@ -5331,9 +5331,9 @@ function enviarParticipantesACohorteAB() {
 
   pendientes.forEach(p => {
     const datosInteres = buscarPorCreamosID(interes, p.creamosId);
-    // ⚠️ CORRECCIÓN: Usar columna 'B' (CreamosID) en lugar de 'D' (Nombre)
-    // para evitar sobrescribir filas que tienen ID pero no nombre
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'B');
+    // ⚠️ CORRECCIÓN: Usar columna 'D' (Nombre) en lugar de 'B' (CreamosID)
+    // para evitar sobrescribir personas que NO tienen CreamosID
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
 
     // ⚠️ CORRECCIÓN: Verificar si solo tiene CreamosID (sin nombre ni otros datos)
     let soloTieneID = false;
