@@ -551,14 +551,22 @@ function importarEstipendiosDesdeKobo() {
  * Determina cohorte desde especialidad
  */
 function determinarCohorteDesdeEspecialidad(especialidad, año) {
+  // ⚠️ TODO: AQUÍ PUEDES CAMBIAR LOS NOMBRES DE LOS PROGRAMAS PARA ESTIPENDIOS
+  // Estos nombres deben coincidir con los que usas al crear cohortes
   const mapeo = {
-    'Gastronomía': `Cocina-${año}`,
-    'Barismo': `Barismo-${año}`,
-    'Programación': `SAC-${año}`,
-    'Marketing': `Marketing-${año}`,
-    'Carpinteria': `Carpintería-${año}`,
-    'Fotovoltaico-Electricidad': `Electricidad-${año}`,
-    'Mecánica': `Mecánica-${año}`
+    'Gastronomía': `Cocina-${año}`,        // ← Cambiar aquí
+    'Barismo': `Barismo-${año}`,            // ← Cambiar aquí
+    'Programación': `SAC-${año}`,           // ← Cambiar aquí
+    'SAC': `SAC-${año}`,                    // ← Cambiar aquí (alias)
+    'Marketing': `Marketing-${año}`,        // ← Cambiar aquí
+    'Carpinteria': `Carpintería-${año}`,    // ← Cambiar aquí
+    'Fotovoltaico-Electricidad': `Electricidad-${año}`, // ← Cambiar aquí
+    'Mecánica': `Mecánica-${año}`,          // ← Cambiar aquí
+    'Alfa Digital': `AlfaDigital-${año}`,   // ← NUEVO - Cambiar aquí
+    'Computación': `Computacion-${año}`,    // ← NUEVO - Cambiar aquí
+    'Cocina': `Cocina-${año}`,              // ← NUEVO - Cambiar aquí
+    'Repostería': `Reposteria-${año}`,      // ← NUEVO - Cambiar aquí
+    'Panadería': `Panaderia-${año}`         // ← NUEVO - Cambiar aquí
   };
   return mapeo[especialidad] || `${especialidad}-${año}`;
 }

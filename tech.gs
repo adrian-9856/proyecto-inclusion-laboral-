@@ -4912,13 +4912,48 @@ function crearNuevaCohorteTech() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  const respNombre = ui.prompt(
-    '➕ Crear Nueva Cohorte - Paso 1/4',
-    'Ingresa el NOMBRE de la nueva cohorte:\n\nEjemplos: "SAC Cohorte III", "Computación Cohorte II"\n\n(Se agregará automáticamente un número y el año)',
+  // ⚠️ TODO: AQUÍ PUEDES CAMBIAR LOS NOMBRES DE LOS PROGRAMAS
+  // Modifica esta lista con los nombres EXACTOS de tus programas
+  const programasDisponibles = [
+    'Programación',           // ← Cambiar aquí
+    'SAC',                    // ← Cambiar aquí
+    'Computación',            // ← Cambiar aquí
+    'Alfa Digital',           // ← Cambiar aquí
+    'Marketing Digital',      // ← Cambiar aquí
+    'Desarrollo Web',         // ← Cambiar aquí
+    'Otro (escribir manual)'  // ← Opción para programas no listados
+  ];
+
+  // Mostrar opciones numeradas
+  let mensajeOpciones = '➕ Crear Nueva Cohorte - Paso 1/4\n\nSelecciona el PROGRAMA escribiendo el número:\n\n';
+  programasDisponibles.forEach((prog, index) => {
+    mensajeOpciones += (index + 1) + '. ' + prog + '\n';
+  });
+
+  const respOpcion = ui.prompt(
+    '➕ Seleccionar Programa',
+    mensajeOpciones,
     ui.ButtonSet.OK_CANCEL
   );
-  if (respNombre.getSelectedButton() !== ui.Button.OK) return;
-  const nombreBase = respNombre.getResponseText().trim();
+  if (respOpcion.getSelectedButton() !== ui.Button.OK) return;
+
+  const opcionSeleccionada = parseInt(respOpcion.getResponseText().trim());
+  let nombreBase;
+
+  // Si seleccionó "Otro" o número inválido, pedir nombre manual
+  if (opcionSeleccionada === programasDisponibles.length || !opcionSeleccionada || opcionSeleccionada < 1 || opcionSeleccionada > programasDisponibles.length) {
+    const respNombreManual = ui.prompt(
+      '➕ Nombre Manual',
+      'Ingresa el NOMBRE del programa:\n\nEjemplos: "SAC", "Computación"\n\n(Se agregará automáticamente un número y el año)',
+      ui.ButtonSet.OK_CANCEL
+    );
+    if (respNombreManual.getSelectedButton() !== ui.Button.OK) return;
+    nombreBase = respNombreManual.getResponseText().trim();
+  } else {
+    // Usar el nombre del programa seleccionado
+    nombreBase = programasDisponibles[opcionSeleccionada - 1];
+  }
+
   if (!nombreBase) { ui.alert('Nombre vacío'); return; }
 
   // Agregar año actual automáticamente entre paréntesis
