@@ -1841,7 +1841,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   else if (estado === 'Entrevista agendada') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'E');  // Columna E = Nombre (evita sobrescritura cuando no hay CreamosID)
+    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, ['C', 'E']);  // Columnas C=CreamosID y E=Nombre (evita sobrescritura en ambos casos)
 
     const numColsEnt = entrevistas.getLastColumn();
     const registro = new Array(numColsEnt).fill('');
@@ -1906,7 +1906,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     // Mover a Inscritx
     const seleccionadas = ss.getSheetByName('Inscritx');
     const colMapInscritx = obtenerMapaColumnas(seleccionadas);
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');  // Columna D = Nombre (evita sobrescritura cuando no hay CreamosID)
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, ['B', 'D']);  // Columnas B=CreamosID y D=Nombre (evita sobrescritura en ambos casos)
 
     // Preparar registro para Inscritx de forma dinámica
     const numColumnasInscritx = seleccionadas.getLastColumn();
@@ -2064,7 +2064,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
   // Agregar a Retiradx
   // Columnas: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Cohorte, Motivo, Notas, Acción
   const deserciones = ss.getSheetByName('Retiradx');
-  const nuevaFila = obtenerPrimeraFilaVacia(deserciones, 'D');  // Columna D = Nombre (evita sobrescritura cuando no hay CreamosID)
+  const nuevaFila = obtenerPrimeraFilaVacia(deserciones, ['B', 'D']);  // Columnas B=CreamosID y D=Nombre (evita sobrescritura en ambos casos)
 
   const registro = [
     new Date(),
@@ -2134,7 +2134,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
   if (accion === 'Reenviar a Entrevistas') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'E');  // Columna E = Nombre (evita sobrescritura cuando no hay CreamosID)
+    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, ['C', 'E']);  // Columnas C=CreamosID y E=Nombre (evita sobrescritura en ambos casos)
 
     // Buscar datos adicionales en Hoja de Interés
     const interes = ss.getSheetByName('Hoja de Interés');
@@ -2183,7 +2183,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
   if (accion === 'Reenviar a Inscritx') {
     const seleccionadas = ss.getSheetByName('Inscritx');
     const colMapInscritx = obtenerMapaColumnas(seleccionadas);
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');  // Columna D = Nombre (evita sobrescritura cuando no hay CreamosID)
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, ['B', 'D']);  // Columnas B=CreamosID y D=Nombre (evita sobrescritura en ambos casos)
 
     // Buscar datos adicionales en Hoja de Interés
     const interes = ss.getSheetByName('Hoja de Interés');
@@ -2248,7 +2248,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
   const notas = datos[11];
 
   const seleccionadas = ss.getSheetByName('Inscritx');
-  const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');  // Columna D = Nombre (evita sobrescritura cuando no hay CreamosID)
+  const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, ['B', 'D']);  // Columnas B=CreamosID y D=Nombre (evita sobrescritura en ambos casos)
 
   // Columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
   const registro = [
@@ -3280,18 +3280,49 @@ function actualizarReferenciasInteresMasivamente() {
 // =====================================================================
 
 function obtenerPrimeraFilaVacia(sheet, columnaReferencia) {
-  // Leer todos los valores de la columna de una vez (más eficiente y previene sobrescrituras)
-  const valores = sheet.getRange(columnaReferencia + '1:' + columnaReferencia).getValues();
+  // ⚠️ VERSIÓN MEJORADA: Evita sobrescritura verificando múltiples columnas
+  // Si columnaReferencia es un array → verificar que TODAS estén vacías
+  // Si es un string → verificar solo esa columna (compatibilidad)
 
-  // Buscar desde el final hacia arriba para encontrar la última fila con datos
-  for (let i = valores.length - 1; i >= 0; i--) {
-    if (valores[i][0] && valores[i][0].toString().trim() !== '') {
-      return i + 2; // Siguiente fila después de la última con datos
+  if (Array.isArray(columnaReferencia)) {
+    // CASO 1: Array de columnas - buscar fila donde TODAS estén vacías
+    const datos = sheet.getDataRange().getValues();
+
+    // Convertir letras de columna a índices (A=0, B=1, C=2, etc.)
+    const colIndices = columnaReferencia.map(col => {
+      return col.charCodeAt(0) - 'A'.charCodeAt(0);
+    });
+
+    // Buscar desde el final hacia arriba
+    for (let i = datos.length - 1; i >= 1; i--) {
+      const fila = datos[i];
+
+      // Verificar si ALGUNA de las columnas tiene datos
+      const tieneAlgunDato = colIndices.some(colIdx => {
+        return fila[colIdx] && fila[colIdx].toString().trim() !== '';
+      });
+
+      if (tieneAlgunDato) {
+        // Esta fila tiene datos, la siguiente está vacía
+        return i + 2;
+      }
     }
-  }
 
-  // Si no hay datos, empezar en fila 2 (después del encabezado)
-  return 2;
+    // Si no hay datos en ninguna fila, empezar en fila 2
+    return 2;
+
+  } else {
+    // CASO 2: String de columna - verificar solo esa columna (original)
+    const valores = sheet.getRange(columnaReferencia + '1:' + columnaReferencia).getValues();
+
+    for (let i = valores.length - 1; i >= 0; i--) {
+      if (valores[i][0] && valores[i][0].toString().trim() !== '') {
+        return i + 2;
+      }
+    }
+
+    return 2;
+  }
 }
 
 function buscarPorCreamosID(sheet, creamosId) {
@@ -5331,9 +5362,9 @@ function enviarParticipantesACohorteAB() {
 
   pendientes.forEach(p => {
     const datosInteres = buscarPorCreamosID(interes, p.creamosId);
-    // ⚠️ CORRECCIÓN: Usar columna 'D' (Nombre) en lugar de 'B' (CreamosID)
-    // para evitar sobrescribir personas que NO tienen CreamosID
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
+    // ⚠️ CORRECCIÓN: Usar columnas ['B', 'D'] (CreamosID y Nombre)
+    // para evitar sobrescribir en AMBOS casos (con ID sin nombre, o con nombre sin ID)
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, ['B', 'D']);
 
     // ⚠️ CORRECCIÓN: Verificar si solo tiene CreamosID (sin nombre ni otros datos)
     let soloTieneID = false;
