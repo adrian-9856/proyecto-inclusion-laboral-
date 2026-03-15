@@ -242,6 +242,8 @@ function setupMenuTech() {
 
       // ========== HERRAMIENTAS ==========
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
+        .addItem('🔄 Procesar Filas Pendientes a Entrevistas', 'procesarFilasPendientesAEntrevistas')
+        .addSeparator()
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
         .addItem('🔧 Reparar Fórmulas Cohortes', 'repararFormulasCohortes')
@@ -9712,4 +9714,213 @@ function desactivarTriggersEstipendios() {
 
 // =====================================================================
 // FIN DEL MÓDULO DE ESTIPENDIOS
+// =====================================================================
+
+// =====================================================================
+// PROCESAMIENTO POR LOTE DE FILAS PENDIENTES
+// =====================================================================
+
+/**
+ * Procesa todas las filas pendientes de "Hoja de Interés" que tienen estado
+ * "Entrevista agendada" pero que aún no se copiaron a "Entrevistas"
+ *
+ * Esta función es útil cuando hay muchos registros que se marcaron como
+ * "Entrevista agendada" pero el proceso automático no los completó todos
+ * (por ejemplo, cuando se editan muchas celdas a la vez).
+ */
+function procesarFilasPendientesAEntrevistas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Mostrar diálogo de confirmación
+  const respuesta = ui.alert(
+    '🔄 Procesar Filas Pendientes',
+    'Esta función procesará todas las filas de "Hoja de Interés" que tienen estado ' +
+    '"Entrevista agendada" pero que aún no están en "Entrevistas".\n\n' +
+    '¿Deseas continuar?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (respuesta !== ui.Button.YES) {
+    ss.toast('❌ Proceso cancelado', 'Cancelado', 3);
+    return;
+  }
+
+  ss.toast('🔍 Identificando filas pendientes...', 'Procesando', -1);
+
+  const hojaInteres = ss.getSheetByName('Hoja de Interés');
+  const entrevistas = ss.getSheetByName('Entrevistas');
+
+  if (!hojaInteres || !entrevistas) {
+    ui.alert('⚠️ Error: No se encontraron las hojas necesarias');
+    return;
+  }
+
+  // Obtener mapas de columnas
+  const colMapInteres = obtenerMapaColumnas(hojaInteres);
+  const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
+
+  // Leer todos los datos de ambas hojas
+  const datosInteres = hojaInteres.getDataRange().getValues();
+  const datosEntrevistas = entrevistas.getDataRange().getValues();
+
+  // Crear set de Creamos IDs que ya están en Entrevistas
+  const creamosIDsEnEntrevistas = new Set();
+  for (let i = 1; i < datosEntrevistas.length; i++) {
+    const creamosId = datosEntrevistas[i][colMapEntrevistas['creamosid']] ||
+                      datosEntrevistas[i][colMapEntrevistas['creamos id']];
+    if (creamosId && creamosId.toString().trim() !== '') {
+      creamosIDsEnEntrevistas.add(creamosId.toString().trim());
+    }
+  }
+
+  // Identificar índice de columna Estado en Hoja de Interés
+  const idxEstado = colMapInteres['estado'];
+  const idxCreamosId = colMapInteres['creamosid'] || colMapInteres['creamos id'];
+
+  if (idxEstado === undefined || idxCreamosId === undefined) {
+    ui.alert('⚠️ Error: No se encontraron las columnas necesarias (Estado o Creamos ID)');
+    return;
+  }
+
+  // Encontrar filas pendientes
+  const filasPendientes = [];
+  for (let i = 1; i < datosInteres.length; i++) {
+    const estado = datosInteres[i][idxEstado];
+    const creamosId = datosInteres[i][idxCreamosId];
+
+    if (estado && estado.toString().trim() === 'Entrevista agendada' &&
+        creamosId && creamosId.toString().trim() !== '' &&
+        !creamosIDsEnEntrevistas.has(creamosId.toString().trim())) {
+      filasPendientes.push({
+        fila: i + 1, // +1 porque getValues() empieza en 0
+        datos: datosInteres[i],
+        creamosId: creamosId.toString().trim()
+      });
+    }
+  }
+
+  if (filasPendientes.length === 0) {
+    ss.toast('✅ No hay filas pendientes', 'Completado', 5);
+    ui.alert('✅ No se encontraron filas pendientes.\n\nTodas las filas con estado "Entrevista agendada" ya están en "Entrevistas".');
+    return;
+  }
+
+  // Confirmar procesamiento
+  const confirmar = ui.alert(
+    '📊 Filas Pendientes Encontradas',
+    `Se encontraron ${filasPendientes.length} fila(s) pendiente(s) para procesar.\n\n` +
+    '¿Deseas procesarlas ahora?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmar !== ui.Button.YES) {
+    ss.toast('❌ Proceso cancelado', 'Cancelado', 3);
+    return;
+  }
+
+  // Procesar cada fila pendiente
+  ss.toast(`🔄 Procesando ${filasPendientes.length} fila(s)...`, 'Procesando', -1);
+
+  let procesadas = 0;
+  let errores = 0;
+  const registrosParaInsertar = [];
+  const filasParaMarcar = [];
+
+  for (let pendiente of filasPendientes) {
+    try {
+      const datos = pendiente.datos;
+
+      // Helper para obtener valores
+      const getVal = (nombre) => {
+        const norm = nombre.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const idx = colMapInteres[norm];
+        let val = idx !== undefined ? datos[idx] : '';
+
+        // Auto-normalizar nivel educativo
+        if (norm === 'niveleducativo' && typeof normalizarNivelEducativo === 'function') {
+          return normalizarNivelEducativo(val);
+        }
+        return val;
+      };
+
+      const creamosId = getVal('Creamos ID');
+      const nombreCompleto = getVal('Nombre Completo');
+
+      // Preparar registro para Entrevistas
+      const numColsEnt = entrevistas.getLastColumn();
+      const registro = new Array(numColsEnt).fill('');
+
+      const mapping = {
+        'Fecha Entrevista': new Date(),
+        'Creamos ID': creamosId,
+        'DPI': getVal('DPI'),
+        'Nombre Completo': nombreCompleto,
+        'Género': getVal('Género'),
+        'Edad': getVal('Edad'),
+        'Teléfono': getVal('Teléfono'),
+        'Nivel Educativo': getVal('Nivel Educativo'),
+        'Zona': getVal('Zona')
+      };
+
+      for (let [header, valor] of Object.entries(mapping)) {
+        const norm = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const targetIdx = colMapEntrevistas[norm];
+        if (targetIdx !== undefined) registro[targetIdx] = valor;
+      }
+
+      registrosParaInsertar.push(registro);
+      filasParaMarcar.push(pendiente.fila);
+      procesadas++;
+
+      Logger.log(`✅ Procesada: ${nombreCompleto} (${creamosId})`);
+
+    } catch (e) {
+      Logger.log(`⚠️ Error procesando fila ${pendiente.fila}: ${e.message}`);
+      errores++;
+    }
+  }
+
+  // Insertar todos los registros en un solo lote
+  if (registrosParaInsertar.length > 0) {
+    try {
+      const primeraFilaVacia = obtenerPrimeraFilaVacia(entrevistas, ['C', 'E']);
+      entrevistas.getRange(primeraFilaVacia, 1, registrosParaInsertar.length, registrosParaInsertar[0].length)
+                 .setValues(registrosParaInsertar);
+      SpreadsheetApp.flush();
+
+      // Marcar las filas procesadas en Hoja de Interés
+      const maxCol = hojaInteres.getLastColumn();
+      for (let fila of filasParaMarcar) {
+        hojaInteres.getRange(fila, 1, 1, maxCol).setBackground('#e8f5e9');
+
+        // Autocompletar desde directorio si existe la función
+        if (typeof autocompletarFilaDesdeDirectorio === 'function') {
+          const nuevaFilaEntrevistas = primeraFilaVacia + filasParaMarcar.indexOf(fila);
+          autocompletarFilaDesdeDirectorio(
+            entrevistas,
+            nuevaFilaEntrevistas,
+            mapearColumnasParaAutocompletar(entrevistas)
+          );
+        }
+      }
+
+      ss.toast(`✅ Procesadas ${procesadas} fila(s)`, 'Completado', 5);
+
+      let mensaje = `✅ Proceso completado\n\n` +
+                   `Filas procesadas: ${procesadas}\n`;
+      if (errores > 0) {
+        mensaje += `Errores: ${errores}\n`;
+      }
+      mensaje += `\nLas filas se copiaron exitosamente a "Entrevistas".`;
+
+      ui.alert('✅ Completado', mensaje, ui.ButtonSet.OK);
+
+    } catch (e) {
+      Logger.log('⚠️ ERROR escribiendo en lote: ' + e.message);
+      ui.alert('⚠️ Error al guardar en Entrevistas.\n\nDetalle: ' + e.message);
+    }
+  }
+}
+
 // =====================================================================
