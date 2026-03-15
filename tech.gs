@@ -224,6 +224,9 @@ function setupMenuTech() {
 
       // ========== CONFIGURACIÓN ==========
       .addSubMenu(ui.createMenu('⚙️ Configuración')
+        .addItem('✅ INSTALAR TODO EL SISTEMA', 'instalarSistemaCompletoTech')
+        .addItem('❌ DESINSTALAR TODO EL SISTEMA', 'desinstalarSistemaCompletoTech')
+        .addSeparator()
         .addItem('🔗 URL Registros Kobo', 'configurarKoboURL')
         .addItem('🔗 URL Entrevistas Kobo', 'configurarKoboEntrevistasURL')
         .addItem('📝 Importar Entrevistas (Detalle)', 'importarEntrevistasDesdeKobo')
@@ -1827,8 +1830,9 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       noInscritx.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
       SpreadsheetApp.flush();
     } catch (e) {
-      Logger.log('⚠️ Error escribiendo en No Inscritx (tech): ' + e.message);
-      noInscritx.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
+      Logger.log('⚠️ ERROR CRÍTICO escribiendo en No Inscritx (tech): ' + e.message);
+      SpreadsheetApp.getUi().alert('⚠️ Error al guardar en No Inscritx. Por favor inténtalo nuevamente.\n\nDetalle: ' + e.message);
+      return; // ❌ NO REINTENTAR - puede sobrescribir datos
     }
 
     // Autocompletar robusto
@@ -1867,8 +1871,9 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       entrevistas.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
       SpreadsheetApp.flush();
     } catch (e) {
-      Logger.log('⚠️ Error escribiendo en Entrevistas (tech): ' + e.message);
-      entrevistas.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
+      Logger.log('⚠️ ERROR CRÍTICO escribiendo en Entrevistas (tech): ' + e.message);
+      SpreadsheetApp.getUi().alert('⚠️ Error al guardar en Entrevistas. Por favor inténtalo nuevamente.\n\nDetalle: ' + e.message);
+      return; // ❌ NO REINTENTAR - puede sobrescribir datos
     }
 
     // Autocompletar robusto
@@ -2079,8 +2084,9 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
     deserciones.getRange(nuevaFila, 1, 1, 13).setValues([registro]);
     SpreadsheetApp.flush();
   } catch (e) {
-    Logger.log('⚠️ Error escribiendo en Retiradx (tech): ' + e.message);
-    deserciones.getRange(nuevaFila, 1, 1, 13).setValues([registro]);
+    Logger.log('⚠️ ERROR CRÍTICO escribiendo en Retiradx (tech): ' + e.message);
+    SpreadsheetApp.getUi().alert('⚠️ Error al guardar deserción en Retiradx. Por favor inténtalo nuevamente.\n\nDetalle: ' + e.message);
+    return; // ❌ NO REINTENTAR - puede sobrescribir datos
   }
 
   // Autocompletar campos vacíos desde Directorio Maestro
@@ -2571,12 +2577,16 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
   let graduadasCount = 0;
   const listaParaEmail = [];
 
+  // ✅ FIX: Calcular primera fila vacía UNA SOLA VEZ antes del loop
+  // Evita condiciones de carrera y sobrescritura de datos
+  const primeraFilaVaciaGrad = graduadas.getLastRow() + 1;
+  const registrosParaBatch = []; // Acumular todos los registros para escribir en batch
+
   for (let i = 1; i < datosCohorte.length; i++) {
     const fila = datosCohorte[i];
     // Solo procesar si tiene nombre y no tiene estado (o estado vacío)
     if (fila[4] && (!fila[10] || fila[10] === '')) {
       listaParaEmail.push({ nombre: fila[4], creamosId: fila[2] || '' });
-      const nuevaFilaGrad = graduadas.getLastRow() + 1;
 
       // Si no tiene Creamos ID, agregar nota
       const notaID = fila[2] ? '' : '⚠️ Sin Creamos ID — verificar en Salesforce';
@@ -2596,7 +2606,8 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
         notaID             // Notas (alerta si falta ID)
       ];
 
-      graduadas.getRange(nuevaFilaGrad, 1, 1, 11).setValues([registroGraduada]);
+      registrosParaBatch.push(registroGraduada);
+      const nuevaFilaGrad = primeraFilaVaciaGrad + graduadasCount;
 
       // Marcar como Graduada en la hoja de cohorte (NO eliminar — la hoja queda como archivo)
       hojaCohorte.getRange(i + 1, 11).setValue('Graduadx');
@@ -2609,6 +2620,12 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
 
       graduadasCount++;
     }
+  }
+
+  // ✅ FIX: Escribir TODOS los registros en un solo batch (mucho más eficiente y seguro)
+  if (registrosParaBatch.length > 0) {
+    graduadas.getRange(primeraFilaVaciaGrad, 1, registrosParaBatch.length, 11).setValues(registrosParaBatch);
+    SpreadsheetApp.flush();
   }
 
   // Enviar AL ARCHIVO EXTERNO en un solo batch después del loop
@@ -6576,23 +6593,44 @@ function repararFormulasCohortes() {
 // INSTALAR TODO — BOTÓN MAESTRO DE INSTALACIÓN COMPLETA
 // =====================================================================
 
+/**
+ * ✅ INSTALAR TODO EL SISTEMA - Función principal de instalación
+ * Crea todas las hojas, configura validaciones, formatos, fórmulas y triggers
+ */
+function instalarSistemaCompletoTech() {
+  instalarTodo(); // Llama a la función principal de instalación
+}
+
+/**
+ * ❌ DESINSTALAR TODO EL SISTEMA - Elimina todas las hojas del sistema
+ */
+function desinstalarSistemaCompletoTech() {
+  desinstalarSistema(); // Llama a la función principal de desinstalación
+}
+
 function instalarTodo() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
   const confirmacion = ui.alert(
-    '🚀 Instalación Completa del Sistema',
-    'Esta función configurará TODO el sistema:\n\n' +
-    '✓ Crear todas las hojas necesarias\n' +
-    '✓ Configurar validaciones y formatos\n' +
-    '✓ Instalar fórmulas en todas las hojas\n' +
-    '✓ Instalar triggers automáticos\n' +
-    '✓ Reparar fórmulas del Reporte\n' +
-    '✓ Crear Guía de Uso (si no existe)\n\n' +
-    'ℹ️ Importación de Kobo: usar menú después\n' +
-    '⚠️ NO se borrará "Copy of CREAMOS ID nuevo"\n' +
-    '⚠️ NO se borrarán datos existentes\n\n' +
-    '¿Deseas continuar?',
+    '✅ INSTALAR TODO EL SISTEMA COMPLETO',
+    '🚀 Esta función configurará TODO el sistema automáticamente:\n\n' +
+    '✅ HOJAS:\n' +
+    '   • Hoja de Interés, Entrevistas, Inscritx\n' +
+    '   • Cohortes, Graduadx, Retiradx, No Inscritx\n' +
+    '   • Lista Definitiva, Reportes\n' +
+    '   • Sistema de Estipendios completo\n' +
+    '   • Guía de Uso\n\n' +
+    '✅ CONFIGURACIÓN:\n' +
+    '   • Validaciones y formatos\n' +
+    '   • Fórmulas automáticas\n' +
+    '   • Triggers de importación\n' +
+    '   • Reglas de formato condicional\n\n' +
+    '⚠️ IMPORTANTE:\n' +
+    '   • NO se borrarán datos existentes\n' +
+    '   • Se mantendrá "Copy of CREAMOS ID nuevo"\n' +
+    '   • Después debes configurar URLs de Kobo\n\n' +
+    '¿Deseas continuar con la instalación?',
     ui.ButtonSet.YES_NO
   );
 
