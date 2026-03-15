@@ -8,9 +8,13 @@
 
 ## 🚨 PROBLEMA
 
+### Problema 1: Envío de campos vacíos
 Cuando se enviaban personas entre hojas (Hoja de Interés → Entrevistas → Inscritx → Cohorte), si una persona **solo tenía CreamosID** (sin nombre ni otros datos), el sistema enviaba **campos VACÍOS** que **sobrescribían** datos existentes en la hoja destino.
 
-### Escenario Problemático:
+### Problema 2: Sobrescritura de filas existentes (CRÍTICO)
+La función `obtenerPrimeraFilaVacia()` buscaba filas vacías usando la columna 'D' (Nombre). Si una fila tenía CreamosID en columna 'B' pero NO tenía nombre en columna 'D', la función pensaba que esa fila estaba vacía y **la sobrescribía** con la siguiente persona enviada.
+
+### Escenario Problemático 1 (Campos vacíos):
 
 **Persona en "Hoja de Interés":**
 ```
@@ -39,11 +43,35 @@ const registro = [
 
 **Resultado:** ❌ Se enviaban campos vacíos que borraban información existente
 
+### Escenario Problemático 2 (Sobrescritura de filas):
+
+**Paso 1 - Enviar primera persona (solo ID):**
+```
+Hoja "Inscritx" después del envío:
+Fila 2: CreamosID="TECH-001", Nombre=(vacío), DPI=(vacío), Edad=(vacío)
+```
+
+**Paso 2 - Enviar segunda persona (con datos completos):**
+```javascript
+// La función busca en columna 'D' (Nombre)
+const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
+// ❌ Ve que fila 2 tiene columna D vacía
+// ❌ Retorna fila 2 (aunque ya tiene CreamosID en columna B)
+// ❌ Sobrescribe fila 2 con la segunda persona
+```
+
+**Resultado:**
+```
+Hoja "Inscritx" después del segundo envío:
+Fila 2: CreamosID="TECH-002", Nombre="María López", DPI="123...", Edad="25"
+       ↑ ❌ Se perdió "TECH-001"!
+```
+
 ---
 
 ## ✅ SOLUCIÓN IMPLEMENTADA
 
-### Nueva Lógica de Envío:
+### Corrección 1: Nueva Lógica de Envío
 
 #### **REGLA 1:** Si solo tiene CreamosID (sin nombre ni datos)
 - ✅ **Enviar SOLO** el CreamosID y datos mínimos del origen (nombre, teléfono si están disponibles)
@@ -53,6 +81,24 @@ const registro = [
 #### **REGLA 2:** Si tiene información completa
 - ✅ **Enviar TODO** (CreamosID, DPI, Nombre, Género, Edad, Nivel Educativo, Zona, etc.)
 - ✅ Actualiza todos los campos con la información disponible
+
+### Corrección 2: Cambio de Columna de Referencia
+
+#### **ANTES:**
+```javascript
+const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D'); // ❌ Columna D (Nombre)
+```
+
+#### **AHORA:**
+```javascript
+const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'B'); // ✅ Columna B (CreamosID)
+```
+
+**Por qué funciona:**
+- ✅ Columna 'B' contiene el **CreamosID** (identificador único)
+- ✅ Si una fila tiene CreamosID, NO está vacía
+- ✅ NO sobrescribe filas que ya tienen datos
+- ✅ Garantiza que cada persona se inserte en una nueva fila
 
 ---
 

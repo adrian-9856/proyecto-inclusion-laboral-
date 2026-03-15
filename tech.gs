@@ -1909,7 +1909,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     // Mover a Inscritx
     const seleccionadas = ss.getSheetByName('Inscritx');
     const colMapInscritx = obtenerMapaColumnas(seleccionadas);
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'B');
 
     // Preparar registro para Inscritx de forma dinámica
     const numColumnasInscritx = seleccionadas.getLastColumn();
@@ -2062,7 +2062,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
   // Agregar a Retiradx
   // Columnas: Fecha, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Cohorte, Motivo, Notas, Acción
   const deserciones = ss.getSheetByName('Retiradx');
-  const nuevaFila = obtenerPrimeraFilaVacia(deserciones, 'D');
+  const nuevaFila = obtenerPrimeraFilaVacia(deserciones, 'B');
 
   const registro = [
     new Date(),
@@ -2178,7 +2178,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
   if (accion === 'Reenviar a Inscritx') {
     const seleccionadas = ss.getSheetByName('Inscritx');
     const colMapInscritx = obtenerMapaColumnas(seleccionadas);
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'B');
 
     // Buscar datos adicionales en Hoja de Interés
     const interes = ss.getSheetByName('Hoja de Interés');
@@ -2242,7 +2242,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
   const notas = datos[11];
 
   const seleccionadas = ss.getSheetByName('Inscritx');
-  const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
+  const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'B');
 
   // Columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
   const registro = [
@@ -5294,7 +5294,9 @@ function enviarParticipantesACohorteTech() {
 
   pendientes.forEach(p => {
     const datosInteres = buscarPorCreamosID(interes, p.creamosId);
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'D');
+    // ⚠️ CORRECCIÓN: Usar columna 'B' (CreamosID) en lugar de 'D' (Nombre)
+    // para evitar sobrescribir filas que tienen ID pero no nombre
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, 'B');
 
     // ⚠️ CORRECCIÓN: Verificar si solo tiene CreamosID (sin nombre ni otros datos)
     let soloTieneID = false;
