@@ -6123,6 +6123,7 @@ function autocompletarDesdeCreamosID(silencioso) {
     let actualizado = false;
     const filaNum = i + 1;
 
+    // ⚠️ NUNCA SOBRESCRIBIR - Solo rellenar campos VACÍOS
     // Rellenar Nombre Completo si está vacío
     if (!nombreActual && nombreDirectorio) {
       hojaInteres.getRange(filaNum, 5).setValue(nombreDirectorio);
