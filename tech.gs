@@ -1844,7 +1844,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   else if (estado === 'Entrevista agendada') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'E');  // Columna E = Nombre Completo (siempre tiene valor)
+    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'C');  // Columna C = CreamosID (evita sobrescritura si solo tiene ID)
 
     const numColsEnt = entrevistas.getLastColumn();
     const registro = new Array(numColsEnt).fill('');
@@ -2132,7 +2132,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
   if (accion === 'Reenviar a Entrevistas') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'E');  // Columna E = Nombre Completo (siempre tiene valor)
+    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, 'C');  // Columna C = CreamosID (evita sobrescritura si solo tiene ID)
 
     // Buscar datos adicionales en Hoja de Interés
     const interes = ss.getSheetByName('Hoja de Interés');
