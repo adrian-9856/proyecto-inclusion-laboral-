@@ -6090,16 +6090,23 @@ function autocompletarDesdeCreamosID(silencioso) {
     // Fila vacía: no hay nombre ni Creamos ID ni DPI
     if (!nombreActual && !creamosIdActual && !dpiActual) continue;
 
-    // Buscar en directorio por CreamosID → DPI → Nombre
+    // ⚠️ CORRECCIÓN CRÍTICA: Evitar sobrescritura de datos existentes
+    // Si la fila ya tiene CreamosID, SOLO buscar por CreamosID (no por nombre/DPI)
+    // Esto evita que una persona con ID completo sea sobrescrita por otra persona con el mismo nombre
     let filaDirectorio = null;
+
     if (creamosIdActual) {
+      // Si tiene CreamosID → buscar SOLO por CreamosID
       filaDirectorio = mapPorCreamosId.get(creamosIdActual.toUpperCase()) || null;
-    }
-    if (!filaDirectorio && dpiActual) {
-      filaDirectorio = mapPorDpi.get(dpiActual) || null;
-    }
-    if (!filaDirectorio && nombreActual) {
-      filaDirectorio = mapPorNombre.get(nombreActual.toLowerCase()) || null;
+      // NO buscar por otros criterios si hay CreamosID
+    } else {
+      // Si NO tiene CreamosID → buscar por DPI o Nombre
+      if (dpiActual) {
+        filaDirectorio = mapPorDpi.get(dpiActual) || null;
+      }
+      if (!filaDirectorio && nombreActual) {
+        filaDirectorio = mapPorNombre.get(nombreActual.toLowerCase()) || null;
+      }
     }
 
     if (!filaDirectorio) {
@@ -6390,11 +6397,21 @@ function actualizarTodosDesdeDirectorio(silencioso) {
       // Fila completamente vacía → saltar
       if (!cId && !dpi && !nom) continue;
 
-      // Buscar en directorio: CreamosID → DPI → Nombre
+      // ⚠️ CORRECCIÓN CRÍTICA: Evitar sobrescritura de datos existentes
+      // Si la fila ya tiene CreamosID, SOLO buscar por CreamosID (no por nombre/DPI)
+      // Esto evita que una persona con ID completo sea sobrescrita por otra persona con el mismo nombre
       let filaDir = null;
-      if (cId) filaDir = mapPorCreamosId.get(cId.toUpperCase()) || null;
-      if (!filaDir && dpi) filaDir = mapPorDpi.get(dpi) || null;
-      if (!filaDir && nom) filaDir = mapPorNombre.get(nom.toLowerCase()) || null;
+
+      if (cId) {
+        // Si tiene CreamosID → buscar SOLO por CreamosID
+        filaDir = mapPorCreamosId.get(cId.toUpperCase()) || null;
+        // NO buscar por otros criterios si hay CreamosID
+      } else {
+        // Si NO tiene CreamosID → buscar por DPI o Nombre
+        if (dpi) filaDir = mapPorDpi.get(dpi) || null;
+        if (!filaDir && nom) filaDir = mapPorNombre.get(nom.toLowerCase()) || null;
+      }
+
       if (!filaDir) continue;
 
       const nombreDir  = filaDir[0] ? filaDir[0].toString().trim() : '';
