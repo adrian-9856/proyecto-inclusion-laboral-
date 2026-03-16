@@ -8954,23 +8954,28 @@ function crearHojaEstipendios() {
 
   // Headers
   const headers = [
-    'ID Pago',
-    'Fecha Registro',
-    'ID Participante',
-    'Nombre Completo',
-    'Cohorte',
-    'Programa',
-    'Tipo Estipendio',
-    'Monto (Q)',
-    'Fecha Programada',
-    'Fecha Pago Real',
-    'Estado',
-    'Método Pago',
-    '# Recibo',
-    'Responsable',
-    'URL Firma',
-    'Días Atraso',
-    'Notas'
+    'ID Pago',              // A
+    'Fecha Registro',       // B (Timestamp Kobo)
+    'ID Participante',      // C
+    'Nombre Completo',      // D
+    'Cohorte',              // E
+    'Programa',             // F
+    'Tipo Estipendio',      // G (Curso/Prácticas)
+    'Monto (Q)',            // H
+    'Fecha Programada',     // I
+    'Fecha Pago Real',      // J
+    'Estado',               // K (fórmula)
+    'Método Pago',          // L
+    '# Recibo',             // M
+    'Responsable',          // N
+    'Ubicación GPS',        // O
+    'URL Firma',            // P
+    'URL Foto Comprobante', // Q
+    'Días Atraso',          // R (fórmula)
+    'Mes',                  // S (fórmula)
+    'Año',                  // T (fórmula)
+    'Semana',               // U (fórmula)
+    'Notas'                 // V
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -8984,12 +8989,24 @@ function crearHojaEstipendios() {
 
   // Fórmulas en fila 2
   sheet.getRange('K2').setFormula('=IF(J2<>"","Pagado",IF(I2<TODAY(),"🔴 Atrasado","Programado"))');
-  sheet.getRange('P2').setFormula('=IF(AND(K2<>"Pagado",I2<TODAY()),TODAY()-I2,0)');
+  sheet.getRange('R2').setFormula('=IF(AND(K2<>"Pagado",I2<TODAY()),TODAY()-I2,0)');
+  sheet.getRange('S2').setFormula('=IF(I2<>"",TEXT(I2,"MMMM"),"")');
+  sheet.getRange('T2').setFormula('=IF(I2<>"",YEAR(I2),"")');
+  sheet.getRange('U2').setFormula('=IF(I2<>"",WEEKNUM(I2),"")');
+
+  // Copiar fórmulas hacia abajo
+  sheet.getRange('K2:U2').copyTo(sheet.getRange('K3:U1000'), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
 
   // Anchos de columna
   sheet.setColumnWidth(1, 120);  // ID Pago
   sheet.setColumnWidth(4, 180);  // Nombre
   sheet.setColumnWidth(5, 150);  // Cohorte
+  sheet.setColumnWidth(15, 150); // Ubicación GPS
+  sheet.setColumnWidth(16, 150); // URL Firma
+  sheet.setColumnWidth(17, 150); // URL Foto
+  sheet.setColumnWidth(19, 100); // Mes
+  sheet.setColumnWidth(20, 80);  // Año
+  sheet.setColumnWidth(21, 80);  // Semana
 
   // Formato números
   sheet.getRange('H:H').setNumberFormat('"Q"#,##0.00');
@@ -9169,6 +9186,11 @@ function importarEstipendiosDesdeKobo() {
       'Monto_total': headers.indexOf('Monto_total'),
       'Comentarios': headers.indexOf('Comentarios'),
       'Firma': headers.indexOf('Firma'),
+      'Foto_Comprobante': headers.indexOf('Foto_Comprobante'),
+      'Numero_Comprobante': headers.indexOf('Numero_Comprobante'),
+      'Metodo_Pago': headers.indexOf('Metodo_Pago'),
+      'Responsable': headers.indexOf('Responsable'),
+      'GPS': headers.indexOf('_geolocation') || headers.indexOf('GPS') || headers.indexOf('Ubicacion'),
       '_submission_time': headers.indexOf('_submission_time')
     };
 
@@ -9195,6 +9217,11 @@ function importarEstipendiosDesdeKobo() {
         const monto = indices['Monto_total'] >= 0 ? fila[indices['Monto_total']] : '';
         const comentarios = indices['Comentarios'] >= 0 ? fila[indices['Comentarios']] : '';
         const firma = indices['Firma'] >= 0 ? fila[indices['Firma']] : '';
+        const fotoComprobante = indices['Foto_Comprobante'] >= 0 ? fila[indices['Foto_Comprobante']] : '';
+        const numeroComprobante = indices['Numero_Comprobante'] >= 0 ? fila[indices['Numero_Comprobante']] : '';
+        const metodoPago = indices['Metodo_Pago'] >= 0 ? fila[indices['Metodo_Pago']] : 'Efectivo';
+        const responsable = indices['Responsable'] >= 0 ? fila[indices['Responsable']] : '';
+        const gps = indices['GPS'] >= 0 ? fila[indices['GPS']] : '';
         const submissionTime = indices['_submission_time'] >= 0 ? fila[indices['_submission_time']] : '';
 
         if (!creamosID) return;
@@ -9222,23 +9249,28 @@ function importarEstipendiosDesdeKobo() {
 
         // Agregar registro
         const nuevoRegistro = [
-          idPago,
-          submissionTime || new Date(),
-          creamosID,
-          nombreCompleto,
-          cohorte,
-          proyecto,
-          tipoEstipendio,
-          parseFloat(monto) || 0,
-          fecha,
-          fecha,
-          '',  // Estado (fórmula)
-          'Efectivo',
-          '',  // # Recibo
-          '',  // Responsable
-          firma,
-          '',  // Días atraso (fórmula)
-          comentarios
+          idPago,                     // A - ID Pago
+          submissionTime || new Date(), // B - Fecha Registro
+          creamosID,                  // C - ID Participante
+          nombreCompleto,             // D - Nombre Completo
+          cohorte,                    // E - Cohorte
+          proyecto,                   // F - Programa
+          tipoEstipendio,             // G - Tipo Estipendio
+          parseFloat(monto) || 0,     // H - Monto
+          fecha,                      // I - Fecha Programada
+          fecha,                      // J - Fecha Pago Real
+          '',                         // K - Estado (fórmula)
+          metodoPago,                 // L - Método Pago
+          numeroComprobante,          // M - # Recibo
+          responsable,                // N - Responsable
+          gps,                        // O - Ubicación GPS
+          firma,                      // P - URL Firma
+          fotoComprobante,            // Q - URL Foto Comprobante
+          '',                         // R - Días atraso (fórmula)
+          '',                         // S - Mes (fórmula)
+          '',                         // T - Año (fórmula)
+          '',                         // U - Semana (fórmula)
+          comentarios                 // V - Notas
         ];
 
         sheetEstipendios.appendRow(nuevoRegistro);
