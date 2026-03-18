@@ -836,7 +836,7 @@ function crearHojaDetalleEntrevistas() {
 
   const headers = [
     // === INFORMACIÓN GENERAL ===
-    'Fecha Importación',          // A
+    'Fecha Entrevista',           // A - Fecha en que se realizó la entrevista (desde Kobo)
     'Creamos ID',                 // B - CLAVE DE VINCULACIÓN
     'Nombre Completo',            // C
     'Género',                     // D
@@ -4610,6 +4610,7 @@ function importarEntrevistasDesdeKobo() {
     // Mapeo de columnas de Kobo a nuestra hoja
     // Buscar índices de las columnas importantes
     const colMap = {
+      fechaEntrevista: buscarIndiceColumna(headers, ['_submission_time', 'start', 'end', 'fecha', 'fecha entrevista', 'submission time']),
       creamosId: buscarIndiceColumna(headers, ['Creamos ID', 'creamos_id', 'Información General/Creamos ID']),
       nombre: buscarIndiceColumna(headers, ['Nombre y apellidos', 'nombre', 'Información General/Nombre']),
       genero: buscarIndiceColumna(headers, ['Género', 'genero', 'Información General/Género']),
@@ -4688,9 +4689,27 @@ function importarEntrevistasDesdeKobo() {
       // Función helper para obtener valor seguro
       const getVal = (idx) => idx >= 0 && row[idx] ? row[idx].toString().trim() : '';
 
+      // Obtener fecha de entrevista desde Kobo o usar fecha actual como fallback
+      const getFechaEntrevista = () => {
+        if (colMap.fechaEntrevista >= 0 && row[colMap.fechaEntrevista]) {
+          try {
+            const fechaStr = row[colMap.fechaEntrevista].toString().trim();
+            const fecha = new Date(fechaStr);
+            // Verificar si la fecha es válida
+            if (!isNaN(fecha.getTime())) {
+              return fecha;
+            }
+          } catch (e) {
+            Logger.log('Error parseando fecha: ' + e.message);
+          }
+        }
+        // Si no hay fecha o hay error, usar fecha actual
+        return new Date();
+      };
+
       // Crear registro para Detalle Entrevistas (53 columnas)
       const registro = [
-        new Date(),                                    // A: Fecha Importación
+        getFechaEntrevista(),                          // A: Fecha Importación (fecha de entrevista)
         creamosId,                                     // B: Creamos ID
         getVal(colMap.nombre),                         // C: Nombre
         getVal(colMap.genero),                         // D: Género
