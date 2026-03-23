@@ -27,7 +27,7 @@ const CONFIG_AB = {
   KOBO_URL: 'https://kf.kobotoolbox.org/api/v2/assets/auvEELWQEgiwF54W4pGpV5/export-settings/esd2gxqN87HPuQDypxFqUNi/data.csv',
 
   // URL de KoboToolbox para importar datos de ENTREVISTAS (IL_01_Entrevista)
-  KOBO_ENTREVISTAS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aF4nMQPqbHokM7rg2Vtf5w/export-settings/esqKoJjmoR34panMLhM8j3Z/data.csv',
+  KOBO_ENTREVISTAS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aF4nMQPqbHokM7rg2Vtf5w/export-settings/es8WpJjRKe9LhhrKPChUpFh/data.csv',
 
   // Cohortes disponibles (se llenan dinámicamente desde la hoja Cohortes)
   COHORTES: [],
@@ -907,7 +907,48 @@ function crearHojaDetalleEntrevistas() {
     '¿Aprender para práctica en trabajo?', // AY - ¿Te interesa aprender para luego ponerlo en práctica?
 
     // === CONTROL ===
-    'Vinculado'                   // AZ - Sí/No - Si ya está vinculado con Entrevistas
+    'Vinculado',                  // AZ - Sí/No - Si ya está vinculado con Entrevistas
+
+    // === NUEVAS PREGUNTAS DEL CURSO ===
+    'Qué te llama atención curso',         // BA - ¿Qué te llama la atención de este curso?
+    'Expectativa del curso',                // BB - ¿Cuál es tu expectativa del curso?
+    'Tramitar papelería',                   // BC - ¿Dispuesto a tramitar papelería?
+    'Plan tramitar papelería',              // BD - Cuál sería tu plan para tramitar
+    'Comentario Firmar Documento',          // BE - Comentario firmar documento
+    'Plan Disponibilidad',                  // BF - Plan para disponibilidad de tiempo
+
+    // === ÁREA DE EMPLEABILIDAD ===
+    'Actualmente tiene trabajo',            // BG - ¿Actualmente tienes trabajo?
+    'Cuéntanos más trabajo',                // BH - Cuéntanos más sobre tu trabajo actual
+    'Satisfecho con trabajo',               // BI - ¿Estás satisfecho con este trabajo?
+    'Comentario satisfacción trabajo',      // BJ - Comentario sobre satisfacción
+    'Qué hacer próximos meses',             // BK - ¿Qué te gustaría hacer en los próximos meses?
+    'Importancia conseguir trabajo',        // BL - ¿Qué tan importante es conseguir trabajo?
+    'Te ves trabajando sector',             // BM - Descripción completa trabajar en sector
+    'Comentario Deudas Bancarias',          // BN - Comentario deudas bancarias
+    'Caso Legal',                           // BO - ¿Tienes algún caso/tema legal?
+    'Comentario Caso Legal',                // BP - Comentario caso legal
+    'Dispuesto participar empleabilidad',   // BQ - ¿Dispuesto a participar en fase empleabilidad?
+    'Comentario empleabilidad',             // BR - Comentario empleabilidad
+    'Temporalidad metas empleabilidad',     // BS - Inmediato, corto o mediano plazo
+
+    // === GÉNERO ADICIONAL ===
+    'Conflictos casa horarios variados',    // BT - ¿Conflicto en casa con horarios variados?
+    'Comentario conflictos horarios',       // BU - Comentario conflictos horarios
+
+    // === NOTAS Y METADATOS KOBO ===
+    'Notas del Entrevistador',              // BV - Notas del entrevistador
+    '_id',                                  // BW - ID de Kobo
+    '_uuid',                                // BX - UUID de Kobo
+    '_submission_time',                     // BY - Tiempo de envío
+    '_validation_status',                   // BZ - Estado de validación
+    '_notes',                               // CA - Notas de Kobo
+    '_status',                              // CB - Estado en Kobo
+    '_submitted_by',                        // CC - Enviado por
+    '_tags',                                // CD - Etiquetas
+    '_index',                               // CE - Índice
+    '__version__',                          // CF - Versión
+    'meta/rootUuid'                         // CG - Root UUID
   ];
 
   // Expandir la hoja para acomodar todas las columnas (por defecto solo tiene 26)
@@ -926,7 +967,7 @@ function crearHojaDetalleEntrevistas() {
   // Congelar fila de encabezados
   sheet.setFrozenRows(1);
 
-  // Anchos de columna (52 valores = 52 headers = A a AZ)
+  // Anchos de columna (85 valores = 85 headers, A a CG)
   const anchos = [
     100,  // Fecha
     100,  // Creamos ID
@@ -941,7 +982,11 @@ function crearHojaDetalleEntrevistas() {
     80, 80, 80, 150,  // Operarios
     150, 80, 80, 80, 150, 80, 150, 150, 200, 80, 150, 100, 200,  // Género
     150,  // Adicionales (AY)
-    80    // Vinculado (AZ)
+    80,   // Vinculado (AZ)
+    200, 200, 80, 200, 150, 200,  // Nuevas preguntas curso (BA-BF)
+    80, 200, 80, 200, 200, 150, 200, 150, 80, 200, 80, 200, 200,  // Empleabilidad (BG-BS)
+    80, 200,  // Género adicional (BT-BU)
+    250, 100, 150, 120, 100, 120, 100, 100, 120, 80, 80, 150  // Notas y metadatos (BV-CG)
   ];
   anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
@@ -958,6 +1003,10 @@ function crearHojaDetalleEntrevistas() {
   sheet.getRange('AH1:AK1').setBackground('#bf360c'); // Operarios - Naranja oscuro
   sheet.getRange('AL1:AX1').setBackground('#ad1457'); // Género - Rosa
   sheet.getRange('AY1:AZ1').setBackground('#37474f'); // Adicionales - Gris
+  sheet.getRange('BA1:BF1').setBackground('#7b1fa2'); // Nuevas preguntas curso - Morado oscuro
+  sheet.getRange('BG1:BS1').setBackground('#0277bd'); // Empleabilidad - Azul claro
+  sheet.getRange('BT1:BU1').setBackground('#c2185b'); // Género adicional - Rosa oscuro
+  sheet.getRange('BV1:CG1').setBackground('#455a64'); // Notas y metadatos - Gris azulado
 }
 
 /**
@@ -4649,7 +4698,48 @@ function importarEntrevistasDesdeKobo() {
       familiaresCreamos: buscarIndiceColumna(headers, ['familiares que son participantes']),
       nombresFamiliares: buscarIndiceColumna(headers, ['facilitarnos sus nombres']),
       formalInformal: buscarIndiceColumna(headers, ['formal o informal']),
-      conoceViolenciaMujer: buscarIndiceColumna(headers, ['violencia contra la mujer'])
+      conoceViolenciaMujer: buscarIndiceColumna(headers, ['violencia contra la mujer']),
+
+      // === NUEVAS PREGUNTAS DEL CURSO ===
+      queLlamaAtencion: buscarIndiceColumna(headers, ['Qué te llama la atención', 'llama la atención']),
+      expectativaCurso: buscarIndiceColumna(headers, ['expectativa del curso', 'Cuál es tu expectativa']),
+      tramitarPapeleria: buscarIndiceColumna(headers, ['tramitar la papelería', 'tramitar papelería']),
+      planPapeleria: buscarIndiceColumna(headers, ['plan', 'Cuál sería tu plan']),
+      comentarioFirmarDoc: buscarIndiceColumna(headers, ['Comentario', 'firmar documento']),
+      planDisponibilidad: buscarIndiceColumna(headers, ['Cuéntanos tu plan', 'plan']),
+
+      // === ÁREA DE EMPLEABILIDAD ===
+      tieneTrabajoActual: buscarIndiceColumna(headers, ['Actualmente tienes trabajo', 'tienes trabajo']),
+      cuentanosTrabajo: buscarIndiceColumna(headers, ['Cuéntanos más', 'más sobre trabajo']),
+      satisfechoTrabajo: buscarIndiceColumna(headers, ['satisfecha/o con este trabajo', 'satisfecho trabajo']),
+      comentarioSatisfaccion: buscarIndiceColumna(headers, ['Comentario', 'satisfacción']),
+      queHacerProximosMeses: buscarIndiceColumna(headers, ['qué te gustaría hacer en los próximos meses', 'próximos meses']),
+      importanciaConseguirTrabajo: buscarIndiceColumna(headers, ['Qué tan importante es para ti conseguir trabajo', 'importante conseguir trabajo']),
+      teVesTrabajandoSector: buscarIndiceColumna(headers, ['Te ves trabajando en el sector', 'trabajando en el sector']),
+      comentarioDeudasBancarias: buscarIndiceColumna(headers, ['Comentario', 'deudas']),
+      casoLegal: buscarIndiceColumna(headers, ['algún caso/tema legal', 'caso legal', 'tema legal']),
+      comentarioCasoLegal: buscarIndiceColumna(headers, ['Comentario', 'legal']),
+      dispuestoEmpleabilidad: buscarIndiceColumna(headers, ['dispuesto a continuar y participar', 'fase de empleabilidad', 'participar empleabilidad']),
+      comentarioEmpleabilidad: buscarIndiceColumna(headers, ['Comentario', 'empleabilidad']),
+      temporalidadMetasEmpleabilidad: buscarIndiceColumna(headers, ['temporalidad', 'metas de empleabilidad', 'Inmediatamente después']),
+
+      // === GÉNERO ADICIONAL ===
+      conflictosCasaHorarios: buscarIndiceColumna(headers, ['conflicto en casa estudiar o trabajar', 'horarios variados', 'horarios extensos']),
+      comentarioConflictosHorarios: buscarIndiceColumna(headers, ['Comentario', 'horarios']),
+
+      // === NOTAS Y METADATOS KOBO ===
+      notasEntrevistador: buscarIndiceColumna(headers, ['NOTAS DEL ENTREVISTADOR', 'notas entrevistador']),
+      koboId: buscarIndiceColumna(headers, ['_id']),
+      koboUuid: buscarIndiceColumna(headers, ['_uuid']),
+      koboSubmissionTime: buscarIndiceColumna(headers, ['_submission_time']),
+      koboValidationStatus: buscarIndiceColumna(headers, ['_validation_status']),
+      koboNotes: buscarIndiceColumna(headers, ['_notes']),
+      koboStatus: buscarIndiceColumna(headers, ['_status']),
+      koboSubmittedBy: buscarIndiceColumna(headers, ['_submitted_by']),
+      koboTags: buscarIndiceColumna(headers, ['_tags']),
+      koboIndex: buscarIndiceColumna(headers, ['_index']),
+      koboVersion: buscarIndiceColumna(headers, ['__version__']),
+      koboRootUuid: buscarIndiceColumna(headers, ['meta/rootUuid', 'rootUuid'])
     };
 
     Logger.log('Mapeo de columnas: ' + JSON.stringify(colMap));
@@ -4707,7 +4797,7 @@ function importarEntrevistasDesdeKobo() {
         return new Date();
       };
 
-      // Crear registro para Detalle Entrevistas (53 columnas)
+      // Crear registro para Detalle Entrevistas (85 columnas: A a CG)
       const registro = [
         getFechaEntrevista(),                          // A: Fecha Importación (fecha de entrevista)
         creamosId,                                     // B: Creamos ID
@@ -4758,9 +4848,44 @@ function importarEntrevistasDesdeKobo() {
         getVal(colMap.familiaresCreamos),              // AU: Familiares Creamos
         getVal(colMap.nombresFamiliares),              // AV: Nombres Familiares
         getVal(colMap.formalInformal),                 // AW: Formal o Informal
-        getVal(colMap.conoceViolenciaMujer),             // AX: Conoce Violencia Mujer
+        getVal(colMap.conoceViolenciaMujer),           // AX: Conoce Violencia Mujer
         getVal(colMap.aprenderPractica),               // AY: ¿Te interesa aprender para práctica en trabajo?
-        'No'                                           // AZ: Vinculado
+        'No',                                          // AZ: Vinculado
+
+        // === NUEVAS COLUMNAS ===
+        getVal(colMap.queLlamaAtencion),               // BA: Qué te llama atención curso
+        getVal(colMap.expectativaCurso),               // BB: Expectativa del curso
+        getVal(colMap.tramitarPapeleria),              // BC: Tramitar papelería
+        getVal(colMap.planPapeleria),                  // BD: Plan tramitar papelería
+        getVal(colMap.comentarioFirmarDoc),            // BE: Comentario Firmar Documento
+        getVal(colMap.planDisponibilidad),             // BF: Plan Disponibilidad
+        getVal(colMap.tieneTrabajoActual),             // BG: Actualmente tiene trabajo
+        getVal(colMap.cuentanosTrabajo),               // BH: Cuéntanos más trabajo
+        getVal(colMap.satisfechoTrabajo),              // BI: Satisfecho con trabajo
+        getVal(colMap.comentarioSatisfaccion),         // BJ: Comentario satisfacción trabajo
+        getVal(colMap.queHacerProximosMeses),          // BK: Qué hacer próximos meses
+        getVal(colMap.importanciaConseguirTrabajo),    // BL: Importancia conseguir trabajo
+        getVal(colMap.teVesTrabajandoSector),          // BM: Te ves trabajando sector
+        getVal(colMap.comentarioDeudasBancarias),      // BN: Comentario Deudas Bancarias
+        getVal(colMap.casoLegal),                      // BO: Caso Legal
+        getVal(colMap.comentarioCasoLegal),            // BP: Comentario Caso Legal
+        getVal(colMap.dispuestoEmpleabilidad),         // BQ: Dispuesto participar empleabilidad
+        getVal(colMap.comentarioEmpleabilidad),        // BR: Comentario empleabilidad
+        getVal(colMap.temporalidadMetasEmpleabilidad), // BS: Temporalidad metas empleabilidad
+        getVal(colMap.conflictosCasaHorarios),         // BT: Conflictos casa horarios variados
+        getVal(colMap.comentarioConflictosHorarios),   // BU: Comentario conflictos horarios
+        getVal(colMap.notasEntrevistador),             // BV: Notas del Entrevistador
+        getVal(colMap.koboId),                         // BW: _id
+        getVal(colMap.koboUuid),                       // BX: _uuid
+        getVal(colMap.koboSubmissionTime),             // BY: _submission_time
+        getVal(colMap.koboValidationStatus),           // BZ: _validation_status
+        getVal(colMap.koboNotes),                      // CA: _notes
+        getVal(colMap.koboStatus),                     // CB: _status
+        getVal(colMap.koboSubmittedBy),                // CC: _submitted_by
+        getVal(colMap.koboTags),                       // CD: _tags
+        getVal(colMap.koboIndex),                      // CE: _index
+        getVal(colMap.koboVersion),                    // CF: __version__
+        getVal(colMap.koboRootUuid)                    // CG: meta/rootUuid
       ];
 
       // Usar obtenerPrimeraFilaVacia para prevenir sobrescrituras
