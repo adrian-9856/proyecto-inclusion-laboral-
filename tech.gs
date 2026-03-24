@@ -4988,15 +4988,18 @@ function importarEntrevistasDesdeKobo() {
 
       // Filtro: solo procesar filas de Tecnología o Servicio al Cliente
       const cursoParsona = colMap.cursoInteres >= 0 ? getVal(colMap.cursoInteres) : '';
-      const esTech = cursoParsona.toLowerCase().includes('tecnolog') || cursoParsona.toLowerCase().includes('servicio');
+      const cursoLower = cursoParsona.toLowerCase();
+      const esTech = cursoLower.includes('tecnolog');
+      const esSAC = cursoLower.includes('servicio');
 
-      if (!esTech) {
+      if (!esTech && !esSAC) {
         filtradosPorCurso++;
         Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" - NO ES TECH/SAC - FILTRADO`);
         continue;
       }
 
-      Logger.log(`✓ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" - PROCESANDO...`);
+      const tipoSector = esTech ? 'TECNOLOGÍA' : 'SERVICIO AL CLIENTE';
+      Logger.log(`✓ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" (${tipoSector}) - PROCESANDO...`);
 
       // Obtener fecha de entrevista desde Kobo o usar fecha actual como fallback
       const getFechaEntrevista = () => {
@@ -5032,79 +5035,86 @@ function importarEntrevistasDesdeKobo() {
 
       // === ALIMENTOS Y BEBIDAS - DEJAR VACÍO === índices 8-42 (ya están vacíos por fill(''))
 
-      // === SECCIÓN 2B: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BB) === índices 43-53
-      registro[43] = getVal(colMap.tech_porQueInteres);        // AR
-      registro[44] = getVal(colMap.tech_queLlamaAtencion);     // AS
-      registro[45] = getVal(colMap.tech_expectativaCurso);     // AT
-      registro[46] = getVal(colMap.tech_dificultadesCurso);    // AU
-      registro[47] = getVal(colMap.tech_areasVida);            // AV
-      registro[48] = getVal(colMap.tech_disponibilidadCurso);  // AW
-      registro[49] = getVal(colMap.tech_planDisponibilidad);   // AX
-      registro[50] = getVal(colMap.tech_transporte);           // AY
-      registro[51] = getVal(colMap.tech_planTransporte);       // AZ
-      registro[52] = getVal(colMap.tech_firmarDocumento);      // BA
-      registro[53] = getVal(colMap.tech_comentarioDoc);        // BB
+      // === LLENAR SOLO LA SECCIÓN CORRESPONDIENTE AL TIPO DE CURSO ===
+      if (esTech) {
+        // === SECCIÓN 2B: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BB) === índices 43-53
+        registro[43] = getVal(colMap.tech_porQueInteres);        // AR
+        registro[44] = getVal(colMap.tech_queLlamaAtencion);     // AS
+        registro[45] = getVal(colMap.tech_expectativaCurso);     // AT
+        registro[46] = getVal(colMap.tech_dificultadesCurso);    // AU
+        registro[47] = getVal(colMap.tech_areasVida);            // AV
+        registro[48] = getVal(colMap.tech_disponibilidadCurso);  // AW
+        registro[49] = getVal(colMap.tech_planDisponibilidad);   // AX
+        registro[50] = getVal(colMap.tech_transporte);           // AY
+        registro[51] = getVal(colMap.tech_planTransporte);       // AZ
+        registro[52] = getVal(colMap.tech_firmarDocumento);      // BA
+        registro[53] = getVal(colMap.tech_comentarioDoc);        // BB
 
-      // === SECCIÓN 2B: TECNOLOGÍA - EMPLEABILIDAD (BC-BX) === índices 54-75
-      registro[54] = getVal(colMap.tech_tieneTrabajoActual);       // BC
-      registro[55] = getVal(colMap.tech_cuentanosTrabajo);         // BD
-      registro[56] = getVal(colMap.tech_satisfechoTrabajo);        // BE
-      registro[57] = getVal(colMap.tech_comentarioSatisfaccion);   // BF
-      registro[58] = getVal(colMap.tech_proximosMeses);            // BG
-      registro[59] = getVal(colMap.tech_importanciaTrabajo);       // BH
-      registro[60] = getVal(colMap.tech_teVesSector);              // BI
-      registro[61] = getVal(colMap.tech_ayudaEconomica);           // BJ
-      registro[62] = getVal(colMap.tech_comentarioAyuda);          // BK
-      registro[63] = getVal(colMap.tech_dependientes);             // BL
-      registro[64] = getVal(colMap.tech_comentarioDependientes);   // BM
-      registro[65] = getVal(colMap.tech_responsabilidadesCuidado); // BN
-      registro[66] = getVal(colMap.tech_comentarioCuidado);        // BO
-      registro[67] = getVal(colMap.tech_deudasBancarias);          // BP
-      registro[68] = getVal(colMap.tech_comentarioDeudas);         // BQ
-      registro[69] = getVal(colMap.tech_antecedentes);             // BR
-      registro[70] = getVal(colMap.tech_comentarioAntecedentes);   // BS
-      registro[71] = getVal(colMap.tech_casoLegal);                // BT
-      registro[72] = getVal(colMap.tech_comentarioLegal);          // BU
-      registro[73] = getVal(colMap.tech_dispuestoEmpleabilidad);   // BV
-      registro[74] = getVal(colMap.tech_comentarioEmpleabilidad);  // BW
-      registro[75] = getVal(colMap.tech_temporalidadMetas);        // BX
+        // === SECCIÓN 2B: TECNOLOGÍA - EMPLEABILIDAD (BC-BX) === índices 54-75
+        registro[54] = getVal(colMap.tech_tieneTrabajoActual);       // BC
+        registro[55] = getVal(colMap.tech_cuentanosTrabajo);         // BD
+        registro[56] = getVal(colMap.tech_satisfechoTrabajo);        // BE
+        registro[57] = getVal(colMap.tech_comentarioSatisfaccion);   // BF
+        registro[58] = getVal(colMap.tech_proximosMeses);            // BG
+        registro[59] = getVal(colMap.tech_importanciaTrabajo);       // BH
+        registro[60] = getVal(colMap.tech_teVesSector);              // BI
+        registro[61] = getVal(colMap.tech_ayudaEconomica);           // BJ
+        registro[62] = getVal(colMap.tech_comentarioAyuda);          // BK
+        registro[63] = getVal(colMap.tech_dependientes);             // BL
+        registro[64] = getVal(colMap.tech_comentarioDependientes);   // BM
+        registro[65] = getVal(colMap.tech_responsabilidadesCuidado); // BN
+        registro[66] = getVal(colMap.tech_comentarioCuidado);        // BO
+        registro[67] = getVal(colMap.tech_deudasBancarias);          // BP
+        registro[68] = getVal(colMap.tech_comentarioDeudas);         // BQ
+        registro[69] = getVal(colMap.tech_antecedentes);             // BR
+        registro[70] = getVal(colMap.tech_comentarioAntecedentes);   // BS
+        registro[71] = getVal(colMap.tech_casoLegal);                // BT
+        registro[72] = getVal(colMap.tech_comentarioLegal);          // BU
+        registro[73] = getVal(colMap.tech_dispuestoEmpleabilidad);   // BV
+        registro[74] = getVal(colMap.tech_comentarioEmpleabilidad);  // BW
+        registro[75] = getVal(colMap.tech_temporalidadMetas);        // BX
 
-      // === SECCIÓN 2C: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (BY-CI) === índices 76-86
-      registro[76] = getVal(colMap.sac_porQueInteres);        // BY
-      registro[77] = getVal(colMap.sac_queLlamaAtencion);     // BZ
-      registro[78] = getVal(colMap.sac_expectativaCurso);     // CA
-      registro[79] = getVal(colMap.sac_dificultadesCurso);    // CB
-      registro[80] = getVal(colMap.sac_areasVida);            // CC
-      registro[81] = getVal(colMap.sac_disponibilidadCurso);  // CD
-      registro[82] = getVal(colMap.sac_planDisponibilidad);   // CE
-      registro[83] = getVal(colMap.sac_transporte);           // CF
-      registro[84] = getVal(colMap.sac_planTransporte);       // CG
-      registro[85] = getVal(colMap.sac_firmarDocumento);      // CH
-      registro[86] = getVal(colMap.sac_comentarioDoc);        // CI
+        // Dejar SAC vacío (índices 76-108)
+      } else if (esSAC) {
+        // Dejar TECH vacío (índices 43-75)
 
-      // === SECCIÓN 2C: SERVICIO AL CLIENTE - EMPLEABILIDAD (CJ-DE) === índices 87-108
-      registro[87] = getVal(colMap.sac_tieneTrabajoActual);       // CJ
-      registro[88] = getVal(colMap.sac_cuentanosTrabajo);         // CK
-      registro[89] = getVal(colMap.sac_satisfechoTrabajo);        // CL
-      registro[90] = getVal(colMap.sac_comentarioSatisfaccion);   // CM
-      registro[91] = getVal(colMap.sac_proximosMeses);            // CN
-      registro[92] = getVal(colMap.sac_importanciaTrabajo);       // CO
-      registro[93] = getVal(colMap.sac_teVesSector);              // CP
-      registro[94] = getVal(colMap.sac_ayudaEconomica);           // CQ
-      registro[95] = getVal(colMap.sac_comentarioAyuda);          // CR
-      registro[96] = getVal(colMap.sac_dependientes);             // CS
-      registro[97] = getVal(colMap.sac_comentarioDependientes);   // CT
-      registro[98] = getVal(colMap.sac_responsabilidadesCuidado); // CU
-      registro[99] = getVal(colMap.sac_comentarioCuidado);        // CV
-      registro[100] = getVal(colMap.sac_deudasBancarias);         // CW
-      registro[101] = getVal(colMap.sac_comentarioDeudas);        // CX
-      registro[102] = getVal(colMap.sac_antecedentes);            // CY
-      registro[103] = getVal(colMap.sac_comentarioAntecedentes);  // CZ
-      registro[104] = getVal(colMap.sac_casoLegal);               // DA
-      registro[105] = getVal(colMap.sac_comentarioLegal);         // DB
-      registro[106] = getVal(colMap.sac_dispuestoEmpleabilidad);  // DC
-      registro[107] = getVal(colMap.sac_comentarioEmpleabilidad); // DD
-      registro[108] = getVal(colMap.sac_temporalidadMetas);       // DE
+        // === SECCIÓN 2C: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (BY-CI) === índices 76-86
+        registro[76] = getVal(colMap.sac_porQueInteres);        // BY
+        registro[77] = getVal(colMap.sac_queLlamaAtencion);     // BZ
+        registro[78] = getVal(colMap.sac_expectativaCurso);     // CA
+        registro[79] = getVal(colMap.sac_dificultadesCurso);    // CB
+        registro[80] = getVal(colMap.sac_areasVida);            // CC
+        registro[81] = getVal(colMap.sac_disponibilidadCurso);  // CD
+        registro[82] = getVal(colMap.sac_planDisponibilidad);   // CE
+        registro[83] = getVal(colMap.sac_transporte);           // CF
+        registro[84] = getVal(colMap.sac_planTransporte);       // CG
+        registro[85] = getVal(colMap.sac_firmarDocumento);      // CH
+        registro[86] = getVal(colMap.sac_comentarioDoc);        // CI
+
+        // === SECCIÓN 2C: SERVICIO AL CLIENTE - EMPLEABILIDAD (CJ-DE) === índices 87-108
+        registro[87] = getVal(colMap.sac_tieneTrabajoActual);       // CJ
+        registro[88] = getVal(colMap.sac_cuentanosTrabajo);         // CK
+        registro[89] = getVal(colMap.sac_satisfechoTrabajo);        // CL
+        registro[90] = getVal(colMap.sac_comentarioSatisfaccion);   // CM
+        registro[91] = getVal(colMap.sac_proximosMeses);            // CN
+        registro[92] = getVal(colMap.sac_importanciaTrabajo);       // CO
+        registro[93] = getVal(colMap.sac_teVesSector);              // CP
+        registro[94] = getVal(colMap.sac_ayudaEconomica);           // CQ
+        registro[95] = getVal(colMap.sac_comentarioAyuda);          // CR
+        registro[96] = getVal(colMap.sac_dependientes);             // CS
+        registro[97] = getVal(colMap.sac_comentarioDependientes);   // CT
+        registro[98] = getVal(colMap.sac_responsabilidadesCuidado); // CU
+        registro[99] = getVal(colMap.sac_comentarioCuidado);        // CV
+        registro[100] = getVal(colMap.sac_deudasBancarias);         // CW
+        registro[101] = getVal(colMap.sac_comentarioDeudas);        // CX
+        registro[102] = getVal(colMap.sac_antecedentes);            // CY
+        registro[103] = getVal(colMap.sac_comentarioAntecedentes);  // CZ
+        registro[104] = getVal(colMap.sac_casoLegal);               // DA
+        registro[105] = getVal(colMap.sac_comentarioLegal);         // DB
+        registro[106] = getVal(colMap.sac_dispuestoEmpleabilidad);  // DC
+        registro[107] = getVal(colMap.sac_comentarioEmpleabilidad); // DD
+        registro[108] = getVal(colMap.sac_temporalidadMetas);       // DE
+      }
 
       // === SECCIÓN 3: GÉNERO (DF-DR) === índices 109-121
       registro[109] = getVal(colMap.genero_comentarioPrevio);         // DF
