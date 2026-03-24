@@ -4639,6 +4639,50 @@ function importarEntrevistasDesdeKobo() {
     Logger.log('📋 Headers recibidos de Kobo (' + headers.length + ' columnas):');
     Logger.log(headers.join(' | '));
 
+    // === LIMPIAR FILAS DE HEADERS DESCRIPTIVOS DE KOBO ===
+    // Kobo a veces exporta filas adicionales con descripciones antes de los datos reales
+    // Detectar y eliminar estas filas basándose en patrones conocidos
+    let indiceDatosReales = 1; // Normalmente los datos empiezan en la fila 1
+    const patronesHeadersDescriptivos = [
+      '*Las preguntas no son',
+      '¿Qué hacemos?',
+      'Facilitar la inserción',
+      '*Las siguientes preguntas',
+      'Comentario previo',
+      '### ',  // Headers con formato Markdown
+      'SECCIÓN',
+      'Preguntas del Curso',
+      'ÁREA DE EMPLEABILIDAD'
+    ];
+
+    // Buscar la primera fila que NO sea un header descriptivo
+    for (let i = 1; i < Math.min(20, rows.length); i++) {
+      const primeraColumna = (rows[i][0] || '').toString().trim();
+
+      // Verificar si esta fila es un header descriptivo
+      let esHeaderDescriptivo = false;
+      for (const patron of patronesHeadersDescriptivos) {
+        if (primeraColumna.includes(patron)) {
+          esHeaderDescriptivo = true;
+          break;
+        }
+      }
+
+      // Si no es header descriptivo y tiene algo en la primera columna, es una fila de datos
+      if (!esHeaderDescriptivo && primeraColumna.length > 0) {
+        indiceDatosReales = i;
+        Logger.log(`✅ Primera fila de datos reales encontrada en índice: ${i}`);
+        break;
+      }
+    }
+
+    // Eliminar las filas de headers descriptivos
+    if (indiceDatosReales > 1) {
+      const filasEliminadas = indiceDatosReales - 1;
+      rows.splice(1, filasEliminadas);
+      Logger.log(`🧹 Eliminadas ${filasEliminadas} filas de headers descriptivos de Kobo`);
+    }
+
     // === SINCRONIZACIÓN INCREMENTAL: Filtrar solo registros nuevos ===
     const totalRegistrosKobo = rows.length - 1;
     Logger.log(`📊 Total registros en CSV de Kobo: ${totalRegistrosKobo}`);
