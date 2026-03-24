@@ -4898,10 +4898,10 @@ function importarEntrevistasDesdeKobo() {
 
     Logger.log('Mapeo de columnas: ' + JSON.stringify(colMap));
 
-    // Obtener hoja destino
+    // Obtener hoja destino (usar estructura unificada)
     let detalleSheet = ss.getSheetByName('Detalle Entrevistas');
     if (!detalleSheet) {
-      crearHojaDetalleEntrevistas();
+      crearHojaDetalleEntrevistasUnificada();
       detalleSheet = ss.getSheetByName('Detalle Entrevistas');
     }
 
@@ -4972,121 +4972,124 @@ function importarEntrevistasDesdeKobo() {
         return new Date();
       };
 
-      // Crear registro para Detalle Entrevistas (99 columnas: A a CU)
-      const registro = [
-        // === SECCIÓN 1: DATOS PERSONALES (A-H) ===
-        getFechaEntrevista(),                              // A: Fecha Entrevista
-        creamosId,                                         // B: Creamos ID
-        getVal(colMap.nombre),                             // C: Nombres y Apellidos
-        getVal(colMap.genero),                             // D: Género
-        getVal(colMap.formacionPrevia),                    // E: Formación Previa
-        getVal(colMap.dondeFormacion),                     // F: Dónde y De Qué Formación
-        getVal(colMap.sectorInteres),                      // G: Sector Interés
-        getVal(colMap.cursoInteres),                       // H: Curso Interés
+      // Crear registro para Detalle Entrevistas (134 columnas: A a ED - estructura unificada)
+      // Inicializar array de 134 elementos vacíos
+      const registro = new Array(134).fill('');
 
-        // === SECCIÓN 2: TECNOLOGÍA - PREGUNTAS DEL CURSO (I-S) ===
-        getVal(colMap.tech_porQueInteres),                 // I
-        getVal(colMap.tech_queLlamaAtencion),              // J
-        getVal(colMap.tech_expectativaCurso),              // K
-        getVal(colMap.tech_dificultadesCurso),             // L
-        getVal(colMap.tech_areasVida),                     // M
-        getVal(colMap.tech_disponibilidadCurso),           // N
-        getVal(colMap.tech_planDisponibilidad),            // O
-        getVal(colMap.tech_transporte),                    // P
-        getVal(colMap.tech_planTransporte),                // Q
-        getVal(colMap.tech_firmarDocumento),               // R
-        getVal(colMap.tech_comentarioDoc),                 // S
+      // === SECCIÓN 1: DATOS PERSONALES (A-H) === índices 0-7
+      registro[0] = getFechaEntrevista();              // A: Fecha Entrevista
+      registro[1] = creamosId;                         // B: Creamos ID
+      registro[2] = getVal(colMap.nombre);             // C: Nombres y Apellidos
+      registro[3] = getVal(colMap.genero);             // D: Género
+      registro[4] = getVal(colMap.formacionPrevia);    // E: Formación Previa
+      registro[5] = getVal(colMap.dondeFormacion);     // F: Dónde y De Qué Formación
+      registro[6] = getVal(colMap.sectorInteres);      // G: Sector Interés
+      registro[7] = getVal(colMap.cursoInteres);       // H: Curso Interés
 
-        // === SECCIÓN 2: TECNOLOGÍA - EMPLEABILIDAD (T-AO) ===
-        getVal(colMap.tech_tieneTrabajoActual),            // T
-        getVal(colMap.tech_cuentanosTrabajo),              // U
-        getVal(colMap.tech_satisfechoTrabajo),             // V
-        getVal(colMap.tech_comentarioSatisfaccion),        // W
-        getVal(colMap.tech_proximosMeses),                 // X
-        getVal(colMap.tech_importanciaTrabajo),            // Y
-        getVal(colMap.tech_teVesSector),                   // Z
-        getVal(colMap.tech_ayudaEconomica),                // AA
-        getVal(colMap.tech_comentarioAyuda),               // AB
-        getVal(colMap.tech_dependientes),                  // AC
-        getVal(colMap.tech_comentarioDependientes),        // AD
-        getVal(colMap.tech_responsabilidadesCuidado),      // AE
-        getVal(colMap.tech_comentarioCuidado),             // AF
-        getVal(colMap.tech_deudasBancarias),               // AG
-        getVal(colMap.tech_comentarioDeudas),              // AH
-        getVal(colMap.tech_antecedentes),                  // AI
-        getVal(colMap.tech_comentarioAntecedentes),        // AJ
-        getVal(colMap.tech_casoLegal),                     // AK
-        getVal(colMap.tech_comentarioLegal),               // AL
-        getVal(colMap.tech_dispuestoEmpleabilidad),        // AM
-        getVal(colMap.tech_comentarioEmpleabilidad),       // AN
-        getVal(colMap.tech_temporalidadMetas),             // AO
+      // === ALIMENTOS Y BEBIDAS - DEJAR VACÍO === índices 8-42 (ya están vacíos por fill(''))
 
-        // === SECCIÓN 2: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (AP-AZ) ===
-        getVal(colMap.sac_porQueInteres),                  // AP
-        getVal(colMap.sac_queLlamaAtencion),               // AQ
-        getVal(colMap.sac_expectativaCurso),               // AR
-        getVal(colMap.sac_dificultadesCurso),              // AS
-        getVal(colMap.sac_areasVida),                      // AT
-        getVal(colMap.sac_disponibilidadCurso),            // AU
-        getVal(colMap.sac_planDisponibilidad),             // AV
-        getVal(colMap.sac_transporte),                     // AW
-        getVal(colMap.sac_planTransporte),                 // AX
-        getVal(colMap.sac_firmarDocumento),                // AY
-        getVal(colMap.sac_comentarioDoc),                  // AZ
+      // === SECCIÓN 2B: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BB) === índices 43-53
+      registro[43] = getVal(colMap.tech_porQueInteres);        // AR
+      registro[44] = getVal(colMap.tech_queLlamaAtencion);     // AS
+      registro[45] = getVal(colMap.tech_expectativaCurso);     // AT
+      registro[46] = getVal(colMap.tech_dificultadesCurso);    // AU
+      registro[47] = getVal(colMap.tech_areasVida);            // AV
+      registro[48] = getVal(colMap.tech_disponibilidadCurso);  // AW
+      registro[49] = getVal(colMap.tech_planDisponibilidad);   // AX
+      registro[50] = getVal(colMap.tech_transporte);           // AY
+      registro[51] = getVal(colMap.tech_planTransporte);       // AZ
+      registro[52] = getVal(colMap.tech_firmarDocumento);      // BA
+      registro[53] = getVal(colMap.tech_comentarioDoc);        // BB
 
-        // === SECCIÓN 2: SERVICIO AL CLIENTE - EMPLEABILIDAD (BA-BV) ===
-        getVal(colMap.sac_tieneTrabajoActual),             // BA
-        getVal(colMap.sac_cuentanosTrabajo),               // BB
-        getVal(colMap.sac_satisfechoTrabajo),              // BC
-        getVal(colMap.sac_comentarioSatisfaccion),         // BD
-        getVal(colMap.sac_proximosMeses),                  // BE
-        getVal(colMap.sac_importanciaTrabajo),             // BF
-        getVal(colMap.sac_teVesSector),                    // BG
-        getVal(colMap.sac_ayudaEconomica),                 // BH
-        getVal(colMap.sac_comentarioAyuda),                // BI
-        getVal(colMap.sac_dependientes),                   // BJ
-        getVal(colMap.sac_comentarioDependientes),         // BK
-        getVal(colMap.sac_responsabilidadesCuidado),       // BL
-        getVal(colMap.sac_comentarioCuidado),              // BM
-        getVal(colMap.sac_deudasBancarias),                // BN
-        getVal(colMap.sac_comentarioDeudas),               // BO
-        getVal(colMap.sac_antecedentes),                   // BP
-        getVal(colMap.sac_comentarioAntecedentes),         // BQ
-        getVal(colMap.sac_casoLegal),                      // BR
-        getVal(colMap.sac_comentarioLegal),                // BS
-        getVal(colMap.sac_dispuestoEmpleabilidad),         // BT
-        getVal(colMap.sac_comentarioEmpleabilidad),        // BU
-        getVal(colMap.sac_temporalidadMetas),              // BV
+      // === SECCIÓN 2B: TECNOLOGÍA - EMPLEABILIDAD (BC-BX) === índices 54-75
+      registro[54] = getVal(colMap.tech_tieneTrabajoActual);       // BC
+      registro[55] = getVal(colMap.tech_cuentanosTrabajo);         // BD
+      registro[56] = getVal(colMap.tech_satisfechoTrabajo);        // BE
+      registro[57] = getVal(colMap.tech_comentarioSatisfaccion);   // BF
+      registro[58] = getVal(colMap.tech_proximosMeses);            // BG
+      registro[59] = getVal(colMap.tech_importanciaTrabajo);       // BH
+      registro[60] = getVal(colMap.tech_teVesSector);              // BI
+      registro[61] = getVal(colMap.tech_ayudaEconomica);           // BJ
+      registro[62] = getVal(colMap.tech_comentarioAyuda);          // BK
+      registro[63] = getVal(colMap.tech_dependientes);             // BL
+      registro[64] = getVal(colMap.tech_comentarioDependientes);   // BM
+      registro[65] = getVal(colMap.tech_responsabilidadesCuidado); // BN
+      registro[66] = getVal(colMap.tech_comentarioCuidado);        // BO
+      registro[67] = getVal(colMap.tech_deudasBancarias);          // BP
+      registro[68] = getVal(colMap.tech_comentarioDeudas);         // BQ
+      registro[69] = getVal(colMap.tech_antecedentes);             // BR
+      registro[70] = getVal(colMap.tech_comentarioAntecedentes);   // BS
+      registro[71] = getVal(colMap.tech_casoLegal);                // BT
+      registro[72] = getVal(colMap.tech_comentarioLegal);          // BU
+      registro[73] = getVal(colMap.tech_dispuestoEmpleabilidad);   // BV
+      registro[74] = getVal(colMap.tech_comentarioEmpleabilidad);  // BW
+      registro[75] = getVal(colMap.tech_temporalidadMetas);        // BX
 
-        // === SECCIÓN 3: GÉNERO (BW-CI) ===
-        getVal(colMap.genero_comentarioPrevio),            // BW
-        getVal(colMap.genero_gruposMixtos),                // BX
-        getVal(colMap.genero_comentarioMixtos),            // BY
-        getVal(colMap.genero_gruposDiversos),              // BZ
-        getVal(colMap.genero_comentarioDiversos),          // CA
-        getVal(colMap.genero_conflictoGrupos),             // CB
-        getVal(colMap.genero_comentarioConflictoGrupos),   // CC
-        getVal(colMap.genero_conflictoHorarios),           // CD
-        getVal(colMap.genero_comentarioConflictoHorarios), // CE
-        getVal(colMap.genero_grupoMujeres),                // CF
-        getVal(colMap.genero_igualdadHM),                  // CG
-        getVal(colMap.genero_familiaresCreamos),           // CH
-        getVal(colMap.genero_nombresFamiliares),           // CI
+      // === SECCIÓN 2C: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (BY-CI) === índices 76-86
+      registro[76] = getVal(colMap.sac_porQueInteres);        // BY
+      registro[77] = getVal(colMap.sac_queLlamaAtencion);     // BZ
+      registro[78] = getVal(colMap.sac_expectativaCurso);     // CA
+      registro[79] = getVal(colMap.sac_dificultadesCurso);    // CB
+      registro[80] = getVal(colMap.sac_areasVida);            // CC
+      registro[81] = getVal(colMap.sac_disponibilidadCurso);  // CD
+      registro[82] = getVal(colMap.sac_planDisponibilidad);   // CE
+      registro[83] = getVal(colMap.sac_transporte);           // CF
+      registro[84] = getVal(colMap.sac_planTransporte);       // CG
+      registro[85] = getVal(colMap.sac_firmarDocumento);      // CH
+      registro[86] = getVal(colMap.sac_comentarioDoc);        // CI
 
-        // === NOTAS Y METADATOS KOBO (CJ-CU) ===
-        getVal(colMap.notasEntrevistador),                 // CJ
-        getVal(colMap.koboId),                             // CK
-        getVal(colMap.koboUuid),                           // CL
-        getVal(colMap.koboSubmissionTime),                 // CM
-        getVal(colMap.koboValidationStatus),               // CN
-        getVal(colMap.koboNotes),                          // CO
-        getVal(colMap.koboStatus),                         // CP
-        getVal(colMap.koboSubmittedBy),                    // CQ
-        getVal(colMap.koboVersion),                        // CR
-        getVal(colMap.koboTags),                           // CS
-        getVal(colMap.koboRootUuid),                       // CT
-        getVal(colMap.koboIndex)                           // CU
-      ];
+      // === SECCIÓN 2C: SERVICIO AL CLIENTE - EMPLEABILIDAD (CJ-DE) === índices 87-108
+      registro[87] = getVal(colMap.sac_tieneTrabajoActual);       // CJ
+      registro[88] = getVal(colMap.sac_cuentanosTrabajo);         // CK
+      registro[89] = getVal(colMap.sac_satisfechoTrabajo);        // CL
+      registro[90] = getVal(colMap.sac_comentarioSatisfaccion);   // CM
+      registro[91] = getVal(colMap.sac_proximosMeses);            // CN
+      registro[92] = getVal(colMap.sac_importanciaTrabajo);       // CO
+      registro[93] = getVal(colMap.sac_teVesSector);              // CP
+      registro[94] = getVal(colMap.sac_ayudaEconomica);           // CQ
+      registro[95] = getVal(colMap.sac_comentarioAyuda);          // CR
+      registro[96] = getVal(colMap.sac_dependientes);             // CS
+      registro[97] = getVal(colMap.sac_comentarioDependientes);   // CT
+      registro[98] = getVal(colMap.sac_responsabilidadesCuidado); // CU
+      registro[99] = getVal(colMap.sac_comentarioCuidado);        // CV
+      registro[100] = getVal(colMap.sac_deudasBancarias);         // CW
+      registro[101] = getVal(colMap.sac_comentarioDeudas);        // CX
+      registro[102] = getVal(colMap.sac_antecedentes);            // CY
+      registro[103] = getVal(colMap.sac_comentarioAntecedentes);  // CZ
+      registro[104] = getVal(colMap.sac_casoLegal);               // DA
+      registro[105] = getVal(colMap.sac_comentarioLegal);         // DB
+      registro[106] = getVal(colMap.sac_dispuestoEmpleabilidad);  // DC
+      registro[107] = getVal(colMap.sac_comentarioEmpleabilidad); // DD
+      registro[108] = getVal(colMap.sac_temporalidadMetas);       // DE
+
+      // === SECCIÓN 3: GÉNERO (DF-DR) === índices 109-121
+      registro[109] = getVal(colMap.genero_comentarioPrevio);         // DF
+      registro[110] = getVal(colMap.genero_gruposMixtos);             // DG
+      registro[111] = getVal(colMap.genero_comentarioMixtos);         // DH
+      registro[112] = getVal(colMap.genero_gruposDiversos);           // DI
+      registro[113] = getVal(colMap.genero_comentarioDiversos);       // DJ
+      registro[114] = getVal(colMap.genero_conflictoGrupos);          // DK
+      registro[115] = getVal(colMap.genero_comentarioConflictoGrupos); // DL
+      registro[116] = getVal(colMap.genero_conflictoHorarios);        // DM
+      registro[117] = getVal(colMap.genero_comentarioConflictoHorarios); // DN
+      registro[118] = getVal(colMap.genero_grupoMujeres);             // DO
+      registro[119] = getVal(colMap.genero_igualdadHM);               // DP
+      registro[120] = getVal(colMap.genero_familiaresCreamos);        // DQ
+      registro[121] = getVal(colMap.genero_nombresFamiliares);        // DR
+
+      // === NOTAS Y METADATOS KOBO (DS-ED) === índices 122-133
+      registro[122] = getVal(colMap.notasEntrevistador);     // DS
+      registro[123] = getVal(colMap.koboId);                 // DT
+      registro[124] = getVal(colMap.koboUuid);               // DU
+      registro[125] = getVal(colMap.koboSubmissionTime);     // DV
+      registro[126] = getVal(colMap.koboValidationStatus);   // DW
+      registro[127] = getVal(colMap.koboNotes);              // DX
+      registro[128] = getVal(colMap.koboStatus);             // DY
+      registro[129] = getVal(colMap.koboSubmittedBy);        // DZ
+      registro[130] = getVal(colMap.koboVersion);            // EA
+      registro[131] = getVal(colMap.koboTags);               // EB
+      registro[132] = getVal(colMap.koboRootUuid);           // EC
+      registro[133] = getVal(colMap.koboIndex);              // ED
 
       // Usar obtenerPrimeraFilaVacia para prevenir sobrescrituras
       const nuevaFila = obtenerPrimeraFilaVacia(detalleSheet, 'B');
