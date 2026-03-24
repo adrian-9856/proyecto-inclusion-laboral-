@@ -4814,7 +4814,7 @@ function importarEntrevistasDesdeKobo() {
     // Obtener hoja destino (usar estructura unificada)
     let detalleSheet = ss.getSheetByName('Detalle Entrevistas');
     if (!detalleSheet) {
-      crearHojaDetalleEntrevistasUnificada();
+      crearHojaDetalleEntrevistas();
       detalleSheet = ss.getSheetByName('Detalle Entrevistas');
     }
 
