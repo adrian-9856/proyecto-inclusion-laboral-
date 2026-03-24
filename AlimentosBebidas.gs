@@ -4636,15 +4636,19 @@ function importarEntrevistasDesdeKobo() {
     }
 
     const headers = rows[0];
-    Logger.log('Headers entrevistas: ' + headers.join(' | '));
+    Logger.log('📋 Headers recibidos de Kobo (' + headers.length + ' columnas):');
+    Logger.log(headers.join(' | '));
 
     // === SINCRONIZACIÓN INCREMENTAL: Filtrar solo registros nuevos ===
     const totalRegistrosKobo = rows.length - 1;
+    Logger.log(`📊 Total registros en CSV de Kobo: ${totalRegistrosKobo}`);
+
     const filasParaProcesar = filtrarFilasNuevasEntrevistas(rows, headers, ultimaSync);
-    Logger.log(`📊 Total en Kobo: ${totalRegistrosKobo}, Nuevos a importar: ${filasParaProcesar.length}`);
+    Logger.log(`📊 Nuevos a importar después del filtro de fecha: ${filasParaProcesar.length}`);
 
     if (filasParaProcesar.length === 0) {
       ss.toast('✅ No hay registros nuevos desde la última sincronización', 'Sincronizado', 3);
+      Logger.log('⚠️ No hay filas para procesar. Última sync: ' + ultimaSync);
       return;
     }
 
@@ -4654,13 +4658,18 @@ function importarEntrevistasDesdeKobo() {
     const sigCol = (parentIdx) => parentIdx >= 0 ? parentIdx + 1 : -1;
 
     // === SECCIÓN 1: DATOS PERSONALES ===
-    const idx_creamosId = buscarIndiceColumna(headers, ['DATOS PERSONALES/Creamos ID']);
-    const idx_nombre = buscarIndiceColumna(headers, ['DATOS PERSONALES/Nombres y apellidos']);
-    const idx_genero = buscarIndiceColumna(headers, ['DATOS PERSONALES/Género']);
-    const idx_formacionPrevia = buscarIndiceColumna(headers, ['formación o capacitación previa']);
-    const idx_dondeFormacion = buscarIndiceColumna(headers, ['dónde y de qué fue el curso']);
-    const idx_sectorInteres = buscarIndiceColumna(headers, ['sector te gustaría trabajar']);
-    const idx_cursoInteres = buscarIndiceColumna(headers, ['Elije el curso de tu interés']);
+    const idx_creamosId = buscarIndiceColumna(headers, ['DATOS PERSONALES/Creamos ID', 'Creamos ID', 'creamos id']);
+    const idx_nombre = buscarIndiceColumna(headers, ['DATOS PERSONALES/Nombres y apellidos', 'nombres y apellidos', 'nombre']);
+    const idx_genero = buscarIndiceColumna(headers, ['DATOS PERSONALES/Género', 'género', 'genero']);
+    const idx_formacionPrevia = buscarIndiceColumna(headers, ['formación o capacitación previa', 'formacion previa']);
+    const idx_dondeFormacion = buscarIndiceColumna(headers, ['dónde y de qué fue el curso', 'donde formacion']);
+    const idx_sectorInteres = buscarIndiceColumna(headers, ['sector te gustaría trabajar', 'sector interes']);
+    const idx_cursoInteres = buscarIndiceColumna(headers, ['Elije el curso de tu interés', 'curso de tu interes', 'curso interes']);
+
+    Logger.log('🔍 Columnas críticas encontradas:');
+    Logger.log(`   Creamos ID: ${idx_creamosId >= 0 ? 'Columna ' + idx_creamosId : 'NO ENCONTRADA ❌'}`);
+    Logger.log(`   Nombre: ${idx_nombre >= 0 ? 'Columna ' + idx_nombre : 'NO ENCONTRADA ❌'}`);
+    Logger.log(`   Curso Interés: ${idx_cursoInteres >= 0 ? 'Columna ' + idx_cursoInteres : 'NO ENCONTRADA ❌'}`);
 
     // === ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO ===
     // Usar rutas específicas con número para distinguir de empleabilidad (que también empieza en 1)
@@ -4821,16 +4830,25 @@ function importarEntrevistasDesdeKobo() {
     // Procesar cada fila (solo las nuevas)
     let importados = 0;
     let duplicados = 0;
+    let sinCreamosId = 0;
+    let filtradosPorCurso = 0;
+
+    Logger.log('🔄 Iniciando procesamiento de ' + filasParaProcesar.length + ' filas...');
 
     for (let i = 0; i < filasParaProcesar.length; i++) {
       const row = filasParaProcesar[i];
       const creamosId = colMap.creamosId >= 0 ? (row[colMap.creamosId] || '').toString().trim() : '';
 
-      if (!creamosId) continue;
+      if (!creamosId) {
+        sinCreamosId++;
+        Logger.log(`⚠️ Fila ${i + 1}: Sin Creamos ID - OMITIDA`);
+        continue;
+      }
 
       // Verificar duplicados
       if (idsExistentes.has(creamosId)) {
         duplicados++;
+        Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId} ya existe - DUPLICADO`);
         continue;
       }
 
@@ -4840,7 +4858,14 @@ function importarEntrevistasDesdeKobo() {
       // Filtro: solo procesar filas de Alimentos y Bebidas
       const cursoParsona = colMap.cursoInteres >= 0 ? getVal(colMap.cursoInteres) : '';
       const esAlimentos = cursoParsona.toLowerCase().includes('alimentos') || cursoParsona.toLowerCase().includes('bebidas');
-      if (!esAlimentos) { duplicados++; continue; }
+
+      if (!esAlimentos) {
+        filtradosPorCurso++;
+        Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" - NO ES ALIMENTOS/BEBIDAS - FILTRADO`);
+        continue;
+      }
+
+      Logger.log(`✓ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" - PROCESANDO...`);
 
       // Obtener fecha de entrevista desde Kobo o usar fecha actual como fallback
       const getFechaEntrevista = () => {
@@ -4963,13 +4988,18 @@ function importarEntrevistasDesdeKobo() {
       ? `\n🔄 Sincronización incremental (desde ${ultimaSync.toLocaleDateString('es-GT')})`
       : '\n📥 Primera importación (todos los registros)';
 
-    ss.toast(
-      `✅ Importados: ${importados} | Duplicados: ${duplicados}${mensajeSincro}`,
-      'Sincronización Completa',
-      5
-    );
+    Logger.log('📊 RESUMEN DE IMPORTACIÓN:');
+    Logger.log(`   ✅ Importados: ${importados}`);
+    Logger.log(`   ⚠️ Duplicados: ${duplicados}`);
+    Logger.log(`   ⚠️ Sin Creamos ID: ${sinCreamosId}`);
+    Logger.log(`   ⚠️ Filtrados por curso: ${filtradosPorCurso}`);
+    Logger.log(`   📊 Total en Kobo: ${totalRegistrosKobo}`);
+    Logger.log(`   📊 Nuevos a procesar: ${filasParaProcesar.length}`);
 
-    Logger.log(`Entrevistas importadas: ${importados}, duplicados: ${duplicados}`);
+    const mensajeDetallado = `✅ Importados: ${importados}\n⚠️ Duplicados: ${duplicados}\n⚠️ Sin ID: ${sinCreamosId}\n⚠️ Filtrados: ${filtradosPorCurso}${mensajeSincro}`;
+
+    ss.toast(mensajeDetallado, 'Sincronización Completa', 8);
+
     Logger.log(`Total en Kobo: ${totalRegistrosKobo}, Nuevos procesados: ${filasParaProcesar.length}`);
 
   } catch (error) {
