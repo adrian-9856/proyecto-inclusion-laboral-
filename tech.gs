@@ -860,9 +860,10 @@ function crearHojaEntrevistas() {
 }
 
 /**
- * HOJA DE DETALLE ENTREVISTAS - Almacena todas las respuestas del formulario Kobo
+ * HOJA DE DETALLE ENTREVISTAS - Almacena todas las respuestas del formulario Kobo (NUEVA ENTREVISTA)
  * Se vincula por Creamos ID con las demás hojas
  * Importa desde: IL_01_Entrevista en KoboToolbox
+ * Estructura: 134 columnas (A a ED)
  */
 function crearHojaDetalleEntrevistas() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -870,130 +871,166 @@ function crearHojaDetalleEntrevistas() {
   const sheet = ss.insertSheet('Detalle Entrevistas');
 
   const headers = [
-    // === INFORMACIÓN GENERAL ===
-    'Fecha Entrevista',           // A - Fecha en que se realizó la entrevista (desde Kobo)
-    'Creamos ID',                 // B - CLAVE DE VINCULACIÓN
-    'Nombre Completo',            // C
-    'Género',                     // D
+    // === SECCIÓN 1: DATOS PERSONALES (A-H) ===
+    'Fecha Entrevista',                        // A
+    'Creamos ID',                              // B - CLAVE DE VINCULACIÓN
+    'Nombres y Apellidos',                     // C
+    'Género',                                  // D
+    'Formación Previa',                        // E
+    'Dónde y De Qué Formación',               // F
+    'Sector Interés',                          // G
+    'Curso Interés',                           // H
 
-    // === TRABAJO EN GRUPOS ===
-    'Grupos Diversos',            // E - ¿Dispuesto a trabajar en grupos diversos?
-    'Grupos Mixtos',              // F - ¿Dispuesto a trabajar en grupos mixtos?
-    'Experiencia Grupos Mixtos',  // G - ¿Experiencia previa en grupos mixtos?
+    // === SECCIÓN 2: ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO (I-U) ===
+    'AB: Por Qué Interesa Curso',              // I
+    'AB: Qué Llama la Atención',               // J
+    'AB: Expectativa del Curso',               // K
+    'AB: Dificultades Curso',                  // L
+    'AB: Áreas Vida Cambiarán',                // M
+    'AB: Disponibilidad Prácticas',            // N
+    'AB: Plan Disponibilidad',                 // O
+    'AB: Tramitar Papelería',                  // P
+    'AB: Plan Papelería',                      // Q
+    'AB: Transporte',                          // R
+    'AB: Plan Transporte',                     // S
+    'AB: Firmar Documento',                    // T
+    'AB: Comentario Documento',                // U
 
-    // === FORMACIÓN Y CAPACITACIÓN ===
-    'Formación Previa',           // H - ¿Tiene formación previa?
-    'Dónde Formación',            // I
-    'Tiene Certificado',          // J
-    'Cuál Certificado',           // K
+    // === SECCIÓN 2: ALIMENTOS Y BEBIDAS - ÁREA DE EMPLEABILIDAD (V-AQ) ===
+    'AB: Actualmente Tiene Trabajo',           // V
+    'AB: Cuéntanos Más Trabajo',               // W
+    'AB: Satisfecho con Trabajo',              // X
+    'AB: Comentario Satisfacción',             // Y
+    'AB: Qué Hacer Próximos Meses',            // Z
+    'AB: Importancia Conseguir Trabajo',       // AA
+    'AB: Te Ves Trabajando Sector',            // AB
+    'AB: Ayuda Económica',                     // AC
+    'AB: Comentario Ayuda',                    // AD
+    'AB: Dependientes Económicos',             // AE
+    'AB: Comentario Dependientes',             // AF
+    'AB: Responsabilidades Cuidado',           // AG
+    'AB: Comentario Cuidado',                  // AH
+    'AB: Deudas Bancarias',                    // AI
+    'AB: Comentario Deudas',                   // AJ
+    'AB: Antecedentes Penales',                // AK
+    'AB: Comentario Antecedentes',             // AL
+    'AB: Caso Legal',                          // AM
+    'AB: Comentario Legal',                    // AN
+    'AB: Dispuesto Empleabilidad',             // AO
+    'AB: Comentario Empleabilidad',            // AP
+    'AB: Temporalidad Metas',                  // AQ
 
-    // === INTERESES LABORALES ===
-    'Sector Interés',             // L - ¿En qué sector le gustaría trabajar?
-    'Proyecto Interés',           // M
+    // === SECCIÓN 2: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BB) ===
+    'TECH: Por Qué Interesa Curso',            // AR
+    'TECH: Qué Llama la Atención',             // AS
+    'TECH: Expectativa del Curso',             // AT
+    'TECH: Dificultades Curso',                // AU
+    'TECH: Áreas Vida Cambiarán',              // AV
+    'TECH: Disponibilidad Curso',              // AW
+    'TECH: Plan Disponibilidad',               // AX
+    'TECH: Transporte',                        // AY
+    'TECH: Plan Transporte',                   // AZ
+    'TECH: Firmar Documento',                  // BA
+    'TECH: Comentario Documento',              // BB
 
-    // === CURSO ALIMENTOS/BEBIDAS/TECNOLOGÍA ===
-    'Dificultades Curso',         // N - ¿Con qué dificultades cree que se encontraría?
-    'Áreas Vida Cambiarán',       // O
-    'Por Qué Interesa Curso',     // P
-    'Firmar Documento',           // Q - ¿Dispuesto a firmar documento permanencia?
-    'Disponibilidad Prácticas',   // R
-    'Trabajar en Sector',         // S - ¿Dispuesto a trabajar en el sector?
-    'Horarios Demandantes',       // T - ¿Horarios nocturnos, fines de semana?
-    'Comentarios Curso',          // U
+    // === SECCIÓN 2: TECNOLOGÍA - ÁREA DE EMPLEABILIDAD (BC-BX) ===
+    'TECH: Actualmente Tiene Trabajo',         // BC
+    'TECH: Cuéntanos Más Trabajo',             // BD
+    'TECH: Satisfecho con Trabajo',            // BE
+    'TECH: Comentario Satisfacción',           // BF
+    'TECH: Qué Hacer Próximos Meses',          // BG
+    'TECH: Importancia Conseguir Trabajo',     // BH
+    'TECH: Te Ves Trabajando Sector',          // BI
+    'TECH: Ayuda Económica',                   // BJ
+    'TECH: Comentario Ayuda',                  // BK
+    'TECH: Dependientes Económicos',           // BL
+    'TECH: Comentario Dependientes',           // BM
+    'TECH: Responsabilidades Cuidado',         // BN
+    'TECH: Comentario Cuidado',                // BO
+    'TECH: Deudas Bancarias',                  // BP
+    'TECH: Comentario Deudas',                 // BQ
+    'TECH: Antecedentes Penales',              // BR
+    'TECH: Comentario Antecedentes',           // BS
+    'TECH: Caso Legal',                        // BT
+    'TECH: Comentario Legal',                  // BU
+    'TECH: Dispuesto Empleabilidad',           // BV
+    'TECH: Comentario Empleabilidad',          // BW
+    'TECH: Temporalidad Metas',                // BX
 
-    // === SITUACIÓN ECONÓMICA ===
-    'Ayuda Económica',            // V - ¿Alguien le ayuda económicamente?
-    'Comentario Ayuda',           // W
-    'Dependientes Económicos',    // X - ¿Alguien depende de usted?
-    'Comentario Dependientes',    // Y
-    'Responsabilidades Cuidado',  // Z - ¿Tiene responsabilidades de cuidado?
-    'Comentario Cuidado',         // AA
-    'Otros Comentarios Económicos', // AB
+    // === SECCIÓN 2: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (BY-CI) ===
+    'SAC: Por Qué Interesa Curso',             // BY
+    'SAC: Qué Llama la Atención',              // BZ
+    'SAC: Expectativa del Curso',              // CA
+    'SAC: Dificultades Curso',                 // CB
+    'SAC: Áreas Vida Cambiarán',               // CC
+    'SAC: Disponibilidad Curso',               // CD
+    'SAC: Plan Disponibilidad',                // CE
+    'SAC: Transporte',                         // CF
+    'SAC: Plan Transporte',                    // CG
+    'SAC: Firmar Documento',                   // CH
+    'SAC: Comentario Documento',               // CI
 
-    // === TRANSPORTE Y ANTECEDENTES ===
-    'Tiene Transporte',           // AC
-    'Plan Traslado',              // AD
-    'Deudas Bancarias',           // AE
-    'Antecedentes Manchados',     // AF
-    'Comentario Antecedentes',    // AG
+    // === SECCIÓN 2: SERVICIO AL CLIENTE - ÁREA DE EMPLEABILIDAD (CJ-DE) ===
+    'SAC: Actualmente Tiene Trabajo',          // CJ
+    'SAC: Cuéntanos Más Trabajo',              // CK
+    'SAC: Satisfecho con Trabajo',             // CL
+    'SAC: Comentario Satisfacción',            // CM
+    'SAC: Qué Hacer Próximos Meses',           // CN
+    'SAC: Importancia Conseguir Trabajo',      // CO
+    'SAC: Te Ves Trabajando Sector',           // CP
+    'SAC: Ayuda Económica',                    // CQ
+    'SAC: Comentario Ayuda',                   // CR
+    'SAC: Dependientes Económicos',            // CS
+    'SAC: Comentario Dependientes',            // CT
+    'SAC: Responsabilidades Cuidado',          // CU
+    'SAC: Comentario Cuidado',                 // CV
+    'SAC: Deudas Bancarias',                   // CW
+    'SAC: Comentario Deudas',                  // CX
+    'SAC: Antecedentes Penales',               // CY
+    'SAC: Comentario Antecedentes',            // CZ
+    'SAC: Caso Legal',                         // DA
+    'SAC: Comentario Legal',                   // DB
+    'SAC: Dispuesto Empleabilidad',            // DC
+    'SAC: Comentario Empleabilidad',           // DD
+    'SAC: Temporalidad Metas',                 // DE
 
-    // === SOLO OPERARIOS ===
-    'Trámites Penales',           // AH - ¿Ya tiene los trámites?
-    'Talla Zapato',               // AI
-    'Movilizarse Cualquier Zona', // AJ
-    'Comentarios Operarios',      // AK
+    // === SECCIÓN 3: GÉNERO (DF-DR) ===
+    'Género: Comentario Previo',               // DF
+    'Género: Grupos Mixtos',                   // DG
+    'Género: Comentario Mixtos',               // DH
+    'Género: Grupos Diversos',                 // DI
+    'Género: Comentario Diversos',             // DJ
+    'Género: Conflicto en Grupos',             // DK
+    'Género: Comentario Conflicto Grupos',     // DL
+    'Género: Conflicto Horarios',              // DM
+    'Género: Comentario Conflicto Horarios',   // DN
+    'Género: Grupo Mayoritariamente Mujeres',  // DO
+    'Género: Igualdad H/M',                    // DP
+    'Género: Familiares Creamos',              // DQ
+    'Género: Nombres Familiares',              // DR
 
-    // === ENFOQUE DE GÉNERO ===
-    'Comentario Previo Género',   // AL
-    'Conoce VBG',                 // AM - ¿Ha escuchado de violencia basada en género?
-    'Grupos Mixtos Género',       // AN
-    'Grupos Diversos Género',     // AO
-    'Comentario Género',          // AP
-    'Conflictos Casa',            // AQ - ¿Causaría conflictos en casa?
-    'Comentario Conflictos',      // AR
-    'Grupo Mayormente Mujeres',   // AS - ¿Cómo se siente?
-    'Igualdad Hombres Mujeres',   // AT - ¿Qué haría para igualdad?
-    'Familiares Creamos',         // AU - ¿Tiene familiares en Creamos?
-    'Nombres Familiares',         // AV
-    'Formal o Informal',          // AW
-    'Conoce Violencia Mujer',     // AX
-
-    // === PREGUNTA ADICIONAL CURSO ===
-    '¿Aprender para práctica en trabajo?', // AY - ¿Te interesa aprender para luego ponerlo en práctica?
-
-    // === CONTROL ===
-    'Vinculado',                  // AZ - Sí/No - Si ya está vinculado con Entrevistas
-
-    // === NUEVAS PREGUNTAS DEL CURSO ===
-    'Qué te llama atención curso',         // BA - ¿Qué te llama la atención de este curso?
-    'Expectativa del curso',                // BB - ¿Cuál es tu expectativa del curso?
-    'Tramitar papelería',                   // BC - ¿Dispuesto a tramitar papelería?
-    'Plan tramitar papelería',              // BD - Cuál sería tu plan para tramitar
-    'Comentario Firmar Documento',          // BE - Comentario firmar documento
-    'Plan Disponibilidad',                  // BF - Plan para disponibilidad de tiempo
-
-    // === ÁREA DE EMPLEABILIDAD ===
-    'Actualmente tiene trabajo',            // BG - ¿Actualmente tienes trabajo?
-    'Cuéntanos más trabajo',                // BH - Cuéntanos más sobre tu trabajo actual
-    'Satisfecho con trabajo',               // BI - ¿Estás satisfecho con este trabajo?
-    'Comentario satisfacción trabajo',      // BJ - Comentario sobre satisfacción
-    'Qué hacer próximos meses',             // BK - ¿Qué te gustaría hacer en los próximos meses?
-    'Importancia conseguir trabajo',        // BL - ¿Qué tan importante es conseguir trabajo?
-    'Te ves trabajando sector',             // BM - Descripción completa trabajar en sector
-    'Comentario Deudas Bancarias',          // BN - Comentario deudas bancarias
-    'Caso Legal',                           // BO - ¿Tienes algún caso/tema legal?
-    'Comentario Caso Legal',                // BP - Comentario caso legal
-    'Dispuesto participar empleabilidad',   // BQ - ¿Dispuesto a participar en fase empleabilidad?
-    'Comentario empleabilidad',             // BR - Comentario empleabilidad
-    'Temporalidad metas empleabilidad',     // BS - Inmediato, corto o mediano plazo
-
-    // === GÉNERO ADICIONAL ===
-    'Conflictos casa horarios variados',    // BT - ¿Conflicto en casa con horarios variados?
-    'Comentario conflictos horarios',       // BU - Comentario conflictos horarios
-
-    // === NOTAS Y METADATOS KOBO ===
-    'Notas del Entrevistador',              // BV - Notas del entrevistador
-    '_id',                                  // BW - ID de Kobo
-    '_uuid',                                // BX - UUID de Kobo
-    '_submission_time',                     // BY - Tiempo de envío
-    '_validation_status',                   // BZ - Estado de validación
-    '_notes',                               // CA - Notas de Kobo
-    '_status',                              // CB - Estado en Kobo
-    '_submitted_by',                        // CC - Enviado por
-    '_tags',                                // CD - Etiquetas
-    '_index',                               // CE - Índice
-    '__version__',                          // CF - Versión
-    'meta/rootUuid'                         // CG - Root UUID
+    // === NOTAS Y METADATOS KOBO (DS-ED) ===
+    'Notas del Entrevistador',                 // DS
+    '_id',                                     // DT
+    '_uuid',                                   // DU
+    '_submission_time',                        // DV
+    '_validation_status',                      // DW
+    '_notes',                                  // DX
+    '_status',                                 // DY
+    '_submitted_by',                           // DZ
+    '_tags',                                   // EA
+    '_index',                                  // EB
+    '__version__',                             // EC
+    'meta/rootUuid'                            // ED
   ];
 
-  // Expandir la hoja para acomodar todas las columnas (por defecto solo tiene 26)
+  // Expandir la hoja para acomodar todas las columnas (134 columnas)
   const currentCols = sheet.getMaxColumns();
   if (headers.length > currentCols) {
     sheet.insertColumnsAfter(currentCols, headers.length - currentCols);
   }
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
-    .setBackground('#5e35b1')
     .setFontColor('white')
     .setFontWeight('bold')
     .setHorizontalAlignment('center')
@@ -1002,46 +1039,41 @@ function crearHojaDetalleEntrevistas() {
   // Congelar fila de encabezados
   sheet.setFrozenRows(1);
 
-  // Anchos de columna (85 valores = 85 headers, A a CG)
+  // Anchos de columna (134 valores: A a ED)
   const anchos = [
-    100,  // Fecha
-    100,  // Creamos ID
-    180,  // Nombre
-    80,   // Género
-    80, 80, 80,  // Grupos
-    80, 150, 80, 150,  // Formación
-    120, 150,  // Intereses
-    200, 200, 200, 80, 80, 80, 80, 200,  // Curso
-    80, 150, 80, 150, 80, 150, 200,  // Económico
-    80, 200, 80, 80, 150,  // Transporte
-    80, 80, 80, 150,  // Operarios
-    150, 80, 80, 80, 150, 80, 150, 150, 200, 80, 150, 100, 200,  // Género
-    150,  // Adicionales (AY)
-    80,   // Vinculado (AZ)
-    200, 200, 80, 200, 150, 200,  // Nuevas preguntas curso (BA-BF)
-    80, 200, 80, 200, 200, 150, 200, 150, 80, 200, 80, 200, 200,  // Empleabilidad (BG-BS)
-    80, 200,  // Género adicional (BT-BU)
-    250, 100, 150, 120, 100, 120, 100, 100, 120, 80, 80, 150  // Notas y metadatos (BV-CG)
+    // Datos personales A-H (8)
+    100, 100, 200, 80, 80, 150, 120, 150,
+    // AB: Preguntas del Curso I-U (13)
+    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200, 80, 200,
+    // AB: Empleabilidad V-AQ (22)
+    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
+    // TECH: Preguntas del Curso AR-BB (11)
+    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200,
+    // TECH: Empleabilidad BC-BX (22)
+    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
+    // SAC: Preguntas del Curso BY-CI (11)
+    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200,
+    // SAC: Empleabilidad CJ-DE (22)
+    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
+    // Género DF-DR (13)
+    200, 80, 150, 80, 150, 80, 200, 80, 200, 150, 200, 80, 200,
+    // Notas y metadatos DS-ED (12)
+    250, 100, 150, 120, 100, 120, 100, 100, 120, 80, 80, 150
   ];
   anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
   // Colorear secciones de encabezado
-  sheet.getRange('A1:D1').setBackground('#1565c0');   // Info General - Azul
-  sheet.getRange('E1:G1').setBackground('#2e7d32');   // Grupos - Verde
-  sheet.getRange('H1:K1').setBackground('#f57c00');   // Formación - Naranja
-  sheet.getRange('L1:M1').setBackground('#c62828');   // Intereses - Rojo
-  sheet.getRange('N1:U1').setBackground('#6a1b9a');   // Curso - Morado
-  sheet.getRange('V1:AB1').setBackground('#00838f');  // Económico - Cyan
-  sheet.getRange('AC1:AG1').setBackground('#4527a0'); // Transporte - Índigo
-  sheet.getRange('AH1:AK1').setBackground('#bf360c'); // Operarios - Naranja oscuro
-  sheet.getRange('AL1:AX1').setBackground('#ad1457'); // Género - Rosa
-  sheet.getRange('AY1:AZ1').setBackground('#37474f'); // Adicionales - Gris
-  sheet.getRange('BA1:BF1').setBackground('#7b1fa2'); // Nuevas preguntas curso - Morado oscuro
-  sheet.getRange('BG1:BS1').setBackground('#0277bd'); // Empleabilidad - Azul claro
-  sheet.getRange('BT1:BU1').setBackground('#c2185b'); // Género adicional - Rosa oscuro
-  sheet.getRange('BV1:CG1').setBackground('#455a64'); // Notas y metadatos - Gris azulado
+  sheet.getRange('A1:H1').setBackground('#1565c0');   // Datos Personales - Azul
+  sheet.getRange('I1:U1').setBackground('#e65100');   // AB: Preguntas Curso - Naranja
+  sheet.getRange('V1:AQ1').setBackground('#bf360c');  // AB: Empleabilidad - Naranja oscuro
+  sheet.getRange('AR1:BB1').setBackground('#283593'); // TECH: Preguntas Curso - Índigo
+  sheet.getRange('BC1:BX1').setBackground('#1a237e'); // TECH: Empleabilidad - Índigo oscuro
+  sheet.getRange('BY1:CI1').setBackground('#1b5e20'); // SAC: Preguntas Curso - Verde
+  sheet.getRange('CJ1:DE1').setBackground('#33691e'); // SAC: Empleabilidad - Verde oscuro
+  sheet.getRange('DF1:DR1').setBackground('#880e4f'); // Género - Rosa
+  sheet.getRange('DS1:ED1').setBackground('#455a64'); // Notas y metadatos - Gris azulado
 }
 
 /**
@@ -4668,75 +4700,144 @@ function importarEntrevistasDesdeKobo() {
     }
 
     // Mapeo de columnas de Kobo a nuestra hoja
-    // Buscar índices de las columnas importantes
+    // Estructura actualizada del nuevo formulario de entrevistas
     const colMap = {
-      fechaEntrevista: buscarIndiceColumna(headers, ['_submission_time', 'start', 'end', 'fecha', 'fecha entrevista', 'submission time']),
-      creamosId: buscarIndiceColumna(headers, ['Creamos ID', 'creamos_id', 'Información General/Creamos ID']),
-      nombre: buscarIndiceColumna(headers, ['Nombre y apellidos', 'nombre', 'Información General/Nombre']),
-      genero: buscarIndiceColumna(headers, ['Género', 'genero', 'Información General/Género']),
-      gruposDiversos: buscarIndiceColumna(headers, ['grupos diversos', 'Trabajo en grupos/grupos diversos']),
-      gruposMixtos: buscarIndiceColumna(headers, ['grupos mixtos', 'Trabajo en grupos/grupos mixtos']),
-      expGruposMixtos: buscarIndiceColumna(headers, ['experiencia previa', 'grupos mixtos de hombres']),
-      formacionPrevia: buscarIndiceColumna(headers, ['formación o capacitación previa', 'Formación']),
-      dondeFormacion: buscarIndiceColumna(headers, ['Dónde', 'donde']),
-      tieneCertificado: buscarIndiceColumna(headers, ['certificado para la capacitación']),
-      cualCertificado: buscarIndiceColumna(headers, ['Cuál']),
-      sectorInteres: buscarIndiceColumna(headers, ['sector te gustaría trabajar']),
-      proyectoInteres: buscarIndiceColumna(headers, ['Proyecto de interés', 'proyecto']),
-      dificultadesCurso: buscarIndiceColumna(headers, ['dificultades crees']),
-      areasVida: buscarIndiceColumna(headers, ['áreas de tu vida']),
-      porQueInteres: buscarIndiceColumna(headers, ['Por qué te interesa']),
-      aprenderPractica: buscarIndiceColumna(headers, ['aprender para luego ponerlo en práctica', 'aprender para luego', 'ponerlo en práctica en el trabajo']),
-      firmarDocumento: buscarIndiceColumna(headers, ['firmar un documento']),
-      disponibilidadPracticas: buscarIndiceColumna(headers, ['disponibilidad de tiempo para realizar prácticas']),
-      trabajarSector: buscarIndiceColumna(headers, ['dispuesto/a a trabajar en el sector']),
-      horariosDemanantes: buscarIndiceColumna(headers, ['horarios nocturnos']),
-      comentariosCurso: buscarIndiceColumna(headers, ['Comentarios']),
-      ayudaEconomica: buscarIndiceColumna(headers, ['ayuda económicamente']),
-      dependientesEcon: buscarIndiceColumna(headers, ['depende de ti económicamente']),
-      responsabilidadesCuidado: buscarIndiceColumna(headers, ['responsabilidades de cuidado']),
-      tieneTransporte: buscarIndiceColumna(headers, ['transporte para trasladarte']),
-      planTraslado: buscarIndiceColumna(headers, ['plan para trasladarte']),
-      deudasBancarias: buscarIndiceColumna(headers, ['deudas bancarias']),
-      antecedentesManchados: buscarIndiceColumna(headers, ['antecedentes penales o policiacos']),
-      tramitesPenales: buscarIndiceColumna(headers, ['trámites penales']),
-      tallaZapato: buscarIndiceColumna(headers, ['talla de zapato']),
-      movilizarseZona: buscarIndiceColumna(headers, ['movilizarte a cualquier zona']),
-      conoceVBG: buscarIndiceColumna(headers, ['violencia basada en género']),
-      conflictosCasa: buscarIndiceColumna(headers, ['conflictos en casa']),
-      grupoMujeres: buscarIndiceColumna(headers, ['grupo formado mayormente por mujeres']),
-      igualdadHM: buscarIndiceColumna(headers, ['hombres y mujeres sean tratados por igual']),
-      familiaresCreamos: buscarIndiceColumna(headers, ['familiares que son participantes']),
-      nombresFamiliares: buscarIndiceColumna(headers, ['facilitarnos sus nombres']),
-      formalInformal: buscarIndiceColumna(headers, ['formal o informal']),
-      conoceViolenciaMujer: buscarIndiceColumna(headers, ['violencia contra la mujer']),
+      // === SECCIÓN 1: DATOS PERSONALES ===
+      creamosId: buscarIndiceColumna(headers, ['Creamos ID', 'DATOS PERSONALES/Creamos ID']),
+      nombre: buscarIndiceColumna(headers, ['Nombres y apellidos', 'DATOS PERSONALES/Nombres y apellidos']),
+      genero: buscarIndiceColumna(headers, ['Género', 'DATOS PERSONALES/Género']),
+      formacionPrevia: buscarIndiceColumna(headers, ['formación o capacitación previa', 'DATOS PERSONALES/formación']),
+      dondeFormacion: buscarIndiceColumna(headers, ['dónde y de qué fue el curso', 'DATOS PERSONALES/dónde']),
+      sectorInteres: buscarIndiceColumna(headers, ['sector te gustaría trabajar', 'DATOS PERSONALES/sector']),
+      cursoInteres: buscarIndiceColumna(headers, ['Elije el curso de tu interés', 'DATOS PERSONALES/Elije el curso']),
 
-      // === NUEVAS PREGUNTAS DEL CURSO ===
-      queLlamaAtencion: buscarIndiceColumna(headers, ['Qué te llama la atención', 'llama la atención']),
-      expectativaCurso: buscarIndiceColumna(headers, ['expectativa del curso', 'Cuál es tu expectativa']),
-      tramitarPapeleria: buscarIndiceColumna(headers, ['tramitar la papelería', 'tramitar papelería']),
-      planPapeleria: buscarIndiceColumna(headers, ['plan', 'Cuál sería tu plan']),
-      comentarioFirmarDoc: buscarIndiceColumna(headers, ['Comentario', 'firmar documento']),
-      planDisponibilidad: buscarIndiceColumna(headers, ['Cuéntanos tu plan', 'plan']),
+      // === ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO ===
+      ab_porQueInteres: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Por qué te interesa estudiar este curso']),
+      ab_queLlamaAtencion: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Qué te llama la atención de este curso']),
+      ab_expectativaCurso: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Cuál es tu expectativa del curso']),
+      ab_dificultadesCurso: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'qué dificultades u obstáculos crees']),
+      ab_areasVida: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'áreas de tu vida que cambiarían']),
+      ab_disponibilidadPracticas: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'disponibilidad de tiempo para realizar prácticas']),
+      ab_planPracticas: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Cuéntanos tu plan', 'plan:', 'plan prácticas']),
+      ab_tramitarPapeleria: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'tramitar la papelería necesaria']),
+      ab_planPapeleria: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Cuál sería tu plan', 'plan papelería']),
+      ab_transporte: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'transporte para trasladarte']),
+      ab_planTransporte: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Cuál sería tu plan', 'plan transporte']),
+      ab_firmarDocumento: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'firmar un documento de permanencia']),
+      ab_comentarioDoc: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Comentario:', 'comentario documento']),
 
-      // === ÁREA DE EMPLEABILIDAD ===
-      tieneTrabajoActual: buscarIndiceColumna(headers, ['Actualmente tienes trabajo', 'tienes trabajo']),
-      cuentanosTrabajo: buscarIndiceColumna(headers, ['Cuéntanos más', 'más sobre trabajo']),
-      satisfechoTrabajo: buscarIndiceColumna(headers, ['satisfecha/o con este trabajo', 'satisfecho trabajo']),
-      comentarioSatisfaccion: buscarIndiceColumna(headers, ['Comentario', 'satisfacción']),
-      queHacerProximosMeses: buscarIndiceColumna(headers, ['qué te gustaría hacer en los próximos meses', 'próximos meses']),
-      importanciaConseguirTrabajo: buscarIndiceColumna(headers, ['Qué tan importante es para ti conseguir trabajo', 'importante conseguir trabajo']),
-      teVesTrabajandoSector: buscarIndiceColumna(headers, ['Te ves trabajando en el sector', 'trabajando en el sector']),
-      comentarioDeudasBancarias: buscarIndiceColumna(headers, ['Comentario', 'deudas']),
-      casoLegal: buscarIndiceColumna(headers, ['algún caso/tema legal', 'caso legal', 'tema legal']),
-      comentarioCasoLegal: buscarIndiceColumna(headers, ['Comentario', 'legal']),
-      dispuestoEmpleabilidad: buscarIndiceColumna(headers, ['dispuesto a continuar y participar', 'fase de empleabilidad', 'participar empleabilidad']),
-      comentarioEmpleabilidad: buscarIndiceColumna(headers, ['Comentario', 'empleabilidad']),
-      temporalidadMetasEmpleabilidad: buscarIndiceColumna(headers, ['temporalidad', 'metas de empleabilidad', 'Inmediatamente después']),
+      // === ALIMENTOS Y BEBIDAS - EMPLEABILIDAD ===
+      ab_tieneTrabajoActual: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Actualmente tienes trabajo']),
+      ab_cuentanosTrabajo: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Cuéntanos más:', 'más trabajo']),
+      ab_satisfechoTrabajo: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'satisfecha/o con este trabajo']),
+      ab_comentarioSatisfaccion: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Comentario:', 'comentario satisfacción']),
+      ab_proximosMeses: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'próximos meses', 'trabajar, seguir estudiando']),
+      ab_importanciaTrabajo: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Qué tan importante es para ti conseguir trabajo']),
+      ab_teVesSector: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Te ves trabajando en el sector']),
+      ab_ayudaEconomica: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Alguien te ayuda económicamente']),
+      ab_comentarioAyuda: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Comentario:', 'comentario ayuda']),
+      ab_dependientes: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Alguien depende de ti económicamente']),
+      ab_comentarioDependientes: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Comentario:', 'comentario dependientes']),
+      ab_responsabilidadesCuidado: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'responsabilidades de cuidado en casa']),
+      ab_comentarioCuidado: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Comentario:', 'comentario cuidado']),
+      ab_deudasBancarias: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Tienes deudas bancarias']),
+      ab_comentarioDeudas: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Comentario:', 'comentario deudas']),
+      ab_antecedentes: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'antecedentes penales o policiacos']),
+      ab_comentarioAntecedentes: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Comentario:', 'comentario antecedentes']),
+      ab_casoLegal: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'algún caso/tema legal']),
+      ab_comentarioLegal: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Comentario:', 'comentario legal']),
+      ab_dispuestoEmpleabilidad: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'dispuesto a continuar y participar', 'fase de empleabilidad']),
+      ab_comentarioEmpleabilidad: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'Comentario:', 'comentario empleabilidad']),
+      ab_temporalidadMetas: buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS', 'temporalidad', 'metas de empleabilidad']),
 
-      // === GÉNERO ADICIONAL ===
-      conflictosCasaHorarios: buscarIndiceColumna(headers, ['conflicto en casa estudiar o trabajar', 'horarios variados', 'horarios extensos']),
-      comentarioConflictosHorarios: buscarIndiceColumna(headers, ['Comentario', 'horarios']),
+      // === TECNOLOGÍA - PREGUNTAS DEL CURSO ===
+      tech_porQueInteres: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Por qué te interesa estudiar este curso']),
+      tech_queLlamaAtencion: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Qué te llama la atención de este curso']),
+      tech_expectativaCurso: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Cuál es tu expectativa del curso']),
+      tech_dificultadesCurso: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'qué dificultades u obstáculos crees']),
+      tech_areasVida: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'áreas de tu vida que cambiarían']),
+      tech_disponibilidadCurso: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'disponibilidad de tiempo para asistir al curso']),
+      tech_planDisponibilidad: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Cuál sería tu plan', 'plan disponibilidad']),
+      tech_transporte: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'transporte para trasladarte']),
+      tech_planTransporte: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Cuál sería tu plan', 'plan transporte']),
+      tech_firmarDocumento: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'firmar un documento de permanencia']),
+      tech_comentarioDoc: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Comentario:', 'comentario documento']),
+
+      // === TECNOLOGÍA - EMPLEABILIDAD ===
+      tech_tieneTrabajoActual: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Actualmente tienes trabajo']),
+      tech_cuentanosTrabajo: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Cuéntanos más:', 'más trabajo']),
+      tech_satisfechoTrabajo: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'satisfecha/o con este trabajo']),
+      tech_comentarioSatisfaccion: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Comentario:', 'comentario satisfacción']),
+      tech_proximosMeses: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'próximos meses', 'trabajar, seguir estudiando']),
+      tech_importanciaTrabajo: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Qué tan importante es para ti conseguir trabajo']),
+      tech_teVesSector: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Te ves trabajando en el sector']),
+      tech_ayudaEconomica: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Alguien te ayuda económicamente']),
+      tech_comentarioAyuda: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Comentario:', 'comentario ayuda']),
+      tech_dependientes: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Alguien depende de ti económicamente']),
+      tech_comentarioDependientes: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Comentario:', 'comentario dependientes']),
+      tech_responsabilidadesCuidado: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'responsabilidades de cuidado en casa']),
+      tech_comentarioCuidado: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Comentario:', 'comentario cuidado']),
+      tech_deudasBancarias: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Tienes deudas bancarias']),
+      tech_comentarioDeudas: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Comentario:', 'comentario deudas']),
+      tech_antecedentes: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'antecedentes penales o policiacos']),
+      tech_comentarioAntecedentes: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Comentario:', 'comentario antecedentes']),
+      tech_casoLegal: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'algún caso/tema legal']),
+      tech_comentarioLegal: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Comentario:', 'comentario legal']),
+      tech_dispuestoEmpleabilidad: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'dispuesto a continuar y participar', 'fase de empleabilidad']),
+      tech_comentarioEmpleabilidad: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'Comentario:', 'comentario empleabilidad']),
+      tech_temporalidadMetas: buscarIndiceColumna(headers, ['TECNOLOGÍA', 'temporalidad', 'metas de empleabilidad']),
+
+      // === SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO ===
+      sac_porQueInteres: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Por qué te interesa estudiar este curso']),
+      sac_queLlamaAtencion: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Qué te llama la atención de este curso']),
+      sac_expectativaCurso: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Cuál es tu expectativa del curso']),
+      sac_dificultadesCurso: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'qué dificultades u obstáculos crees']),
+      sac_areasVida: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'áreas de tu vida que cambiarían']),
+      sac_disponibilidadCurso: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'disponibilidad de tiempo para asistir al curso']),
+      sac_planDisponibilidad: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Cuál sería tu plan', 'plan disponibilidad']),
+      sac_transporte: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'transporte para trasladarte']),
+      sac_planTransporte: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Cuál sería tu plan', 'plan transporte']),
+      sac_firmarDocumento: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'firmar un documento de permanencia']),
+      sac_comentarioDoc: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Comentario:', 'comentario documento']),
+
+      // === SERVICIO AL CLIENTE - EMPLEABILIDAD ===
+      sac_tieneTrabajoActual: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Actualmente tienes trabajo']),
+      sac_cuentanosTrabajo: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Cuéntanos más:', 'más trabajo']),
+      sac_satisfechoTrabajo: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'satisfecha/o con este trabajo']),
+      sac_comentarioSatisfaccion: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Comentario:', 'comentario satisfacción']),
+      sac_proximosMeses: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'próximos meses', 'trabajar, seguir estudiando']),
+      sac_importanciaTrabajo: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Qué tan importante es para ti conseguir trabajo']),
+      sac_teVesSector: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Te ves trabajando en el sector']),
+      sac_ayudaEconomica: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Alguien te ayuda económicamente']),
+      sac_comentarioAyuda: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Comentario:', 'comentario ayuda']),
+      sac_dependientes: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Alguien depende de ti económicamente']),
+      sac_comentarioDependientes: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Comentario:', 'comentario dependientes']),
+      sac_responsabilidadesCuidado: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'responsabilidades de cuidado en casa']),
+      sac_comentarioCuidado: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Comentario:', 'comentario cuidado']),
+      sac_deudasBancarias: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Tienes deudas bancarias']),
+      sac_comentarioDeudas: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Comentario:', 'comentario deudas']),
+      sac_antecedentes: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'antecedentes penales o policiacos']),
+      sac_comentarioAntecedentes: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Comentario:', 'comentario antecedentes']),
+      sac_casoLegal: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'algún caso/tema legal']),
+      sac_comentarioLegal: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Comentario:', 'comentario legal']),
+      sac_dispuestoEmpleabilidad: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'dispuesto a continuar y participar', 'fase de empleabilidad']),
+      sac_comentarioEmpleabilidad: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'Comentario:', 'comentario empleabilidad']),
+      sac_temporalidadMetas: buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE', 'temporalidad', 'metas de empleabilidad']),
+
+      // === SECCIÓN 3: GÉNERO ===
+      genero_comentarioPrevio: buscarIndiceColumna(headers, ['GÉNERO', 'Comentario previo', 'organización que lucha']),
+      genero_gruposMixtos: buscarIndiceColumna(headers, ['GÉNERO', 'trabajar en grupos mixtos']),
+      genero_comentarioMixtos: buscarIndiceColumna(headers, ['GÉNERO', 'Comentario:', 'comentario mixtos']),
+      genero_gruposDiversos: buscarIndiceColumna(headers, ['GÉNERO', 'trabajar en grupos diversos']),
+      genero_comentarioDiversos: buscarIndiceColumna(headers, ['GÉNERO', 'Comentario:', 'comentario diversos']),
+      genero_conflictoGrupos: buscarIndiceColumna(headers, ['GÉNERO', 'grupos de hombres y mujeres causaría conflicto en casa']),
+      genero_comentarioConflictoGrupos: buscarIndiceColumna(headers, ['GÉNERO', 'Comentario:', 'comentario conflicto grupos']),
+      genero_conflictoHorarios: buscarIndiceColumna(headers, ['GÉNERO', 'conflicto en casa estudiar o trabajar en horarios variados']),
+      genero_comentarioConflictoHorarios: buscarIndiceColumna(headers, ['GÉNERO', 'Comentario:', 'comentario horarios']),
+      genero_grupoMujeres: buscarIndiceColumna(headers, ['GÉNERO', 'grupo mayoritariamente por mujeres']),
+      genero_igualdadHM: buscarIndiceColumna(headers, ['GÉNERO', 'hombres y mujeres sean tratados por igual']),
+      genero_familiaresCreamos: buscarIndiceColumna(headers, ['GÉNERO', 'familiares que sean participantes de Creamos']),
+      genero_nombresFamiliares: buscarIndiceColumna(headers, ['GÉNERO', 'compartirnos sus nombres']),
 
       // === NOTAS Y METADATOS KOBO ===
       notasEntrevistador: buscarIndiceColumna(headers, ['NOTAS DEL ENTREVISTADOR', 'notas entrevistador']),
@@ -4792,9 +4893,9 @@ function importarEntrevistasDesdeKobo() {
 
       // Obtener fecha de entrevista desde Kobo o usar fecha actual como fallback
       const getFechaEntrevista = () => {
-        if (colMap.fechaEntrevista >= 0 && row[colMap.fechaEntrevista]) {
+        if (colMap.koboSubmissionTime >= 0 && row[colMap.koboSubmissionTime]) {
           try {
-            const fechaStr = row[colMap.fechaEntrevista].toString().trim();
+            const fechaStr = row[colMap.koboSubmissionTime].toString().trim();
             const fecha = new Date(fechaStr);
             // Verificar si la fecha es válida
             if (!isNaN(fecha.getTime())) {
@@ -4808,95 +4909,159 @@ function importarEntrevistasDesdeKobo() {
         return new Date();
       };
 
-      // Crear registro para Detalle Entrevistas (85 columnas: A a CG)
+      // Crear registro para Detalle Entrevistas (134 columnas: A a ED)
       const registro = [
-        getFechaEntrevista(),                          // A: Fecha Importación (fecha de entrevista)
-        creamosId,                                     // B: Creamos ID
-        getVal(colMap.nombre),                         // C: Nombre
-        getVal(colMap.genero),                         // D: Género
-        getVal(colMap.gruposDiversos),                 // E: Grupos Diversos
-        getVal(colMap.gruposMixtos),                   // F: Grupos Mixtos
-        getVal(colMap.expGruposMixtos),                // G: Experiencia Grupos Mixtos
-        getVal(colMap.formacionPrevia),                // H: Formación Previa
-        getVal(colMap.dondeFormacion),                 // I: Dónde Formación
-        getVal(colMap.tieneCertificado),               // J: Tiene Certificado
-        getVal(colMap.cualCertificado),                // K: Cuál Certificado
-        getVal(colMap.sectorInteres),                  // L: Sector Interés
-        getVal(colMap.proyectoInteres),                // M: Proyecto Interés
-        getVal(colMap.dificultadesCurso),              // N: Dificultades Curso
-        getVal(colMap.areasVida),                      // O: Áreas Vida Cambiarán
-        getVal(colMap.porQueInteres),                  // P: Por Qué Interesa Curso
-        getVal(colMap.firmarDocumento),                // Q: Firmar Documento
-        getVal(colMap.disponibilidadPracticas),        // R: Disponibilidad Prácticas
-        getVal(colMap.trabajarSector),                 // S: Trabajar en Sector
-        getVal(colMap.horariosDemanantes),             // T: Horarios Demandantes
-        getVal(colMap.comentariosCurso),               // U: Comentarios Curso
-        getVal(colMap.ayudaEconomica),                 // V: Ayuda Económica
-        '',                                            // W: Comentario Ayuda
-        getVal(colMap.dependientesEcon),               // X: Dependientes Económicos
-        '',                                            // Y: Comentario Dependientes
-        getVal(colMap.responsabilidadesCuidado),       // Z: Responsabilidades Cuidado
-        '',                                            // AA: Comentario Cuidado
-        '',                                            // AB: Otros Comentarios Económicos
-        getVal(colMap.tieneTransporte),                // AC: Tiene Transporte
-        getVal(colMap.planTraslado),                   // AD: Plan Traslado
-        getVal(colMap.deudasBancarias),                // AE: Deudas Bancarias
-        getVal(colMap.antecedentesManchados),          // AF: Antecedentes Manchados
-        '',                                            // AG: Comentario Antecedentes
-        getVal(colMap.tramitesPenales),                // AH: Trámites Penales
-        getVal(colMap.tallaZapato),                    // AI: Talla Zapato
-        getVal(colMap.movilizarseZona),                // AJ: Movilizarse Cualquier Zona
-        '',                                            // AK: Comentarios Operarios
-        '',                                            // AL: Comentario Previo Género
-        getVal(colMap.conoceVBG),                      // AM: Conoce VBG
-        '',                                            // AN: Grupos Mixtos Género
-        '',                                            // AO: Grupos Diversos Género
-        '',                                            // AP: Comentario Género
-        getVal(colMap.conflictosCasa),                 // AQ: Conflictos Casa
-        '',                                            // AR: Comentario Conflictos
-        getVal(colMap.grupoMujeres),                   // AS: Grupo Mayormente Mujeres
-        getVal(colMap.igualdadHM),                     // AT: Igualdad Hombres Mujeres
-        getVal(colMap.familiaresCreamos),              // AU: Familiares Creamos
-        getVal(colMap.nombresFamiliares),              // AV: Nombres Familiares
-        getVal(colMap.formalInformal),                 // AW: Formal o Informal
-        getVal(colMap.conoceViolenciaMujer),           // AX: Conoce Violencia Mujer
-        getVal(colMap.aprenderPractica),               // AY: ¿Te interesa aprender para práctica en trabajo?
-        'No',                                          // AZ: Vinculado
+        // === SECCIÓN 1: DATOS PERSONALES (A-H) ===
+        getFechaEntrevista(),                              // A: Fecha Entrevista
+        creamosId,                                         // B: Creamos ID
+        getVal(colMap.nombre),                             // C: Nombres y Apellidos
+        getVal(colMap.genero),                             // D: Género
+        getVal(colMap.formacionPrevia),                    // E: Formación Previa
+        getVal(colMap.dondeFormacion),                     // F: Dónde y De Qué Formación
+        getVal(colMap.sectorInteres),                      // G: Sector Interés
+        getVal(colMap.cursoInteres),                       // H: Curso Interés
 
-        // === NUEVAS COLUMNAS ===
-        getVal(colMap.queLlamaAtencion),               // BA: Qué te llama atención curso
-        getVal(colMap.expectativaCurso),               // BB: Expectativa del curso
-        getVal(colMap.tramitarPapeleria),              // BC: Tramitar papelería
-        getVal(colMap.planPapeleria),                  // BD: Plan tramitar papelería
-        getVal(colMap.comentarioFirmarDoc),            // BE: Comentario Firmar Documento
-        getVal(colMap.planDisponibilidad),             // BF: Plan Disponibilidad
-        getVal(colMap.tieneTrabajoActual),             // BG: Actualmente tiene trabajo
-        getVal(colMap.cuentanosTrabajo),               // BH: Cuéntanos más trabajo
-        getVal(colMap.satisfechoTrabajo),              // BI: Satisfecho con trabajo
-        getVal(colMap.comentarioSatisfaccion),         // BJ: Comentario satisfacción trabajo
-        getVal(colMap.queHacerProximosMeses),          // BK: Qué hacer próximos meses
-        getVal(colMap.importanciaConseguirTrabajo),    // BL: Importancia conseguir trabajo
-        getVal(colMap.teVesTrabajandoSector),          // BM: Te ves trabajando sector
-        getVal(colMap.comentarioDeudasBancarias),      // BN: Comentario Deudas Bancarias
-        getVal(colMap.casoLegal),                      // BO: Caso Legal
-        getVal(colMap.comentarioCasoLegal),            // BP: Comentario Caso Legal
-        getVal(colMap.dispuestoEmpleabilidad),         // BQ: Dispuesto participar empleabilidad
-        getVal(colMap.comentarioEmpleabilidad),        // BR: Comentario empleabilidad
-        getVal(colMap.temporalidadMetasEmpleabilidad), // BS: Temporalidad metas empleabilidad
-        getVal(colMap.conflictosCasaHorarios),         // BT: Conflictos casa horarios variados
-        getVal(colMap.comentarioConflictosHorarios),   // BU: Comentario conflictos horarios
-        getVal(colMap.notasEntrevistador),             // BV: Notas del Entrevistador
-        getVal(colMap.koboId),                         // BW: _id
-        getVal(colMap.koboUuid),                       // BX: _uuid
-        getVal(colMap.koboSubmissionTime),             // BY: _submission_time
-        getVal(colMap.koboValidationStatus),           // BZ: _validation_status
-        getVal(colMap.koboNotes),                      // CA: _notes
-        getVal(colMap.koboStatus),                     // CB: _status
-        getVal(colMap.koboSubmittedBy),                // CC: _submitted_by
-        getVal(colMap.koboTags),                       // CD: _tags
-        getVal(colMap.koboIndex),                      // CE: _index
-        getVal(colMap.koboVersion),                    // CF: __version__
-        getVal(colMap.koboRootUuid)                    // CG: meta/rootUuid
+        // === SECCIÓN 2: ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO (I-U) ===
+        getVal(colMap.ab_porQueInteres),                   // I
+        getVal(colMap.ab_queLlamaAtencion),                // J
+        getVal(colMap.ab_expectativaCurso),                // K
+        getVal(colMap.ab_dificultadesCurso),               // L
+        getVal(colMap.ab_areasVida),                       // M
+        getVal(colMap.ab_disponibilidadPracticas),         // N
+        getVal(colMap.ab_planPracticas),                   // O
+        getVal(colMap.ab_tramitarPapeleria),               // P
+        getVal(colMap.ab_planPapeleria),                   // Q
+        getVal(colMap.ab_transporte),                      // R
+        getVal(colMap.ab_planTransporte),                  // S
+        getVal(colMap.ab_firmarDocumento),                 // T
+        getVal(colMap.ab_comentarioDoc),                   // U
+
+        // === SECCIÓN 2: ALIMENTOS Y BEBIDAS - EMPLEABILIDAD (V-AQ) ===
+        getVal(colMap.ab_tieneTrabajoActual),              // V
+        getVal(colMap.ab_cuentanosTrabajo),                // W
+        getVal(colMap.ab_satisfechoTrabajo),               // X
+        getVal(colMap.ab_comentarioSatisfaccion),          // Y
+        getVal(colMap.ab_proximosMeses),                   // Z
+        getVal(colMap.ab_importanciaTrabajo),              // AA
+        getVal(colMap.ab_teVesSector),                     // AB
+        getVal(colMap.ab_ayudaEconomica),                  // AC
+        getVal(colMap.ab_comentarioAyuda),                 // AD
+        getVal(colMap.ab_dependientes),                    // AE
+        getVal(colMap.ab_comentarioDependientes),          // AF
+        getVal(colMap.ab_responsabilidadesCuidado),        // AG
+        getVal(colMap.ab_comentarioCuidado),               // AH
+        getVal(colMap.ab_deudasBancarias),                 // AI
+        getVal(colMap.ab_comentarioDeudas),                // AJ
+        getVal(colMap.ab_antecedentes),                    // AK
+        getVal(colMap.ab_comentarioAntecedentes),          // AL
+        getVal(colMap.ab_casoLegal),                       // AM
+        getVal(colMap.ab_comentarioLegal),                 // AN
+        getVal(colMap.ab_dispuestoEmpleabilidad),          // AO
+        getVal(colMap.ab_comentarioEmpleabilidad),         // AP
+        getVal(colMap.ab_temporalidadMetas),               // AQ
+
+        // === SECCIÓN 2: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BB) ===
+        getVal(colMap.tech_porQueInteres),                 // AR
+        getVal(colMap.tech_queLlamaAtencion),              // AS
+        getVal(colMap.tech_expectativaCurso),              // AT
+        getVal(colMap.tech_dificultadesCurso),             // AU
+        getVal(colMap.tech_areasVida),                     // AV
+        getVal(colMap.tech_disponibilidadCurso),           // AW
+        getVal(colMap.tech_planDisponibilidad),            // AX
+        getVal(colMap.tech_transporte),                    // AY
+        getVal(colMap.tech_planTransporte),                // AZ
+        getVal(colMap.tech_firmarDocumento),               // BA
+        getVal(colMap.tech_comentarioDoc),                 // BB
+
+        // === SECCIÓN 2: TECNOLOGÍA - EMPLEABILIDAD (BC-BX) ===
+        getVal(colMap.tech_tieneTrabajoActual),            // BC
+        getVal(colMap.tech_cuentanosTrabajo),              // BD
+        getVal(colMap.tech_satisfechoTrabajo),             // BE
+        getVal(colMap.tech_comentarioSatisfaccion),        // BF
+        getVal(colMap.tech_proximosMeses),                 // BG
+        getVal(colMap.tech_importanciaTrabajo),            // BH
+        getVal(colMap.tech_teVesSector),                   // BI
+        getVal(colMap.tech_ayudaEconomica),                // BJ
+        getVal(colMap.tech_comentarioAyuda),               // BK
+        getVal(colMap.tech_dependientes),                  // BL
+        getVal(colMap.tech_comentarioDependientes),        // BM
+        getVal(colMap.tech_responsabilidadesCuidado),      // BN
+        getVal(colMap.tech_comentarioCuidado),             // BO
+        getVal(colMap.tech_deudasBancarias),               // BP
+        getVal(colMap.tech_comentarioDeudas),              // BQ
+        getVal(colMap.tech_antecedentes),                  // BR
+        getVal(colMap.tech_comentarioAntecedentes),        // BS
+        getVal(colMap.tech_casoLegal),                     // BT
+        getVal(colMap.tech_comentarioLegal),               // BU
+        getVal(colMap.tech_dispuestoEmpleabilidad),        // BV
+        getVal(colMap.tech_comentarioEmpleabilidad),       // BW
+        getVal(colMap.tech_temporalidadMetas),             // BX
+
+        // === SECCIÓN 2: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (BY-CI) ===
+        getVal(colMap.sac_porQueInteres),                  // BY
+        getVal(colMap.sac_queLlamaAtencion),               // BZ
+        getVal(colMap.sac_expectativaCurso),               // CA
+        getVal(colMap.sac_dificultadesCurso),              // CB
+        getVal(colMap.sac_areasVida),                      // CC
+        getVal(colMap.sac_disponibilidadCurso),            // CD
+        getVal(colMap.sac_planDisponibilidad),             // CE
+        getVal(colMap.sac_transporte),                     // CF
+        getVal(colMap.sac_planTransporte),                 // CG
+        getVal(colMap.sac_firmarDocumento),                // CH
+        getVal(colMap.sac_comentarioDoc),                  // CI
+
+        // === SECCIÓN 2: SERVICIO AL CLIENTE - EMPLEABILIDAD (CJ-DE) ===
+        getVal(colMap.sac_tieneTrabajoActual),             // CJ
+        getVal(colMap.sac_cuentanosTrabajo),               // CK
+        getVal(colMap.sac_satisfechoTrabajo),              // CL
+        getVal(colMap.sac_comentarioSatisfaccion),         // CM
+        getVal(colMap.sac_proximosMeses),                  // CN
+        getVal(colMap.sac_importanciaTrabajo),             // CO
+        getVal(colMap.sac_teVesSector),                    // CP
+        getVal(colMap.sac_ayudaEconomica),                 // CQ
+        getVal(colMap.sac_comentarioAyuda),                // CR
+        getVal(colMap.sac_dependientes),                   // CS
+        getVal(colMap.sac_comentarioDependientes),         // CT
+        getVal(colMap.sac_responsabilidadesCuidado),       // CU
+        getVal(colMap.sac_comentarioCuidado),              // CV
+        getVal(colMap.sac_deudasBancarias),                // CW
+        getVal(colMap.sac_comentarioDeudas),               // CX
+        getVal(colMap.sac_antecedentes),                   // CY
+        getVal(colMap.sac_comentarioAntecedentes),         // CZ
+        getVal(colMap.sac_casoLegal),                      // DA
+        getVal(colMap.sac_comentarioLegal),                // DB
+        getVal(colMap.sac_dispuestoEmpleabilidad),         // DC
+        getVal(colMap.sac_comentarioEmpleabilidad),        // DD
+        getVal(colMap.sac_temporalidadMetas),              // DE
+
+        // === SECCIÓN 3: GÉNERO (DF-DR) ===
+        getVal(colMap.genero_comentarioPrevio),            // DF
+        getVal(colMap.genero_gruposMixtos),                // DG
+        getVal(colMap.genero_comentarioMixtos),            // DH
+        getVal(colMap.genero_gruposDiversos),              // DI
+        getVal(colMap.genero_comentarioDiversos),          // DJ
+        getVal(colMap.genero_conflictoGrupos),             // DK
+        getVal(colMap.genero_comentarioConflictoGrupos),   // DL
+        getVal(colMap.genero_conflictoHorarios),           // DM
+        getVal(colMap.genero_comentarioConflictoHorarios), // DN
+        getVal(colMap.genero_grupoMujeres),                // DO
+        getVal(colMap.genero_igualdadHM),                  // DP
+        getVal(colMap.genero_familiaresCreamos),           // DQ
+        getVal(colMap.genero_nombresFamiliares),           // DR
+
+        // === NOTAS Y METADATOS KOBO (DS-ED) ===
+        getVal(colMap.notasEntrevistador),                 // DS
+        getVal(colMap.koboId),                             // DT
+        getVal(colMap.koboUuid),                           // DU
+        getVal(colMap.koboSubmissionTime),                 // DV
+        getVal(colMap.koboValidationStatus),               // DW
+        getVal(colMap.koboNotes),                          // DX
+        getVal(colMap.koboStatus),                         // DY
+        getVal(colMap.koboSubmittedBy),                    // DZ
+        getVal(colMap.koboTags),                           // EA
+        getVal(colMap.koboIndex),                          // EB
+        getVal(colMap.koboVersion),                        // EC
+        getVal(colMap.koboRootUuid)                        // ED
       ];
 
       // Usar obtenerPrimeraFilaVacia para prevenir sobrescrituras
@@ -4974,17 +5139,16 @@ function vincularEntrevistasConDetalle() {
     }
   }
 
-  // Actualizar columna "Vinculado" en Detalle Entrevistas
+  // Verificar vinculación (sin modificar columnas de datos)
+  let vinculados = 0;
   for (let i = 1; i < entrevistas.length; i++) {
     const idEntrevista = entrevistas[i][2] ? entrevistas[i][2].toString().trim() : ''; // Columna C
     if (idEntrevista && detalleMap.has(idEntrevista)) {
-      const info = detalleMap.get(idEntrevista);
-      // Marcar como vinculado (columna BA = 53)
-      detalleSheet.getRange(info.fila, 53).setValue('Sí');
+      vinculados++;
     }
   }
 
-  Logger.log('Vinculación completada');
+  Logger.log(`Vinculación completada: ${vinculados} registros vinculados`);
 }
 
 /**
