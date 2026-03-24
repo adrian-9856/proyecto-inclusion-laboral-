@@ -232,6 +232,8 @@ function setupMenuTech() {
         .addSeparator()
         .addItem('📄 Instalar Hoja Detalle Entrevistas', 'instalarHojaDetalleEntrevistas')
         .addItem('📝 Importar Entrevistas (Detalle)', 'importarEntrevistasDesdeKobo')
+        .addItem('📊 Ver Estado Sincronización', 'mostrarEstadoSincronizacionEntrevistasTech')
+        .addItem('🔄 Resetear Sincronización (Re-importar Todo)', 'resetearSincronizacionEntrevistasTech')
         .addSeparator()
         .addItem('📧 Configurar Email General', 'configurarEmail')
         .addItem('📧 Configurar Email Eva', 'configurarEmailEva')
@@ -4608,6 +4610,10 @@ function importarEntrevistasDesdeKobo() {
   try {
     ss.toast('📥 Descargando datos de entrevistas desde KoboToolbox...', 'Importando', 5);
 
+    // Obtener última fecha de sincronización
+    const ultimaSync = obtenerUltimaSincronizacionEntrevistas();
+    Logger.log(`📅 Última sincronización: ${ultimaSync || 'Primera vez'}`);
+
     const response = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
       followRedirects: true,
@@ -4650,6 +4656,16 @@ function importarEntrevistasDesdeKobo() {
 
     const headers = rows[0];
     Logger.log('Headers entrevistas: ' + headers.join(' | '));
+
+    // === SINCRONIZACIÓN INCREMENTAL: Filtrar solo registros nuevos ===
+    const totalRegistrosKobo = rows.length - 1;
+    const filasParaProcesar = filtrarFilasNuevasEntrevistas(rows, headers, ultimaSync);
+    Logger.log(`📊 Total en Kobo: ${totalRegistrosKobo}, Nuevos a importar: ${filasParaProcesar.length}`);
+
+    if (filasParaProcesar.length === 0) {
+      ss.toast('✅ No hay registros nuevos desde la última sincronización', 'Sincronizado', 3);
+      return;
+    }
 
     // Mapeo de columnas de Kobo a nuestra hoja
     // Buscar índices de las columnas importantes
@@ -4755,12 +4771,12 @@ function importarEntrevistasDesdeKobo() {
       }
     }
 
-    // Procesar cada fila
+    // Procesar cada fila (solo las nuevas)
     let importados = 0;
     let duplicados = 0;
 
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
+    for (let i = 0; i < filasParaProcesar.length; i++) {
+      const row = filasParaProcesar[i];
       const creamosId = colMap.creamosId >= 0 ? (row[colMap.creamosId] || '').toString().trim() : '';
 
       if (!creamosId) continue;
@@ -4893,8 +4909,26 @@ function importarEntrevistasDesdeKobo() {
     // Vincular con hoja Entrevistas
     vincularEntrevistasConDetalle();
 
-    ss.toast('✅ Importados: ' + importados + ' | Duplicados: ' + duplicados, 'Importación Completa', 5);
-    Logger.log('Entrevistas importadas: ' + importados + ', duplicados: ' + duplicados);
+    // === Guardar fecha de última sincronización ===
+    if (importados > 0) {
+      const submissionIdx = buscarIndiceColumna(headers, ['_submission_time', 'submission time', 'start', 'end']);
+      const nuevaFechaSync = obtenerFechaMasRecienteEntrevistas(filasParaProcesar, submissionIdx);
+      guardarUltimaSincronizacionEntrevistas(nuevaFechaSync);
+    }
+
+    // Mostrar mensaje de resultado
+    const mensajeSincro = ultimaSync
+      ? `\n🔄 Sincronización incremental (desde ${ultimaSync.toLocaleDateString('es-GT')})`
+      : '\n📥 Primera importación (todos los registros)';
+
+    ss.toast(
+      `✅ Importados: ${importados} | Duplicados: ${duplicados}${mensajeSincro}`,
+      'Sincronización Completa',
+      5
+    );
+
+    Logger.log(`Entrevistas importadas: ${importados}, duplicados: ${duplicados}`);
+    Logger.log(`Total en Kobo: ${totalRegistrosKobo}, Nuevos procesados: ${filasParaProcesar.length}`);
 
   } catch (error) {
     ss.toast('❌ Error: ' + error.message, 'ERROR', 5);
@@ -10127,6 +10161,149 @@ function procesarFilasPendientesAEntrevistas() {
       ui.alert('⚠️ Error al guardar en Entrevistas.\n\nDetalle: ' + e.message);
     }
   }
+}
+
+// =====================================================================
+// FUNCIONES DE SINCRONIZACIÓN INCREMENTAL DE ENTREVISTAS
+// =====================================================================
+
+/**
+ * Obtiene la fecha de la última sincronización de entrevistas
+ * @return {Date|null} Fecha de última sincronización o null si es la primera vez
+ */
+function obtenerUltimaSincronizacionEntrevistas() {
+  const props = PropertiesService.getDocumentProperties();
+  const fechaStr = props.getProperty('ULTIMA_SYNC_ENTREVISTAS_TECH');
+
+  if (!fechaStr) return null;
+
+  try {
+    return new Date(fechaStr);
+  } catch (e) {
+    Logger.log('⚠️ Error parseando fecha de última sync: ' + e.message);
+    return null;
+  }
+}
+
+/**
+ * Guarda la fecha de última sincronización de entrevistas
+ * @param {Date} fecha - Nueva fecha de sincronización
+ */
+function guardarUltimaSincronizacionEntrevistas(fecha) {
+  const props = PropertiesService.getDocumentProperties();
+  props.setProperty('ULTIMA_SYNC_ENTREVISTAS_TECH', fecha.toISOString());
+  Logger.log(`💾 Última sincronización guardada: ${fecha.toISOString()}`);
+}
+
+/**
+ * Filtra solo los registros nuevos desde la última sincronización
+ * @param {Array} rows - Todas las filas del CSV
+ * @param {Array} headers - Headers del CSV
+ * @param {Date|null} ultimaSync - Fecha de última sincronización
+ * @return {Array} Solo filas nuevas
+ */
+function filtrarFilasNuevasEntrevistas(rows, headers, ultimaSync) {
+  if (!ultimaSync) {
+    // Primera vez, importar todo (excepto header)
+    return rows.slice(1);
+  }
+
+  // Buscar índice de _submission_time
+  const submissionIdx = buscarIndiceColumna(headers, ['_submission_time', 'submission time', 'start', 'end']);
+
+  if (submissionIdx < 0) {
+    Logger.log('⚠️ No se encontró columna _submission_time, importando todos los registros');
+    return rows.slice(1);
+  }
+
+  const filasNuevas = [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const fechaSubmissionStr = row[submissionIdx];
+
+    if (!fechaSubmissionStr) continue;
+
+    try {
+      const fechaSubmission = new Date(fechaSubmissionStr.toString().trim());
+
+      // Solo incluir si es más reciente que la última sync
+      if (fechaSubmission > ultimaSync) {
+        filasNuevas.push(row);
+      }
+    } catch (e) {
+      // Si hay error parseando fecha, incluir el registro por seguridad
+      Logger.log(`⚠️ Error parseando fecha: ${fechaSubmissionStr}`);
+      filasNuevas.push(row);
+    }
+  }
+
+  return filasNuevas;
+}
+
+/**
+ * Obtiene la fecha más reciente de las filas procesadas
+ * @param {Array} rows - Filas procesadas
+ * @param {Number} submissionIdx - Índice de la columna _submission_time
+ * @return {Date} Fecha más reciente
+ */
+function obtenerFechaMasRecienteEntrevistas(rows, submissionIdx) {
+  let fechaMasReciente = new Date(0); // Epoch
+
+  if (submissionIdx < 0) {
+    return new Date(); // Usar fecha actual si no hay columna
+  }
+
+  rows.forEach(row => {
+    const fechaStr = row[submissionIdx];
+    if (!fechaStr) return;
+
+    try {
+      const fecha = new Date(fechaStr.toString().trim());
+      if (fecha > fechaMasReciente) {
+        fechaMasReciente = fecha;
+      }
+    } catch (e) {
+      // Ignorar fechas inválidas
+    }
+  });
+
+  return fechaMasReciente > new Date(0) ? fechaMasReciente : new Date();
+}
+
+/**
+ * Resetea la fecha de última sincronización (para re-importar todo)
+ */
+function resetearSincronizacionEntrevistasTech() {
+  const props = PropertiesService.getDocumentProperties();
+  props.deleteProperty('ULTIMA_SYNC_ENTREVISTAS_TECH');
+
+  const ui = SpreadsheetApp.getUi();
+  ui.alert(
+    '🔄 Sincronización Reseteada',
+    'La próxima importación traerá TODOS los registros desde Kobo.\n\n' +
+    'Use "📝 Importar Entrevistas (Detalle)" para iniciar la importación.',
+    ui.ButtonSet.OK
+  );
+
+  Logger.log('🔄 Sincronización reseteada - próxima importación traerá todos los datos');
+}
+
+/**
+ * Muestra el estado actual de la sincronización
+ */
+function mostrarEstadoSincronizacionEntrevistasTech() {
+  const ultimaSync = obtenerUltimaSincronizacionEntrevistas();
+
+  const ui = SpreadsheetApp.getUi();
+
+  const mensaje = ultimaSync
+    ? `Última sincronización: ${ultimaSync.toLocaleString('es-GT')}\n\n` +
+      `La próxima sincronización solo traerá registros nuevos desde esta fecha.`
+    : 'No se ha realizado ninguna sincronización.\n\n' +
+      'La próxima sincronización traerá TODOS los registros.';
+
+  ui.alert('📊 Estado de Sincronización de Entrevistas', mensaje, ui.ButtonSet.OK);
 }
 
 // =====================================================================
