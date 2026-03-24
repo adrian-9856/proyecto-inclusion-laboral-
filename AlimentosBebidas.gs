@@ -917,111 +917,37 @@ function crearHojaDetalleEntrevistas() {
     'AB: Comentario Empleabilidad',            // AP
     'AB: Temporalidad Metas',                  // AQ
 
-    // === SECCIÓN 2: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BB) ===
-    'TECH: Por Qué Interesa Curso',            // AR
-    'TECH: Qué Llama la Atención',             // AS
-    'TECH: Expectativa del Curso',             // AT
-    'TECH: Dificultades Curso',                // AU
-    'TECH: Áreas Vida Cambiarán',              // AV
-    'TECH: Disponibilidad Curso',              // AW
-    'TECH: Plan Disponibilidad',               // AX
-    'TECH: Transporte',                        // AY
-    'TECH: Plan Transporte',                   // AZ
-    'TECH: Firmar Documento',                  // BA
-    'TECH: Comentario Documento',              // BB
+    // === SECCIÓN 3: GÉNERO (AR-BD) ===
+    'Género: Comentario Previo',               // AR
+    'Género: Grupos Mixtos',                   // AS
+    'Género: Comentario Mixtos',               // AT
+    'Género: Grupos Diversos',                 // AU
+    'Género: Comentario Diversos',             // AV
+    'Género: Conflicto en Grupos',             // AW
+    'Género: Comentario Conflicto Grupos',     // AX
+    'Género: Conflicto Horarios',              // AY
+    'Género: Comentario Conflicto Horarios',   // AZ
+    'Género: Grupo Mayoritariamente Mujeres',  // BA
+    'Género: Igualdad H/M',                    // BB
+    'Género: Familiares Creamos',              // BC
+    'Género: Nombres Familiares',              // BD
 
-    // === SECCIÓN 2: TECNOLOGÍA - ÁREA DE EMPLEABILIDAD (BC-BX) ===
-    'TECH: Actualmente Tiene Trabajo',         // BC
-    'TECH: Cuéntanos Más Trabajo',             // BD
-    'TECH: Satisfecho con Trabajo',            // BE
-    'TECH: Comentario Satisfacción',           // BF
-    'TECH: Qué Hacer Próximos Meses',          // BG
-    'TECH: Importancia Conseguir Trabajo',     // BH
-    'TECH: Te Ves Trabajando Sector',          // BI
-    'TECH: Ayuda Económica',                   // BJ
-    'TECH: Comentario Ayuda',                  // BK
-    'TECH: Dependientes Económicos',           // BL
-    'TECH: Comentario Dependientes',           // BM
-    'TECH: Responsabilidades Cuidado',         // BN
-    'TECH: Comentario Cuidado',                // BO
-    'TECH: Deudas Bancarias',                  // BP
-    'TECH: Comentario Deudas',                 // BQ
-    'TECH: Antecedentes Penales',              // BR
-    'TECH: Comentario Antecedentes',           // BS
-    'TECH: Caso Legal',                        // BT
-    'TECH: Comentario Legal',                  // BU
-    'TECH: Dispuesto Empleabilidad',           // BV
-    'TECH: Comentario Empleabilidad',          // BW
-    'TECH: Temporalidad Metas',                // BX
-
-    // === SECCIÓN 2: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (BY-CI) ===
-    'SAC: Por Qué Interesa Curso',             // BY
-    'SAC: Qué Llama la Atención',              // BZ
-    'SAC: Expectativa del Curso',              // CA
-    'SAC: Dificultades Curso',                 // CB
-    'SAC: Áreas Vida Cambiarán',               // CC
-    'SAC: Disponibilidad Curso',               // CD
-    'SAC: Plan Disponibilidad',                // CE
-    'SAC: Transporte',                         // CF
-    'SAC: Plan Transporte',                    // CG
-    'SAC: Firmar Documento',                   // CH
-    'SAC: Comentario Documento',               // CI
-
-    // === SECCIÓN 2: SERVICIO AL CLIENTE - ÁREA DE EMPLEABILIDAD (CJ-DE) ===
-    'SAC: Actualmente Tiene Trabajo',          // CJ
-    'SAC: Cuéntanos Más Trabajo',              // CK
-    'SAC: Satisfecho con Trabajo',             // CL
-    'SAC: Comentario Satisfacción',            // CM
-    'SAC: Qué Hacer Próximos Meses',           // CN
-    'SAC: Importancia Conseguir Trabajo',      // CO
-    'SAC: Te Ves Trabajando Sector',           // CP
-    'SAC: Ayuda Económica',                    // CQ
-    'SAC: Comentario Ayuda',                   // CR
-    'SAC: Dependientes Económicos',            // CS
-    'SAC: Comentario Dependientes',            // CT
-    'SAC: Responsabilidades Cuidado',          // CU
-    'SAC: Comentario Cuidado',                 // CV
-    'SAC: Deudas Bancarias',                   // CW
-    'SAC: Comentario Deudas',                  // CX
-    'SAC: Antecedentes Penales',               // CY
-    'SAC: Comentario Antecedentes',            // CZ
-    'SAC: Caso Legal',                         // DA
-    'SAC: Comentario Legal',                   // DB
-    'SAC: Dispuesto Empleabilidad',            // DC
-    'SAC: Comentario Empleabilidad',           // DD
-    'SAC: Temporalidad Metas',                 // DE
-
-    // === SECCIÓN 3: GÉNERO (DF-DR) ===
-    'Género: Comentario Previo',               // DF
-    'Género: Grupos Mixtos',                   // DG
-    'Género: Comentario Mixtos',               // DH
-    'Género: Grupos Diversos',                 // DI
-    'Género: Comentario Diversos',             // DJ
-    'Género: Conflicto en Grupos',             // DK
-    'Género: Comentario Conflicto Grupos',     // DL
-    'Género: Conflicto Horarios',              // DM
-    'Género: Comentario Conflicto Horarios',   // DN
-    'Género: Grupo Mayoritariamente Mujeres',  // DO
-    'Género: Igualdad H/M',                    // DP
-    'Género: Familiares Creamos',              // DQ
-    'Género: Nombres Familiares',              // DR
-
-    // === NOTAS Y METADATOS KOBO (DS-ED) ===
-    'Notas del Entrevistador',                 // DS
-    '_id',                                     // DT
-    '_uuid',                                   // DU
-    '_submission_time',                        // DV
-    '_validation_status',                      // DW
-    '_notes',                                  // DX
-    '_status',                                 // DY
-    '_submitted_by',                           // DZ
-    '_tags',                                   // EA
-    '_index',                                  // EB
-    '__version__',                             // EC
-    'meta/rootUuid'                            // ED
+    // === NOTAS Y METADATOS KOBO (BE-BP) ===
+    'Notas del Entrevistador',                 // BE
+    '_id',                                     // BF
+    '_uuid',                                   // BG
+    '_submission_time',                        // BH
+    '_validation_status',                      // BI
+    '_notes',                                  // BJ
+    '_status',                                 // BK
+    '_submitted_by',                           // BL
+    '__version__',                             // BM
+    '_tags',                                   // BN
+    'meta/rootUuid',                           // BO
+    '_index'                                   // BP
   ];
 
-  // Expandir la hoja para acomodar todas las columnas (134 columnas)
+  // Expandir la hoja para acomodar todas las columnas (68 columnas)
   const currentCols = sheet.getMaxColumns();
   if (headers.length > currentCols) {
     sheet.insertColumnsAfter(currentCols, headers.length - currentCols);
@@ -1036,7 +962,7 @@ function crearHojaDetalleEntrevistas() {
   // Congelar fila de encabezados
   sheet.setFrozenRows(1);
 
-  // Anchos de columna (134 valores: A a ED)
+  // Anchos de columna (68 valores: A a BP)
   const anchos = [
     // Datos personales A-H (8)
     100, 100, 200, 80, 80, 150, 120, 150,
@@ -1044,18 +970,10 @@ function crearHojaDetalleEntrevistas() {
     200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200, 80, 200,
     // AB: Empleabilidad V-AQ (22)
     80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
-    // TECH: Preguntas del Curso AR-BB (11)
-    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200,
-    // TECH: Empleabilidad BC-BX (22)
-    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
-    // SAC: Preguntas del Curso BY-CI (11)
-    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200,
-    // SAC: Empleabilidad CJ-DE (22)
-    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
-    // Género DF-DR (13)
+    // Género AR-BD (13)
     200, 80, 150, 80, 150, 80, 200, 80, 200, 150, 200, 80, 200,
-    // Notas y metadatos DS-ED (12)
-    250, 100, 150, 120, 100, 120, 100, 100, 120, 80, 80, 150
+    // Notas y metadatos BE-BP (12)
+    250, 100, 150, 120, 100, 120, 100, 100, 80, 120, 150, 80
   ];
   anchos.forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
@@ -1065,12 +983,8 @@ function crearHojaDetalleEntrevistas() {
   sheet.getRange('A1:H1').setBackground('#1565c0');   // Datos Personales - Azul
   sheet.getRange('I1:U1').setBackground('#e65100');   // AB: Preguntas Curso - Naranja
   sheet.getRange('V1:AQ1').setBackground('#bf360c');  // AB: Empleabilidad - Naranja oscuro
-  sheet.getRange('AR1:BB1').setBackground('#283593'); // TECH: Preguntas Curso - Índigo
-  sheet.getRange('BC1:BX1').setBackground('#1a237e'); // TECH: Empleabilidad - Índigo oscuro
-  sheet.getRange('BY1:CI1').setBackground('#1b5e20'); // SAC: Preguntas Curso - Verde
-  sheet.getRange('CJ1:DE1').setBackground('#33691e'); // SAC: Empleabilidad - Verde oscuro
-  sheet.getRange('DF1:DR1').setBackground('#880e4f'); // Género - Rosa
-  sheet.getRange('DS1:ED1').setBackground('#455a64'); // Notas y metadatos - Gris azulado
+  sheet.getRange('AR1:BD1').setBackground('#880e4f'); // Género - Rosa
+  sheet.getRange('BE1:BP1').setBackground('#455a64'); // Notas y metadatos - Gris azulado
 }
 
 /**
