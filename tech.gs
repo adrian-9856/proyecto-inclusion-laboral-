@@ -4679,13 +4679,13 @@ function importarEntrevistasDesdeKobo() {
     const sigCol = (parentIdx) => parentIdx >= 0 ? parentIdx + 1 : -1;
 
     // === SECCIÓN 1: DATOS PERSONALES ===
-    const idx_creamosId = buscarIndiceColumna(headers, ['DATOS PERSONALES/Creamos ID', 'Creamos ID', 'creamos id']);
-    const idx_nombre = buscarIndiceColumna(headers, ['DATOS PERSONALES/Nombres y apellidos', 'nombres y apellidos', 'nombre']);
-    const idx_genero = buscarIndiceColumna(headers, ['DATOS PERSONALES/Género', 'género', 'genero']);
-    const idx_formacionPrevia = buscarIndiceColumna(headers, ['formación o capacitación previa', 'formacion previa']);
-    const idx_dondeFormacion = buscarIndiceColumna(headers, ['dónde y de qué fue el curso', 'donde formacion']);
-    const idx_sectorInteres = buscarIndiceColumna(headers, ['sector te gustaría trabajar', 'sector interes']);
-    const idx_cursoInteres = buscarIndiceColumna(headers, ['Elije el curso de tu interés', 'curso de tu interes', 'curso interes']);
+    const idx_creamosId = buscarIndiceColumna(headers, ['DATOS PERSONALES/Creamos ID', 'SECCIÓN 1: DATOS PERSONALES / Creamos ID', 'Creamos ID', 'creamos id']);
+    const idx_nombre = buscarIndiceColumna(headers, ['DATOS PERSONALES/Nombres y apellidos', 'SECCIÓN 1: DATOS PERSONALES / Nombres y apellidos', 'nombres y apellidos', 'nombre']);
+    const idx_genero = buscarIndiceColumna(headers, ['DATOS PERSONALES/Género', 'SECCIÓN 1: DATOS PERSONALES / Género', 'género', 'genero']);
+    const idx_formacionPrevia = buscarIndiceColumna(headers, ['formación o capacitación previa', 'SECCIÓN 1: DATOS PERSONALES / ¿Tienes alguna formación', 'formacion previa']);
+    const idx_dondeFormacion = buscarIndiceColumna(headers, ['dónde y de qué fue el curso', 'SECCIÓN 1: DATOS PERSONALES / Si sí', 'donde formacion']);
+    const idx_sectorInteres = buscarIndiceColumna(headers, ['sector te gustaría trabajar', 'SECCIÓN 1: DATOS PERSONALES / ¿En qué sector', 'sector interes']);
+    const idx_cursoInteres = buscarIndiceColumna(headers, ['SECCIÓN 1: DATOS PERSONALES / Elije el curso de tu interés', 'Elije el curso de tu interés', 'curso de tu interes', 'curso interes']);
 
     Logger.log('🔍 Columnas críticas encontradas:');
     Logger.log(`   Creamos ID: ${idx_creamosId >= 0 ? 'Columna ' + idx_creamosId : 'NO ENCONTRADA ❌'}`);
