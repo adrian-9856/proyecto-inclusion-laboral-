@@ -229,6 +229,8 @@ function setupMenuAB() {
         .addSeparator()
         .addItem('🔗 URL Registros Kobo', 'configurarKoboURL')
         .addItem('🔗 URL Entrevistas Kobo', 'configurarKoboEntrevistasURL')
+        .addSeparator()
+        .addItem('📄 Instalar Hoja Detalle Entrevistas', 'instalarHojaDetalleEntrevistas')
         .addItem('📝 Importar Entrevistas (Detalle)', 'importarEntrevistasDesdeKobo')
         .addSeparator()
         .addItem('📧 Configurar Email General', 'configurarEmail')
@@ -376,6 +378,34 @@ function instalarSistema() {
   } catch (error) {
     ss.toast('❌ Error: ' + error.message, 'ERROR', 10);
     Logger.log('❌ Error en instalación: ' + error.message);
+  }
+}
+
+/**
+ * Instala solo la hoja "Detalle Entrevistas"
+ * Útil cuando solo necesitas crear/actualizar esta hoja específica
+ */
+function instalarHojaDetalleEntrevistas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    ss.toast('📄 Creando hoja "Detalle Entrevistas"...', 'Instalando', 2);
+    crearHojaDetalleEntrevistas();
+
+    ss.toast(
+      '✅ HOJA INSTALADA\n\n' +
+      '✓ Hoja "Detalle Entrevistas" creada con 85 columnas\n\n' +
+      '🎯 Ahora puedes importar los datos desde:\n' +
+      '   🍎 Alimentos y Bebidas → ⚙️ Configuración → 📝 Importar Entrevistas (Detalle)',
+      'INSTALACIÓN COMPLETA',
+      10
+    );
+
+    Logger.log('✅ Hoja "Detalle Entrevistas" instalada');
+
+  } catch (error) {
+    ss.toast('❌ Error: ' + error.message, 'ERROR', 10);
+    Logger.log('❌ Error al instalar hoja: ' + error.message);
   }
 }
 
