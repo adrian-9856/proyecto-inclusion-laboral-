@@ -2400,133 +2400,133 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
       return;
     }
 
-  // Verificar que la cohorte existe
-  const hojaCohorte = ss.getSheetByName(cohorteDestino);
-  if (!hojaCohorte) {
-    ss.toast('⚠️ La cohorte "' + cohorteDestino + '" no existe. Créela primero.', 'Error', 4);
-    const colEnvio = colMapInscritx['enviar a cohorte'];
-    if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
-    return;
-  }
-
-  const colMapCohorte = obtenerMapaColumnas(hojaCohorte);
-
-  // VALIDACIÓN: Verificar que no esté duplicado
-  const idxCreamosIdCohorte = colMapCohorte['creamos id'];
-  const idxNombreCohorte = colMapCohorte['nombre completo'];
-  const datosCohorte = hojaCohorte.getDataRange().getValues();
-
-  for (let i = 1; i < datosCohorte.length; i++) {
-    let esDuplicado = false;
-
-    // Verificar por Creamos ID si existe
-    if (creamosId && creamosId.toString().trim() !== '' && idxCreamosIdCohorte !== undefined) {
-      const idExistente = datosCohorte[i][idxCreamosIdCohorte] ? datosCohorte[i][idxCreamosIdCohorte].toString().trim() : '';
-      if (idExistente !== '' && idExistente === creamosId.toString().trim()) {
-        esDuplicado = true;
-      }
-    }
-
-    // Verificar por Nombre Completo (fallback si no hay Creamos ID o validación adicional)
-    if (!esDuplicado && nombre && nombre.toString().trim() !== '' && idxNombreCohorte !== undefined) {
-      const nombreExistente = datosCohorte[i][idxNombreCohorte] ? datosCohorte[i][idxNombreCohorte].toString().trim().toLowerCase() : '';
-      if (nombreExistente !== '' && nombreExistente === nombre.toString().trim().toLowerCase()) {
-        esDuplicado = true;
-      }
-    }
-
-    if (esDuplicado) {
-      ss.toast('⚠️ ' + nombre + ' ya está en la cohorte "' + cohorteDestino + '"', 'Duplicado', 4);
+    // Verificar que la cohorte existe
+    const hojaCohorte = ss.getSheetByName(cohorteDestino);
+    if (!hojaCohorte) {
+      ss.toast('⚠️ La cohorte "' + cohorteDestino + '" no existe. Créela primero.', 'Error', 4);
       const colEnvio = colMapInscritx['enviar a cohorte'];
       if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
       return;
     }
-  }
 
-  // Verificar cupo disponible
-  const cohortesSheet = ss.getSheetByName('Cohortes');
-  if (cohortesSheet) {
-    const colMapCohortesRoot = obtenerMapaColumnas(cohortesSheet);
-    const datosCohortes = cohortesSheet.getDataRange().getValues();
-    for (let i = 1; i < datosCohortes.length; i++) {
-      if (datosCohortes[i][colMapCohortesRoot['nombre cohorte']] === cohorteDestino) {
-        const cupoMax = datosCohortes[i][colMapCohortesRoot['cupo máximo']];
-        const inscritas = datosCohortes[i][colMapCohortesRoot['inscritas']];
-        if (cupoMax && inscritas >= cupoMax) {
-          const ui = SpreadsheetApp.getUi();
-          const resp = ui.alert(
-            '⚠️ CUPO LLENO',
-            'La cohorte "' + cohorteDestino + '" tiene el cupo lleno.\n\n' +
-            'Inscritas: ' + inscritas + ' / ' + cupoMax + ' (Cupo Máximo)\n\n' +
-            '¿Desea enviar de todas formas?',
-            ui.ButtonSet.YES_NO
-          );
-          if (resp !== ui.Button.YES) {
-            const colEnvio = colMapInscritx['enviar a cohorte'];
-            if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
-            return;
-          }
+    const colMapCohorte = obtenerMapaColumnas(hojaCohorte);
+
+    // VALIDACIÓN: Verificar que no esté duplicado
+    const idxCreamosIdCohorte = colMapCohorte['creamos id'];
+    const idxNombreCohorte = colMapCohorte['nombre completo'];
+    const datosCohorte = hojaCohorte.getDataRange().getValues();
+
+    for (let i = 1; i < datosCohorte.length; i++) {
+      let esDuplicado = false;
+
+      // Verificar por Creamos ID si existe
+      if (creamosId && creamosId.toString().trim() !== '' && idxCreamosIdCohorte !== undefined) {
+        const idExistente = datosCohorte[i][idxCreamosIdCohorte] ? datosCohorte[i][idxCreamosIdCohorte].toString().trim() : '';
+        if (idExistente !== '' && idExistente === creamosId.toString().trim()) {
+          esDuplicado = true;
         }
-        break;
+      }
+
+      // Verificar por Nombre Completo (fallback si no hay Creamos ID o validación adicional)
+      if (!esDuplicado && nombre && nombre.toString().trim() !== '' && idxNombreCohorte !== undefined) {
+        const nombreExistente = datosCohorte[i][idxNombreCohorte] ? datosCohorte[i][idxNombreCohorte].toString().trim().toLowerCase() : '';
+        if (nombreExistente !== '' && nombreExistente === nombre.toString().trim().toLowerCase()) {
+          esDuplicado = true;
+        }
+      }
+
+      if (esDuplicado) {
+        ss.toast('⚠️ ' + nombre + ' ya está en la cohorte "' + cohorteDestino + '"', 'Duplicado', 4);
+        const colEnvio = colMapInscritx['enviar a cohorte'];
+        if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
+        return;
       }
     }
-  }
 
-  // --- 1. Preparar y escribir en Hoja de Cohorte ---
-  const numColsCohorte = hojaCohorte.getLastColumn();
-  const registroCohorte = new Array(numColsCohorte).fill('');
-  const nuevaFilaCohorte = obtenerPrimeraFilaVacia(hojaCohorte, 'E');  // Columna E = Nombre Completo (siempre tiene valor)
+    // Verificar cupo disponible
+    const cohortesSheet = ss.getSheetByName('Cohortes');
+    if (cohortesSheet) {
+      const colMapCohortesRoot = obtenerMapaColumnas(cohortesSheet);
+      const datosCohortes = cohortesSheet.getDataRange().getValues();
+      for (let i = 1; i < datosCohortes.length; i++) {
+        if (datosCohortes[i][colMapCohortesRoot['nombre cohorte']] === cohorteDestino) {
+          const cupoMax = datosCohortes[i][colMapCohortesRoot['cupo máximo']];
+          const inscritas = datosCohortes[i][colMapCohortesRoot['inscritas']];
+          if (cupoMax && inscritas >= cupoMax) {
+            const ui = SpreadsheetApp.getUi();
+            const resp = ui.alert(
+              '⚠️ CUPO LLENO',
+              'La cohorte "' + cohorteDestino + '" tiene el cupo lleno.\n\n' +
+              'Inscritas: ' + inscritas + ' / ' + cupoMax + ' (Cupo Máximo)\n\n' +
+              '¿Desea enviar de todas formas?',
+              ui.ButtonSet.YES_NO
+            );
+            if (resp !== ui.Button.YES) {
+              const colEnvio = colMapInscritx['enviar a cohorte'];
+              if (colEnvio !== undefined) sheet.getRange(fila, colEnvio + 1).setValue('');
+              return;
+            }
+          }
+          break;
+        }
+      }
+    }
 
-  // Obtener notas originales de Inscritx (si existen)
-  const notasOriginales = getInscritxVal('Notas');
+    // --- 1. Preparar y escribir en Hoja de Cohorte ---
+    const numColsCohorte = hojaCohorte.getLastColumn();
+    const registroCohorte = new Array(numColsCohorte).fill('');
+    const nuevaFilaCohorte = obtenerPrimeraFilaVacia(hojaCohorte, 'E');  // Columna E = Nombre Completo (siempre tiene valor)
 
-  const mappingCohorte = {
-    'Fecha': new Date(),
-    'Fecha Selección': new Date(),
-    'No.': nuevaFilaCohorte - 1,
-    'Creamos ID': creamosId,
-    'DPI': getInscritxVal('DPI'),
-    'Nombre Completo': nombre,
-    'Género': getInscritxVal('Género'),
-    'Edad': getInscritxVal('Edad'),
-    'Teléfono': getInscritxVal('Teléfono'),
-    'Nivel Educativo': getInscritxVal('Nivel Educativo'),
-    'Zona': getInscritxVal('Zona'),
-    'Estado': 'Activa'
-    // NO incluir 'Año' aquí - se restaurará con fórmula después
-    // NO incluir 'Notas' - no debe copiarse a la hoja de cohorte individual
-  };
+    // Obtener notas originales de Inscritx (si existen)
+    const notasOriginales = getInscritxVal('Notas');
 
-  for (let [header, valor] of Object.entries(mappingCohorte)) {
-    const targetIdx = colMapCohorte[header.toLowerCase()];
-    if (targetIdx !== undefined) registroCohorte[targetIdx] = valor;
-  }
-
-  hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, registroCohorte.length).setValues([registroCohorte]);
-
-  // Restaurar fórmulas que setValues sobrescribe
-  hojaCohorte.getRange('B' + nuevaFilaCohorte).setFormula('=IF(E' + nuevaFilaCohorte + '<>"",COUNTA($E$2:E' + nuevaFilaCohorte + '),"")');  // No.
-  hojaCohorte.getRange('L' + nuevaFilaCohorte).setFormula('=IF(E' + nuevaFilaCohorte + '<>"",YEAR(A' + nuevaFilaCohorte + '),"")');  // Año
-
-  // --- 2. Registrar en Lista Definitiva ---
-  const listaDefinitiva = ss.getSheetByName('Lista Definitiva');
-  if (listaDefinitiva) {
-    const colMapListaDef = obtenerMapaColumnas(listaDefinitiva);
-    const nuevaFilaDef = obtenerPrimeraFilaVacia(listaDefinitiva, 'E');  // Columna E = Nombre Completo (siempre tiene valor)
-    const numColsDef = listaDefinitiva.getLastColumn();
-    const registroDef = new Array(numColsDef).fill('');
-
-    const mappingDef = {
-      ...mappingCohorte,
-      'Cohorte': cohorteDestino
+    const mappingCohorte = {
+      'Fecha': new Date(),
+      'Fecha Selección': new Date(),
+      'No.': nuevaFilaCohorte - 1,
+      'Creamos ID': creamosId,
+      'DPI': getInscritxVal('DPI'),
+      'Nombre Completo': nombre,
+      'Género': getInscritxVal('Género'),
+      'Edad': getInscritxVal('Edad'),
+      'Teléfono': getInscritxVal('Teléfono'),
+      'Nivel Educativo': getInscritxVal('Nivel Educativo'),
+      'Zona': getInscritxVal('Zona'),
+      'Estado': 'Activa'
+      // NO incluir 'Año' aquí - se restaurará con fórmula después
+      // NO incluir 'Notas' - no debe copiarse a la hoja de cohorte individual
     };
 
-    for (let [header, valor] of Object.entries(mappingDef)) {
-      const targetIdx = colMapListaDef[header.toLowerCase()];
-      if (targetIdx !== undefined) registroDef[targetIdx] = valor;
+    for (let [header, valor] of Object.entries(mappingCohorte)) {
+      const targetIdx = colMapCohorte[header.toLowerCase()];
+      if (targetIdx !== undefined) registroCohorte[targetIdx] = valor;
     }
-    listaDefinitiva.getRange(nuevaFilaDef, 1, 1, registroDef.length).setValues([registroDef]);
-  }
+
+    hojaCohorte.getRange(nuevaFilaCohorte, 1, 1, registroCohorte.length).setValues([registroCohorte]);
+
+    // Restaurar fórmulas que setValues sobrescribe
+    hojaCohorte.getRange('B' + nuevaFilaCohorte).setFormula('=IF(E' + nuevaFilaCohorte + '<>"",COUNTA($E$2:E' + nuevaFilaCohorte + '),"")');  // No.
+    hojaCohorte.getRange('L' + nuevaFilaCohorte).setFormula('=IF(E' + nuevaFilaCohorte + '<>"",YEAR(A' + nuevaFilaCohorte + '),"")');  // Año
+
+    // --- 2. Registrar en Lista Definitiva ---
+    const listaDefinitiva = ss.getSheetByName('Lista Definitiva');
+    if (listaDefinitiva) {
+      const colMapListaDef = obtenerMapaColumnas(listaDefinitiva);
+      const nuevaFilaDef = obtenerPrimeraFilaVacia(listaDefinitiva, 'E');  // Columna E = Nombre Completo (siempre tiene valor)
+      const numColsDef = listaDefinitiva.getLastColumn();
+      const registroDef = new Array(numColsDef).fill('');
+
+      const mappingDef = {
+        ...mappingCohorte,
+        'Cohorte': cohorteDestino
+      };
+
+      for (let [header, valor] of Object.entries(mappingDef)) {
+        const targetIdx = colMapListaDef[header.toLowerCase()];
+        if (targetIdx !== undefined) registroDef[targetIdx] = valor;
+      }
+      listaDefinitiva.getRange(nuevaFilaDef, 1, 1, registroDef.length).setValues([registroDef]);
+    }
 
     // --- 3. Marcar como procesado en Inscritx ---
     const colNotas = colMapInscritx['notas'];
@@ -2541,6 +2541,21 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#e0e0e0');
 
     ss.toast('✅ ' + nombre + ' enviada a cohorte "' + cohorteDestino + '"', 'Completado', 4);
+  } catch (error) {
+    // Manejar cualquier error que ocurra durante el envío
+    Logger.log('⚠️ ERROR en procesarEnvioACohorte: ' + error.message);
+    Logger.log('Stack trace: ' + error.stack);
+    ss.toast('⚠️ Error al enviar a la cohorte: ' + error.message, 'Error', 6);
+
+    // Limpiar el dropdown para que el usuario pueda intentar de nuevo
+    const colEnvio = colMapInscritx['enviar a cohorte'];
+    if (colEnvio !== undefined) {
+      try {
+        sheet.getRange(fila, colEnvio + 1).setValue('');
+      } catch (e) {
+        Logger.log('⚠️ No se pudo limpiar el dropdown: ' + e.message);
+      }
+    }
   } finally {
     // UNLOCK: Siempre liberar el lock
     lock.releaseLock();
