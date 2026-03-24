@@ -262,6 +262,7 @@ function setupMenuTech() {
         .addItem('🔄 Autocompletar desde CREAMOS ID', 'autocompletarDesdeCreamosID')
         .addItem('✅ Verificar Instalación', 'verificarInstalacion')
         .addItem('🔍 Diagnosticar Campos (Nivel/Zona)', 'diagnosticarCamposNivelYZona')
+        .addItem('🔍 Diagnosticar CSV', 'diagnosticarCSV')
         .addItem('🔬 Diagnóstico Detallado (Ver Contenido)', 'diagnosticoDetalladoTransferencia')
         .addSeparator()
         .addSubMenu(ui.createMenu('👤 Responsables')
@@ -4589,6 +4590,90 @@ function calcularEdad(fechaNacimiento) {
     return edad > 0 && edad < 120 ? edad.toString() : '';
   } catch (e) {
     return '';
+  }
+}
+
+
+/**
+ * DIAGNÓSTICO: Ver cómo se está parseando el CSV
+ */
+function diagnosticarCSV() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const props = PropertiesService.getDocumentProperties();
+  const url = props.getProperty('KOBO_ENTREVISTAS_URL') || CONFIG_TECH.KOBO_ENTREVISTAS_URL;
+
+  if (!url) {
+    ui.alert('URL no configurada');
+    return;
+  }
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: { 'Accept': 'text/csv' }
+    });
+
+    let csvData = response.getContentText('UTF-8');
+
+    // Limpiar BOM
+    if (csvData.charCodeAt(0) === 0xFEFF) {
+      csvData = csvData.substring(1);
+    }
+
+    // Mostrar primeras 3 líneas sin procesar
+    const lineas = csvData.split('\n');
+    let mensaje = '🔍 DIAGNÓSTICO DEL CSV\n\n';
+    mensaje += '📏 Total de líneas: ' + lineas.length + '\n\n';
+    mensaje += '--- PRIMERAS 3 LÍNEAS (RAW) ---\n\n';
+
+    for (let i = 0; i < Math.min(3, lineas.length); i++) {
+      mensaje += `Línea ${i + 1} (${lineas[i].length} caracteres):\n`;
+      mensaje += lineas[i].substring(0, 200) + '...\n\n';
+    }
+
+    // Detectar separador
+    const primeraLinea = lineas[0];
+    const countComas = (primeraLinea.match(/,/g) || []).length;
+    const countPuntoComa = (primeraLinea.match(/;/g) || []).length;
+    const countTabs = (primeraLinea.match(/\t/g) || []).length;
+
+    mensaje += '--- CONTEO DE SEPARADORES EN LÍNEA 1 ---\n';
+    mensaje += 'Comas (,): ' + countComas + '\n';
+    mensaje += 'Punto y coma (;): ' + countPuntoComa + '\n';
+    mensaje += 'Tabs: ' + countTabs + '\n\n';
+
+    // Intentar parsear
+    const separador = countPuntoComa > countComas ? ';' : ',';
+    mensaje += '✅ Separador detectado: "' + separador + '"\n\n';
+
+    let rows;
+    try {
+      rows = Utilities.parseCsv(csvData, separador);
+      mensaje += '✅ Utilities.parseCsv OK\n';
+      mensaje += '📊 Headers encontrados: ' + rows[0].length + '\n';
+      mensaje += '📊 Filas de datos: ' + (rows.length - 1) + '\n\n';
+
+      mensaje += '--- PRIMEROS 5 ENCABEZADOS ---\n';
+      for (let i = 0; i < Math.min(5, rows[0].length); i++) {
+        mensaje += `[${i}] ${rows[0][i]}\n`;
+      }
+
+    } catch (e) {
+      mensaje += '❌ Utilities.parseCsv FALLÓ: ' + e.message + '\n';
+      mensaje += 'Intentando parseo manual...\n';
+      rows = parsearCSVManual(csvData, separador);
+      mensaje += '✅ Parseo manual OK\n';
+      mensaje += '📊 Columnas: ' + rows[0].length + '\n';
+    }
+
+    ui.alert('Diagnóstico CSV', mensaje, ui.ButtonSet.OK);
+    Logger.log(mensaje);
+
+  } catch (error) {
+    ui.alert('Error', error.message, ui.ButtonSet.OK);
   }
 }
 
