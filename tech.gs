@@ -4525,35 +4525,65 @@ function verColumnasKobo() {
  * Parsea CSV manualmente cuando Utilities.parseCsv falla
  */
 function parsearCSVManual(csvData, separador) {
-  const lineas = csvData.split(/\r?\n/);
+  // Parser robusto que maneja campos multilínea (con saltos de línea dentro de comillas)
   const resultado = [];
+  const campos = [];
+  let campoActual = '';
+  let dentroComillas = false;
+  let i = 0;
 
-  for (const linea of lineas) {
-    if (!linea.trim()) continue;
+  while (i < csvData.length) {
+    const char = csvData[i];
 
-    const campos = [];
-    let campoActual = '';
-    let dentroComillas = false;
-
-    for (let i = 0; i < linea.length; i++) {
-      const char = linea[i];
-
-      if (char === '"') {
-        if (dentroComillas && linea[i + 1] === '"') {
-          campoActual += '"';
-          i++; // Saltar la siguiente comilla
-        } else {
-          dentroComillas = !dentroComillas;
-        }
-      } else if (char === separador && !dentroComillas) {
-        campos.push(campoActual.trim());
-        campoActual = '';
+    if (char === '"') {
+      if (dentroComillas && i + 1 < csvData.length && csvData[i + 1] === '"') {
+        // Comilla escapada ("") dentro de campo entrecomillado
+        campoActual += '"';
+        i += 2;
+        continue;
       } else {
-        campoActual += char;
+        // Abrir o cerrar comillas
+        dentroComillas = !dentroComillas;
+        i++;
+        continue;
       }
     }
+
+    if (!dentroComillas) {
+      if (char === separador) {
+        // Fin de campo
+        campos.push(campoActual.trim());
+        campoActual = '';
+        i++;
+        continue;
+      }
+      if (char === '\r' || char === '\n') {
+        // Fin de fila (saltar \r\n como una sola secuencia)
+        if (char === '\r' && i + 1 < csvData.length && csvData[i + 1] === '\n') {
+          i++;
+        }
+        campos.push(campoActual.trim());
+        if (campos.some(c => c.length > 0)) {
+          resultado.push([...campos]);
+        }
+        campos.length = 0;
+        campoActual = '';
+        i++;
+        continue;
+      }
+    }
+
+    // Carácter normal (o salto de línea dentro de comillas → se preserva)
+    campoActual += char;
+    i++;
+  }
+
+  // Última fila si no termina en newline
+  if (campoActual.length > 0 || campos.length > 0) {
     campos.push(campoActual.trim());
-    resultado.push(campos);
+    if (campos.some(c => c.length > 0)) {
+      resultado.push([...campos]);
+    }
   }
 
   return resultado;
@@ -4839,18 +4869,26 @@ function importarEntrevistasDesdeKobo() {
       csvData = csvData.substring(1);
     }
 
-    // Detectar separador
+    // Detectar separador contando solo fuera de comillas
     const primeraLinea = csvData.split('\n')[0];
-    const countPuntoComa = (primeraLinea.match(/;/g) || []).length;
-    const countComas = (primeraLinea.match(/,/g) || []).length;
+    let countPuntoComa = 0, countComas = 0, enComillas = false;
+    for (let c = 0; c < primeraLinea.length; c++) {
+      if (primeraLinea[c] === '"') { enComillas = !enComillas; continue; }
+      if (!enComillas) {
+        if (primeraLinea[c] === ';') countPuntoComa++;
+        if (primeraLinea[c] === ',') countComas++;
+      }
+    }
     const separador = countPuntoComa > countComas ? ';' : ',';
+    Logger.log(`🔍 Separador detectado: "${separador}" (punto y coma: ${countPuntoComa}, comas: ${countComas})`);
 
-    // Parsear CSV
+    // Parsear CSV con parser robusto que maneja campos multilínea
     let rows;
     try {
-      rows = separador === ';' ? parsearCSVManual(csvData, separador) : Utilities.parseCsv(csvData, separador);
-    } catch (e) {
       rows = parsearCSVManual(csvData, separador);
+    } catch (e) {
+      Logger.log('⚠️ Error en parser manual, intentando Utilities.parseCsv: ' + e.message);
+      rows = Utilities.parseCsv(csvData, separador);
     }
 
     if (!rows || rows.length < 2) {
