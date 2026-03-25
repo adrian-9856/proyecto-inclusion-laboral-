@@ -874,8 +874,211 @@ function crearHojaEntrevistas() {
  * Estructura: 134 columnas (A a ED)
  */
 function crearHojaDetalleEntrevistas() {
-  // Usar la función unificada que incluye todas las secciones (AB, TECH, SAC)
   crearHojaDetalleEntrevistasUnificada();
+}
+
+/**
+ * =====================================================================
+ * ESTRUCTURA UNIFICADA PARA DETALLE DE ENTREVISTAS
+ * Incluida aquí para no depender de EntrevistasUnificado.gs
+ * =====================================================================
+ */
+function crearHojaDetalleEntrevistasUnificada() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Si ya existe, no la recrea
+  if (ss.getSheetByName('Detalle Entrevistas')) return;
+
+  const sheet = ss.insertSheet('Detalle Entrevistas');
+
+  const headers = [
+    // === SECCIÓN 1: DATOS PERSONALES (A-H) === 8 columnas
+    'Fecha Entrevista',                        // A
+    'Creamos ID',                              // B
+    'Nombres y Apellidos',                     // C
+    'Género',                                  // D
+    'Formación Previa',                        // E
+    'Dónde y De Qué Formación',               // F
+    'Sector Interés',                          // G
+    'Curso Interés',                           // H
+    // === SECCIÓN 2A: ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO (I-U) === 13 columnas
+    'AB: Por Qué Interesa Curso',              // I
+    'AB: Qué Llama la Atención',               // J
+    'AB: Expectativa del Curso',               // K
+    'AB: Dificultades Curso',                  // L
+    'AB: Áreas Vida Cambiarán',                // M
+    'AB: Disponibilidad Prácticas',            // N
+    'AB: Plan Disponibilidad',                 // O
+    'AB: Tramitar Papelería',                  // P
+    'AB: Plan Papelería',                      // Q
+    'AB: Transporte',                          // R
+    'AB: Plan Transporte',                     // S
+    'AB: Firmar Documento',                    // T
+    'AB: Comentario Documento',                // U
+    // === SECCIÓN 2A: ALIMENTOS Y BEBIDAS - ÁREA DE EMPLEABILIDAD (V-AQ) === 22 columnas
+    'AB: Actualmente Tiene Trabajo',           // V
+    'AB: Cuéntanos Más Trabajo',               // W
+    'AB: Satisfecho con Trabajo',              // X
+    'AB: Comentario Satisfacción',             // Y
+    'AB: Qué Hacer Próximos Meses',            // Z
+    'AB: Importancia Conseguir Trabajo',       // AA
+    'AB: Te Ves Trabajando Sector',            // AB
+    'AB: Ayuda Económica',                     // AC
+    'AB: Comentario Ayuda',                    // AD
+    'AB: Dependientes Económicos',             // AE
+    'AB: Comentario Dependientes',             // AF
+    'AB: Responsabilidades Cuidado',           // AG
+    'AB: Comentario Cuidado',                  // AH
+    'AB: Deudas Bancarias',                    // AI
+    'AB: Comentario Deudas',                   // AJ
+    'AB: Antecedentes Penales',                // AK
+    'AB: Comentario Antecedentes',             // AL
+    'AB: Caso Legal',                          // AM
+    'AB: Comentario Legal',                    // AN
+    'AB: Dispuesto Empleabilidad',             // AO
+    'AB: Comentario Empleabilidad',            // AP
+    'AB: Temporalidad Metas',                  // AQ
+    // === SECCIÓN 2B: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BB) === 11 columnas
+    'TECH: Por Qué Interesa Curso',            // AR
+    'TECH: Qué Llama la Atención',             // AS
+    'TECH: Expectativa del Curso',             // AT
+    'TECH: Dificultades Curso',                // AU
+    'TECH: Áreas Vida Cambiarán',              // AV
+    'TECH: Disponibilidad Curso',              // AW
+    'TECH: Plan Disponibilidad',               // AX
+    'TECH: Transporte',                        // AY
+    'TECH: Plan Transporte',                   // AZ
+    'TECH: Firmar Documento',                  // BA
+    'TECH: Comentario Documento',              // BB
+    // === SECCIÓN 2B: TECNOLOGÍA - ÁREA DE EMPLEABILIDAD (BC-BX) === 22 columnas
+    'TECH: Actualmente Tiene Trabajo',         // BC
+    'TECH: Cuéntanos Más Trabajo',             // BD
+    'TECH: Satisfecho con Trabajo',            // BE
+    'TECH: Comentario Satisfacción',           // BF
+    'TECH: Qué Hacer Próximos Meses',          // BG
+    'TECH: Importancia Conseguir Trabajo',     // BH
+    'TECH: Te Ves Trabajando Sector',          // BI
+    'TECH: Ayuda Económica',                   // BJ
+    'TECH: Comentario Ayuda',                  // BK
+    'TECH: Dependientes Económicos',           // BL
+    'TECH: Comentario Dependientes',           // BM
+    'TECH: Responsabilidades Cuidado',         // BN
+    'TECH: Comentario Cuidado',                // BO
+    'TECH: Deudas Bancarias',                  // BP
+    'TECH: Comentario Deudas',                 // BQ
+    'TECH: Antecedentes Penales',              // BR
+    'TECH: Comentario Antecedentes',           // BS
+    'TECH: Caso Legal',                        // BT
+    'TECH: Comentario Legal',                  // BU
+    'TECH: Dispuesto Empleabilidad',           // BV
+    'TECH: Comentario Empleabilidad',          // BW
+    'TECH: Temporalidad Metas',                // BX
+    // === SECCIÓN 2C: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (BY-CI) === 11 columnas
+    'SAC: Por Qué Interesa Curso',             // BY
+    'SAC: Qué Llama la Atención',              // BZ
+    'SAC: Expectativa del Curso',              // CA
+    'SAC: Dificultades Curso',                 // CB
+    'SAC: Áreas Vida Cambiarán',               // CC
+    'SAC: Disponibilidad Curso',               // CD
+    'SAC: Plan Disponibilidad',                // CE
+    'SAC: Transporte',                         // CF
+    'SAC: Plan Transporte',                    // CG
+    'SAC: Firmar Documento',                   // CH
+    'SAC: Comentario Documento',               // CI
+    // === SECCIÓN 2C: SERVICIO AL CLIENTE - ÁREA DE EMPLEABILIDAD (CJ-DE) === 22 columnas
+    'SAC: Actualmente Tiene Trabajo',          // CJ
+    'SAC: Cuéntanos Más Trabajo',              // CK
+    'SAC: Satisfecho con Trabajo',             // CL
+    'SAC: Comentario Satisfacción',            // CM
+    'SAC: Qué Hacer Próximos Meses',           // CN
+    'SAC: Importancia Conseguir Trabajo',      // CO
+    'SAC: Te Ves Trabajando Sector',           // CP
+    'SAC: Ayuda Económica',                    // CQ
+    'SAC: Comentario Ayuda',                   // CR
+    'SAC: Dependientes Económicos',            // CS
+    'SAC: Comentario Dependientes',            // CT
+    'SAC: Responsabilidades Cuidado',          // CU
+    'SAC: Comentario Cuidado',                 // CV
+    'SAC: Deudas Bancarias',                   // CW
+    'SAC: Comentario Deudas',                  // CX
+    'SAC: Antecedentes Penales',               // CY
+    'SAC: Comentario Antecedentes',            // CZ
+    'SAC: Caso Legal',                         // DA
+    'SAC: Comentario Legal',                   // DB
+    'SAC: Dispuesto Empleabilidad',            // DC
+    'SAC: Comentario Empleabilidad',           // DD
+    'SAC: Temporalidad Metas',                 // DE
+    // === SECCIÓN 3: GÉNERO (DF-DR) === 13 columnas
+    'Género: Comentario Previo',               // DF
+    'Género: Grupos Mixtos',                   // DG
+    'Género: Comentario Mixtos',               // DH
+    'Género: Grupos Diversos',                 // DI
+    'Género: Comentario Diversos',             // DJ
+    'Género: Conflicto en Grupos',             // DK
+    'Género: Comentario Conflicto Grupos',     // DL
+    'Género: Conflicto Horarios',              // DM
+    'Género: Comentario Conflicto Horarios',   // DN
+    'Género: Grupo Mayoritariamente Mujeres',  // DO
+    'Género: Igualdad H/M',                    // DP
+    'Género: Familiares Creamos',              // DQ
+    'Género: Nombres Familiares',              // DR
+    // === NOTAS Y METADATOS KOBO (DS-ED) === 12 columnas
+    'Notas del Entrevistador',                 // DS
+    '_id',                                     // DT
+    '_uuid',                                   // DU
+    '_submission_time',                        // DV
+    '_validation_status',                      // DW
+    '_notes',                                  // DX
+    '_status',                                 // DY
+    '_submitted_by',                           // DZ
+    '__version__',                             // EA
+    '_tags',                                   // EB
+    'meta/rootUuid',                           // EC
+    '_index'                                   // ED
+  ];
+
+  // Expandir la hoja para acomodar todas las columnas
+  const currentCols = sheet.getMaxColumns();
+  if (headers.length > currentCols) {
+    sheet.insertColumnsAfter(currentCols, headers.length - currentCols);
+  }
+
+  // Establecer encabezados
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setWrap(true);
+
+  sheet.setFrozenRows(1);
+
+  // Anchos de columna (134 valores)
+  const anchos = [
+    100, 100, 200, 80, 80, 150, 120, 150,           // A-H Datos personales
+    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200, 80, 200, // I-U AB Preguntas
+    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200, // V-AQ AB Empleabilidad
+    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200,           // AR-BB TECH Preguntas
+    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200, // BC-BX TECH Empleabilidad
+    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200,           // BY-CI SAC Preguntas
+    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200, // CJ-DE SAC Empleabilidad
+    200, 80, 150, 80, 150, 80, 200, 80, 200, 150, 200, 80, 200,   // DF-DR Género
+    250, 100, 150, 120, 100, 120, 100, 100, 80, 120, 150, 80      // DS-ED Metadatos
+  ];
+
+  anchos.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+
+  // Colorear secciones de encabezado
+  sheet.getRange('A1:H1').setBackground('#1565c0');
+  sheet.getRange('I1:U1').setBackground('#e65100');
+  sheet.getRange('V1:AQ1').setBackground('#bf360c');
+  sheet.getRange('AR1:BB1').setBackground('#283593');
+  sheet.getRange('BC1:BX1').setBackground('#1a237e');
+  sheet.getRange('BY1:CI1').setBackground('#1b5e20');
+  sheet.getRange('CJ1:DE1').setBackground('#33691e');
+  sheet.getRange('DF1:DR1').setBackground('#880e4f');
+  sheet.getRange('DS1:ED1').setBackground('#455a64');
+
+  Logger.log('✅ Hoja "Detalle Entrevistas" creada con éxito - 134 columnas');
 }
 
 /**
