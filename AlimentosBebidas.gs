@@ -4946,17 +4946,38 @@ function importarEntrevistasDesdeKobo() {
 
     // === SECCIÓN 1: DATOS PERSONALES ===
     const idx_creamosId = buscarIndiceColumna(headers, ['DATOS PERSONALES/Creamos ID', 'SECCIÓN 1: DATOS PERSONALES / Creamos ID', 'Creamos ID', 'creamos id']);
-    const idx_nombre = buscarIndiceColumna(headers, ['DATOS PERSONALES/Nombres y apellidos', 'SECCIÓN 1: DATOS PERSONALES / Nombres y apellidos', 'nombres y apellidos', 'nombre']);
+    const idx_nombre = buscarIndiceColumna(headers, ['DATOS PERSONALES/Nombres y apellidos', 'SECCIÓN 1: DATOS PERSONALES / Nombres y apellidos', 'nombres y apellidos', 'nombre completo']);
     const idx_genero = buscarIndiceColumna(headers, ['DATOS PERSONALES/Género', 'SECCIÓN 1: DATOS PERSONALES / Género', 'género', 'genero']);
-    const idx_formacionPrevia = buscarIndiceColumna(headers, ['formación o capacitación previa', 'SECCIÓN 1: DATOS PERSONALES / ¿Tienes alguna formación', 'formacion previa']);
-    const idx_dondeFormacion = buscarIndiceColumna(headers, ['dónde y de qué fue el curso', 'SECCIÓN 1: DATOS PERSONALES / Si sí', 'donde formacion']);
-    const idx_sectorInteres = buscarIndiceColumna(headers, ['sector te gustaría trabajar', 'SECCIÓN 1: DATOS PERSONALES / ¿En qué sector', 'sector interes']);
-    const idx_cursoInteres = buscarIndiceColumna(headers, ['SECCIÓN 1: DATOS PERSONALES / Elije el curso de tu interés', 'Elije el curso de tu interés', 'curso de tu interes', 'curso interes']);
+    const idx_formacionPrevia = buscarIndiceColumna(headers, ['formacion o capacitacion previa', 'formación o capacitación previa', 'SECCIÓN 1: DATOS PERSONALES / ¿Tienes alguna formación', 'formacion previa', 'tienes alguna formacion']);
+    const idx_dondeFormacion = buscarIndiceColumna(headers, ['donde y de que fue el curso', 'dónde y de qué fue el curso', 'SECCIÓN 1: DATOS PERSONALES / Si sí', 'donde formacion']);
+    const idx_sectorInteres = buscarIndiceColumna(headers, ['sector te gustaria trabajar', 'sector te gustaría trabajar', 'SECCIÓN 1: DATOS PERSONALES / ¿En qué sector', 'en que sector']);
+    // cursoInteres: campo "Elije/Elige el curso de tu interés" — patrones específicos
+    const idx_cursoInteres = buscarIndiceColumna(headers, [
+      'SECCIÓN 1: DATOS PERSONALES / Elije el curso de tu interés',
+      'SECCIÓN 1: DATOS PERSONALES / Elige el curso de tu interés',
+      'DATOS PERSONALES/Elije el curso',
+      'DATOS PERSONALES/Elige el curso',
+      'Elije el curso de tu interés',
+      'Elige el curso de tu interés',
+      'Elije el curso',
+      'Elige el curso',
+      'elije el curso',
+      'elige el curso',
+    ]);
 
     Logger.log('🔍 Columnas críticas encontradas:');
-    Logger.log(`   Creamos ID: ${idx_creamosId >= 0 ? 'Columna ' + idx_creamosId : 'NO ENCONTRADA ❌'}`);
-    Logger.log(`   Nombre: ${idx_nombre >= 0 ? 'Columna ' + idx_nombre : 'NO ENCONTRADA ❌'}`);
-    Logger.log(`   Curso Interés: ${idx_cursoInteres >= 0 ? 'Columna ' + idx_cursoInteres : 'NO ENCONTRADA ❌'}`);
+    Logger.log(`   Creamos ID: ${idx_creamosId >= 0 ? 'Columna ' + idx_creamosId + ' = "' + headers[idx_creamosId] + '"' : 'NO ENCONTRADA ❌'}`);
+    Logger.log(`   Nombre: ${idx_nombre >= 0 ? 'Columna ' + idx_nombre + ' = "' + headers[idx_nombre] + '"' : 'NO ENCONTRADA ❌'}`);
+    Logger.log(`   Curso Interés: ${idx_cursoInteres >= 0 ? 'Columna ' + idx_cursoInteres + ' = "' + headers[idx_cursoInteres] + '"' : 'NO ENCONTRADA ❌'}`);
+    Logger.log(`   Sector Interés: ${idx_sectorInteres >= 0 ? 'Columna ' + idx_sectorInteres + ' = "' + headers[idx_sectorInteres] + '"' : 'NO ENCONTRADA ❌'}`);
+
+    // Índices de sección por posición (fallback si el nombre no coincide exactamente)
+    const colsAB   = encontrarColumnasPorSeccion(headers, 'alimentos');
+    const colsTECH = encontrarColumnasPorSeccion(headers, 'tecnolog');
+    const colsSAC  = encontrarColumnasPorSeccion(headers, 'servicio');
+    Logger.log(`   Columnas AB por "alimentos": ${colsAB.length} → [${colsAB.slice(0,5).join(',')}...]`);
+    Logger.log(`   Columnas TECH por "tecnolog": ${colsTECH.length} → [${colsTECH.slice(0,5).join(',')}...]`);
+    Logger.log(`   Columnas SAC por "servicio": ${colsSAC.length} → [${colsSAC.slice(0,5).join(',')}...]`);
 
     // === ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO ===
     // Usar rutas específicas con prefijo completo del CSV de Kobo
@@ -5292,11 +5313,33 @@ function importarEntrevistasDesdeKobo() {
 
       // Detectar el programa seleccionado
       const cursoSeleccionado = colMap.cursoInteres >= 0 ? getVal(colMap.cursoInteres) : '';
-      const cursoLower = cursoSeleccionado.toLowerCase();
+      const cursoNorm = normalizarTextoColumna(cursoSeleccionado);
 
-      let esAlimentos = cursoLower.includes('alimentos') || cursoLower.includes('bebidas');
-      let esTecnologia = cursoLower.includes('tecnolog') || cursoLower.includes('technology');
-      let esServicioCliente = cursoLower.includes('servicio') || cursoLower.includes('cliente');
+      let esAlimentos = cursoNorm.includes('alimento') || cursoNorm.includes('bebida');
+      let esTecnologia = cursoNorm.includes('tecnolog');
+      let esServicioCliente = cursoNorm.includes('servicio') || cursoNorm.includes('cliente');
+
+      // Fallback: si cursoInteres no pudo detectar el sector, usar qué columnas del CSV tienen datos
+      if (!esAlimentos && !esTecnologia && !esServicioCliente) {
+        const tieneDataAB   = colsAB.length   > 0 && colsAB.slice(0, 5).some(ci => row[ci] && row[ci].toString().trim() !== '');
+        const tieneDataTECH = colsTECH.length > 0 && colsTECH.slice(0, 5).some(ci => row[ci] && row[ci].toString().trim() !== '');
+        const tieneDataSAC  = colsSAC.length  > 0 && colsSAC.slice(0, 5).some(ci => row[ci] && row[ci].toString().trim() !== '');
+        if (tieneDataAB)   { esAlimentos      = true; Logger.log(`⚡ Fila ${i+1}: sector detectado por datos: ALIMENTOS (curso="${cursoSeleccionado}")`); }
+        if (tieneDataTECH) { esTecnologia     = true; Logger.log(`⚡ Fila ${i+1}: sector detectado por datos: TECNOLOGÍA (curso="${cursoSeleccionado}")`); }
+        if (tieneDataSAC)  { esServicioCliente= true; Logger.log(`⚡ Fila ${i+1}: sector detectado por datos: SERVICIO AL CLIENTE (curso="${cursoSeleccionado}")`); }
+      }
+
+      // Si se detectaron varios sectores, priorizar el que tiene más columnas con datos
+      if ([esAlimentos, esTecnologia, esServicioCliente].filter(Boolean).length > 1) {
+        const cntAB   = colsAB.filter(ci   => row[ci] && row[ci].toString().trim() !== '').length;
+        const cntTECH = colsTECH.filter(ci => row[ci] && row[ci].toString().trim() !== '').length;
+        const cntSAC  = colsSAC.filter(ci  => row[ci] && row[ci].toString().trim() !== '').length;
+        const maxCnt  = Math.max(cntAB, cntTECH, cntSAC);
+        esAlimentos      = cntAB   === maxCnt;
+        esTecnologia     = cntTECH === maxCnt && !esAlimentos;
+        esServicioCliente= cntSAC  === maxCnt && !esAlimentos && !esTecnologia;
+        Logger.log(`⚡ Fila ${i+1}: múltiples sectores. AB:${cntAB} TECH:${cntTECH} SAC:${cntSAC} → sector con más datos`);
+      }
 
       // Determinar el tipo de programa
       let tipoPrograma = '';
@@ -5307,9 +5350,8 @@ function importarEntrevistasDesdeKobo() {
       } else if (esServicioCliente) {
         tipoPrograma = 'SERVICIO AL CLIENTE';
       } else {
-        // Si no se puede determinar, intentar procesar de todos modos
         tipoPrograma = 'DESCONOCIDO';
-        Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoSeleccionado}" - PROGRAMA NO IDENTIFICADO - Se procesará de todos modos`);
+        Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoSeleccionado}" - PROGRAMA NO IDENTIFICADO`);
       }
 
       Logger.log(`✓ Fila ${i + 1}: Creamos ID ${creamosId}, Programa "${tipoPrograma}", Curso "${cursoSeleccionado}" - PROCESANDO...`);
@@ -5550,11 +5592,21 @@ function importarEntrevistasDesdeKobo() {
 /**
  * Busca el índice de una columna por nombre parcial (case insensitive)
  */
+/**
+ * Normaliza texto: minúsculas + sin acentos + sin signos ¿¡
+ * Permite comparar "Tecnologia" con "Tecnología", "interes" con "interés", etc.
+ */
+function normalizarTextoColumna(s) {
+  return s.toString().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[¿¡]/g, '');
+}
+
 function buscarIndiceColumna(headers, posiblesNombres) {
   for (let i = 0; i < headers.length; i++) {
-    const header = headers[i].toString().toLowerCase();
+    const header = normalizarTextoColumna(headers[i]);
     for (const nombre of posiblesNombres) {
-      if (header.includes(nombre.toLowerCase())) {
+      if (header.includes(normalizarTextoColumna(nombre))) {
         return i;
       }
     }
@@ -5563,17 +5615,30 @@ function buscarIndiceColumna(headers, posiblesNombres) {
 }
 
 /**
- * Busca columna que contenga TODOS los términos (AND logic)
- * Útil para headers que comparten parte del texto (como varios "Comentario:" en la misma sección)
+ * Busca columna que contenga TODOS los términos (AND logic, sin acentos)
  */
 function buscarIndiceColumnaAND(headers, terminos) {
   for (let i = 0; i < headers.length; i++) {
-    const header = headers[i].toString().toLowerCase();
-    if (terminos.every(t => header.includes(t.toLowerCase()))) {
+    const header = normalizarTextoColumna(headers[i]);
+    if (terminos.every(t => header.includes(normalizarTextoColumna(t)))) {
       return i;
     }
   }
   return -1;
+}
+
+/**
+ * Retorna todos los índices de columnas que contienen el término de sección (en orden)
+ */
+function encontrarColumnasPorSeccion(headers, terminoSeccion) {
+  const term = normalizarTextoColumna(terminoSeccion);
+  const indices = [];
+  for (let i = 0; i < headers.length; i++) {
+    if (normalizarTextoColumna(headers[i]).includes(term)) {
+      indices.push(i);
+    }
+  }
+  return indices;
 }
 
 /**

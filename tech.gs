@@ -5017,24 +5017,45 @@ function importarEntrevistasDesdeKobo() {
 
     // === SECCIÓN 1: DATOS PERSONALES ===
     const idx_creamosId = buscarIndiceColumna(headers, ['DATOS PERSONALES/Creamos ID', 'SECCIÓN 1: DATOS PERSONALES / Creamos ID', 'Creamos ID', 'creamos id']);
-    const idx_nombre = buscarIndiceColumna(headers, ['DATOS PERSONALES/Nombres y apellidos', 'SECCIÓN 1: DATOS PERSONALES / Nombres y apellidos', 'nombres y apellidos', 'nombre']);
+    const idx_nombre = buscarIndiceColumna(headers, ['DATOS PERSONALES/Nombres y apellidos', 'SECCIÓN 1: DATOS PERSONALES / Nombres y apellidos', 'nombres y apellidos', 'nombre completo']);
     const idx_genero = buscarIndiceColumna(headers, ['DATOS PERSONALES/Género', 'SECCIÓN 1: DATOS PERSONALES / Género', 'género', 'genero']);
-    const idx_formacionPrevia = buscarIndiceColumna(headers, ['formación o capacitación previa', 'SECCIÓN 1: DATOS PERSONALES / ¿Tienes alguna formación', 'formacion previa']);
-    const idx_dondeFormacion = buscarIndiceColumna(headers, ['dónde y de qué fue el curso', 'SECCIÓN 1: DATOS PERSONALES / Si sí', 'donde formacion']);
-    const idx_sectorInteres = buscarIndiceColumna(headers, ['sector te gustaría trabajar', 'SECCIÓN 1: DATOS PERSONALES / ¿En qué sector', 'sector interes']);
-    const idx_cursoInteres = buscarIndiceColumna(headers, ['SECCIÓN 1: DATOS PERSONALES / Elije el curso de tu interés', 'Elije el curso de tu interés', 'curso de tu interes', 'curso interes']);
+    const idx_formacionPrevia = buscarIndiceColumna(headers, ['formación o capacitación previa', 'formacion o capacitacion previa', 'SECCIÓN 1: DATOS PERSONALES / ¿Tienes alguna formación', 'formacion previa', 'tienes alguna formacion']);
+    const idx_dondeFormacion = buscarIndiceColumna(headers, ['dónde y de qué fue el curso', 'donde y de que fue el curso', 'SECCIÓN 1: DATOS PERSONALES / Si sí', 'donde formacion']);
+    const idx_sectorInteres = buscarIndiceColumna(headers, ['sector te gustaria trabajar', 'sector te gustaría trabajar', 'SECCIÓN 1: DATOS PERSONALES / ¿En qué sector', 'en que sector']);
+    // cursoInteres: buscar el campo "Elije/Elige el curso de tu interés" - MUY ESPECÍFICO para evitar falsos positivos
+    const idx_cursoInteres = buscarIndiceColumna(headers, [
+      'SECCIÓN 1: DATOS PERSONALES / Elije el curso de tu interés',
+      'SECCIÓN 1: DATOS PERSONALES / Elige el curso de tu interés',
+      'DATOS PERSONALES/Elije el curso',
+      'DATOS PERSONALES/Elige el curso',
+      'Elije el curso de tu interés',
+      'Elige el curso de tu interés',
+      'Elije el curso',
+      'Elige el curso',
+      'elije el curso',
+      'elige el curso',
+    ]);
 
     Logger.log('🔍 Columnas críticas encontradas:');
-    Logger.log(`   Creamos ID: ${idx_creamosId >= 0 ? 'Columna ' + idx_creamosId : 'NO ENCONTRADA ❌'}`);
-    Logger.log(`   Nombre: ${idx_nombre >= 0 ? 'Columna ' + idx_nombre : 'NO ENCONTRADA ❌'}`);
-    Logger.log(`   Curso Interés: ${idx_cursoInteres >= 0 ? 'Columna ' + idx_cursoInteres : 'NO ENCONTRADA ❌'}`);
+    Logger.log(`   Creamos ID: ${idx_creamosId >= 0 ? 'Columna ' + idx_creamosId + ' = "' + headers[idx_creamosId] + '"' : 'NO ENCONTRADA ❌'}`);
+    Logger.log(`   Nombre: ${idx_nombre >= 0 ? 'Columna ' + idx_nombre + ' = "' + headers[idx_nombre] + '"' : 'NO ENCONTRADA ❌'}`);
+    Logger.log(`   Curso Interés: ${idx_cursoInteres >= 0 ? 'Columna ' + idx_cursoInteres + ' = "' + headers[idx_cursoInteres] + '"' : 'NO ENCONTRADA ❌'}`);
+    Logger.log(`   Sector Interés: ${idx_sectorInteres >= 0 ? 'Columna ' + idx_sectorInteres + ' = "' + headers[idx_sectorInteres] + '"' : 'NO ENCONTRADA ❌'}`);
+
+    // Índices de sección por posición (fallback si el nombre no coincide exactamente)
+    const colsAB   = encontrarColumnasPorSeccion(headers, 'alimentos');
+    const colsTECH = encontrarColumnasPorSeccion(headers, 'tecnolog');
+    const colsSAC  = encontrarColumnasPorSeccion(headers, 'servicio');
+    Logger.log(`   Columnas AB por "alimentos": ${colsAB.length} → [${colsAB.slice(0,5).join(',')}...]`);
+    Logger.log(`   Columnas TECH por "tecnolog": ${colsTECH.length} → [${colsTECH.slice(0,5).join(',')}...]`);
+    Logger.log(`   Columnas SAC por "servicio": ${colsSAC.length} → [${colsSAC.slice(0,5).join(',')}...]`);
 
     // === ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO ===
-    const idx_ab_q1 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/1. ¿Por qué', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/1. ¿Por qué']);
-    const idx_ab_q2 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/2. ¿Qué te llama', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/2. ¿Qué te llama']);
-    const idx_ab_q3 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/3. ¿Cuál es tu expectativa', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/3. ¿Cuál es tu expectativa']);
-    const idx_ab_q4 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/4. Al tomar', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/4. Al tomar']);
-    const idx_ab_q5 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/5. ¿Cuáles son las principales áreas', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/5. ¿Cuáles son las principales áreas']);
+    const idx_ab_q1 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/1. ¿Por qué', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/1. ¿Por qué', 'alimentos y bebidas/1.', 'alimentos/1.']);
+    const idx_ab_q2 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/2. ¿Qué te llama', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/2. ¿Qué te llama', 'alimentos y bebidas/2.', 'alimentos/2.']);
+    const idx_ab_q3 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/3. ¿Cuál es tu expectativa', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/3. ¿Cuál es tu expectativa', 'alimentos y bebidas/3.', 'alimentos/3.']);
+    const idx_ab_q4 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/4. Al tomar', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/4. Al tomar', 'alimentos y bebidas/4.', 'alimentos/4.']);
+    const idx_ab_q5 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/5. ¿Cuáles son las principales áreas', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/5. ¿Cuáles son las principales áreas', 'alimentos y bebidas/5.', 'alimentos/5.']);
     const idx_ab_q6 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/6. ¿Cuentas con disponibilidad de tiempo para realizar prácticas', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/6. ¿Cuentas con disponibilidad de tiempo para realizar prácticas']);
     const idx_ab_planPracticas = sigCol(idx_ab_q6);
     const idx_ab_q7 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/7. ¿Estás dispuesta', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/7. ¿Estás dispuesta']);
@@ -5069,79 +5090,80 @@ function importarEntrevistasDesdeKobo() {
     const idx_ab_e13 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/13. ¿En qué temporalidad', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/13. ¿En qué temporalidad']);
 
     // === TECNOLOGÍA - PREGUNTAS DEL CURSO ===
-    // TECNOLOGÍA section has 8 questions (no Q6 papelería like AB)
-    const idx_tech_q1 = buscarIndiceColumna(headers, ['TECNOLOGÍA/1. ¿Por qué']);
-    const idx_tech_q2 = buscarIndiceColumna(headers, ['TECNOLOGÍA/2. ¿Qué te llama']);
-    const idx_tech_q3 = buscarIndiceColumna(headers, ['TECNOLOGÍA/3. ¿Cuál es tu expectativa']);
-    const idx_tech_q4 = buscarIndiceColumna(headers, ['TECNOLOGÍA/4. Al tomar']);
-    const idx_tech_q5 = buscarIndiceColumna(headers, ['TECNOLOGÍA/5. ¿Cuáles son las principales áreas']);
-    const idx_tech_q6 = buscarIndiceColumna(headers, ['TECNOLOGÍA/6. ¿Cuentas con disponibilidad']);
+    // Búsqueda con normalización de acentos: "TECNOLOGÍA" y "TECNOLOGIA" ambos funcionan
+    const idx_tech_q1 = buscarIndiceColumna(headers, ['TECNOLOGÍA/1.', 'TECNOLOGIA/1.', 'tecnologia/1.', '💻 SECCIÓN 2: TECNOLOGÍA/1.']);
+    const idx_tech_q2 = buscarIndiceColumna(headers, ['TECNOLOGÍA/2.', 'TECNOLOGIA/2.', 'tecnologia/2.', '💻 SECCIÓN 2: TECNOLOGÍA/2.']);
+    const idx_tech_q3 = buscarIndiceColumna(headers, ['TECNOLOGÍA/3.', 'TECNOLOGIA/3.', 'tecnologia/3.', '💻 SECCIÓN 2: TECNOLOGÍA/3.']);
+    const idx_tech_q4 = buscarIndiceColumna(headers, ['TECNOLOGÍA/4.', 'TECNOLOGIA/4.', 'tecnologia/4.', '💻 SECCIÓN 2: TECNOLOGÍA/4.']);
+    const idx_tech_q5 = buscarIndiceColumna(headers, ['TECNOLOGÍA/5.', 'TECNOLOGIA/5.', 'tecnologia/5.', '💻 SECCIÓN 2: TECNOLOGÍA/5.']);
+    const idx_tech_q6 = buscarIndiceColumna(headers, ['TECNOLOGÍA/6.', 'TECNOLOGIA/6.', 'tecnologia/6.', '💻 SECCIÓN 2: TECNOLOGÍA/6.']);
     const idx_tech_planDisponibilidad = sigCol(idx_tech_q6);
-    const idx_tech_q7 = buscarIndiceColumna(headers, ['TECNOLOGÍA/7. ¿Cuentas con transporte']);
+    const idx_tech_q7 = buscarIndiceColumna(headers, ['TECNOLOGÍA/7.', 'TECNOLOGIA/7.', 'tecnologia/7.', '💻 SECCIÓN 2: TECNOLOGÍA/7.']);
     const idx_tech_planTransporte = sigCol(idx_tech_q7);
-    const idx_tech_q8 = buscarIndiceColumna(headers, ['TECNOLOGÍA/8. ¿Estarías dispuesta']);
+    const idx_tech_q8 = buscarIndiceColumna(headers, ['TECNOLOGÍA/8.', 'TECNOLOGIA/8.', 'tecnologia/8.', '💻 SECCIÓN 2: TECNOLOGÍA/8.']);
     const idx_tech_comentarioDoc = sigCol(idx_tech_q8);
 
     // === TECNOLOGÍA - EMPLEABILIDAD ===
-    const idx_tech_e1 = buscarIndiceColumna(headers, ['TECNOLOGÍA/1. ¿Actualmente tienes trabajo']);
+    // Buscar por sección y número de pregunta (más robusto que buscar el texto completo)
+    const idx_tech_e1 = buscarIndiceColumnaAND(headers, ['tecnolog', 'actualmente tienes trabajo']);
     const idx_tech_cuentanosTrabajo = sigCol(idx_tech_e1);
-    const idx_tech_e2 = buscarIndiceColumna(headers, ['TECNOLOGÍA/2. ¿Estás satisfecha']);
+    const idx_tech_e2 = buscarIndiceColumnaAND(headers, ['tecnolog', 'estas satisfecha']);
     const idx_tech_comentarioSatisfaccion = sigCol(idx_tech_e2);
-    const idx_tech_e3 = buscarIndiceColumna(headers, ['TECNOLOGÍA/3. ¿Qué te gustaría hacer en los próximos meses']);
-    const idx_tech_e4 = buscarIndiceColumna(headers, ['TECNOLOGÍA/4. ¿Qué tan importante es para ti conseguir trabajo']);
-    const idx_tech_e5 = buscarIndiceColumna(headers, ['TECNOLOGÍA/5. ¿Te ves trabajando en el sector']);
-    const idx_tech_e6 = buscarIndiceColumna(headers, ['TECNOLOGÍA/6. ¿Alguien te ayuda económicamente']);
+    const idx_tech_e3 = buscarIndiceColumnaAND(headers, ['tecnolog', 'proximos meses']);
+    const idx_tech_e4 = buscarIndiceColumnaAND(headers, ['tecnolog', 'importante es para ti conseguir trabajo']);
+    const idx_tech_e5 = buscarIndiceColumnaAND(headers, ['tecnolog', 'te ves trabajando']);
+    const idx_tech_e6 = buscarIndiceColumnaAND(headers, ['tecnolog', 'alguien te ayuda economicamente']);
     const idx_tech_comentarioAyuda = sigCol(idx_tech_e6);
-    const idx_tech_e7 = buscarIndiceColumna(headers, ['TECNOLOGÍA/7. ¿Alguien depende de ti económicamente']);
+    const idx_tech_e7 = buscarIndiceColumnaAND(headers, ['tecnolog', 'alguien depende de ti']);
     const idx_tech_comentarioDependientes = sigCol(idx_tech_e7);
-    const idx_tech_e8 = buscarIndiceColumna(headers, ['TECNOLOGÍA/8. ¿Tienes responsabilidades de cuidado']);
+    const idx_tech_e8 = buscarIndiceColumnaAND(headers, ['tecnolog', 'responsabilidades de cuidado']);
     const idx_tech_comentarioCuidado = sigCol(idx_tech_e8);
-    const idx_tech_e9 = buscarIndiceColumna(headers, ['TECNOLOGÍA/9. ¿Tienes deudas bancarias']);
+    const idx_tech_e9 = buscarIndiceColumnaAND(headers, ['tecnolog', 'deudas bancarias']);
     const idx_tech_comentarioDeudas = sigCol(idx_tech_e9);
-    const idx_tech_e10 = buscarIndiceColumna(headers, ['TECNOLOGÍA/10. ¿Tienes manchados']);
+    const idx_tech_e10 = buscarIndiceColumnaAND(headers, ['tecnolog', 'manchados']);
     const idx_tech_comentarioAntecedentes = sigCol(idx_tech_e10);
-    const idx_tech_e11 = buscarIndiceColumna(headers, ['TECNOLOGÍA/11. ¿Tienes algún caso']);
+    const idx_tech_e11 = buscarIndiceColumnaAND(headers, ['tecnolog', 'tienes algun caso']);
     const idx_tech_comentarioLegal = sigCol(idx_tech_e11);
-    const idx_tech_e12 = buscarIndiceColumna(headers, ['TECNOLOGÍA/12. ¿Estás dispuesto a continuar']);
+    const idx_tech_e12 = buscarIndiceColumnaAND(headers, ['tecnolog', 'dispuesto a continuar']);
     const idx_tech_comentarioEmpleabilidad = sigCol(idx_tech_e12);
-    const idx_tech_e13 = buscarIndiceColumna(headers, ['TECNOLOGÍA/13. ¿En qué temporalidad']);
+    const idx_tech_e13 = buscarIndiceColumnaAND(headers, ['tecnolog', 'temporalidad']);
 
     // === SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO ===
-    const idx_sac_q1 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/1. ¿Por qué']);
-    const idx_sac_q2 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/2. ¿Qué te llama']);
-    const idx_sac_q3 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/3. ¿Cuál es tu expectativa']);
-    const idx_sac_q4 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/4. Al tomar']);
-    const idx_sac_q5 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/5. ¿Cuáles son las principales áreas']);
-    const idx_sac_q6 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/6. ¿Cuentas con disponibilidad']);
+    const idx_sac_q1 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/1.', 'servicio al cliente/1.', '🤝 SECCIÓN 2: SERVICIO AL CLIENTE/1.']);
+    const idx_sac_q2 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/2.', 'servicio al cliente/2.', '🤝 SECCIÓN 2: SERVICIO AL CLIENTE/2.']);
+    const idx_sac_q3 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/3.', 'servicio al cliente/3.', '🤝 SECCIÓN 2: SERVICIO AL CLIENTE/3.']);
+    const idx_sac_q4 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/4.', 'servicio al cliente/4.', '🤝 SECCIÓN 2: SERVICIO AL CLIENTE/4.']);
+    const idx_sac_q5 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/5.', 'servicio al cliente/5.', '🤝 SECCIÓN 2: SERVICIO AL CLIENTE/5.']);
+    const idx_sac_q6 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/6.', 'servicio al cliente/6.', '🤝 SECCIÓN 2: SERVICIO AL CLIENTE/6.']);
     const idx_sac_planDisponibilidad = sigCol(idx_sac_q6);
-    const idx_sac_q7 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/7. ¿Cuentas con transporte']);
+    const idx_sac_q7 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/7.', 'servicio al cliente/7.', '🤝 SECCIÓN 2: SERVICIO AL CLIENTE/7.']);
     const idx_sac_planTransporte = sigCol(idx_sac_q7);
-    const idx_sac_q8 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/8. ¿Estarías dispuesta']);
+    const idx_sac_q8 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/8.', 'servicio al cliente/8.', '🤝 SECCIÓN 2: SERVICIO AL CLIENTE/8.']);
     const idx_sac_comentarioDoc = sigCol(idx_sac_q8);
 
     // === SERVICIO AL CLIENTE - EMPLEABILIDAD ===
-    const idx_sac_e1 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/1. ¿Actualmente tienes trabajo']);
+    const idx_sac_e1 = buscarIndiceColumnaAND(headers, ['servicio', 'actualmente tienes trabajo']);
     const idx_sac_cuentanosTrabajo = sigCol(idx_sac_e1);
-    const idx_sac_e2 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/2. ¿Estás satisfecha']);
+    const idx_sac_e2 = buscarIndiceColumnaAND(headers, ['servicio', 'estas satisfecha']);
     const idx_sac_comentarioSatisfaccion = sigCol(idx_sac_e2);
-    const idx_sac_e3 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/3. ¿Qué te gustaría hacer en los próximos meses']);
-    const idx_sac_e4 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/4. ¿Qué tan importante es para ti conseguir trabajo']);
-    const idx_sac_e5 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/5. ¿Te ves trabajando en el sector']);
-    const idx_sac_e6 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/6. ¿Alguien te ayuda económicamente']);
+    const idx_sac_e3 = buscarIndiceColumnaAND(headers, ['servicio', 'proximos meses']);
+    const idx_sac_e4 = buscarIndiceColumnaAND(headers, ['servicio', 'importante es para ti conseguir trabajo']);
+    const idx_sac_e5 = buscarIndiceColumnaAND(headers, ['servicio', 'te ves trabajando']);
+    const idx_sac_e6 = buscarIndiceColumnaAND(headers, ['servicio', 'alguien te ayuda economicamente']);
     const idx_sac_comentarioAyuda = sigCol(idx_sac_e6);
-    const idx_sac_e7 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/7. ¿Alguien depende de ti económicamente']);
+    const idx_sac_e7 = buscarIndiceColumnaAND(headers, ['servicio', 'alguien depende de ti']);
     const idx_sac_comentarioDependientes = sigCol(idx_sac_e7);
-    const idx_sac_e8 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/8. ¿Tienes responsabilidades de cuidado']);
+    const idx_sac_e8 = buscarIndiceColumnaAND(headers, ['servicio', 'responsabilidades de cuidado']);
     const idx_sac_comentarioCuidado = sigCol(idx_sac_e8);
-    const idx_sac_e9 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/9. ¿Tienes deudas bancarias']);
+    const idx_sac_e9 = buscarIndiceColumnaAND(headers, ['servicio', 'deudas bancarias']);
     const idx_sac_comentarioDeudas = sigCol(idx_sac_e9);
-    const idx_sac_e10 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/10. ¿Tienes manchados']);
+    const idx_sac_e10 = buscarIndiceColumnaAND(headers, ['servicio', 'manchados']);
     const idx_sac_comentarioAntecedentes = sigCol(idx_sac_e10);
-    const idx_sac_e11 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/11. ¿Tienes algún caso']);
+    const idx_sac_e11 = buscarIndiceColumnaAND(headers, ['servicio', 'tienes algun caso']);
     const idx_sac_comentarioLegal = sigCol(idx_sac_e11);
-    const idx_sac_e12 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/12. ¿Estás dispuesto a continuar']);
+    const idx_sac_e12 = buscarIndiceColumnaAND(headers, ['servicio', 'dispuesto a continuar']);
     const idx_sac_comentarioEmpleabilidad = sigCol(idx_sac_e12);
-    const idx_sac_e13 = buscarIndiceColumna(headers, ['SERVICIO AL CLIENTE/13. ¿En qué temporalidad']);
+    const idx_sac_e13 = buscarIndiceColumnaAND(headers, ['servicio', 'temporalidad']);
 
     // === SECCIÓN 3: GÉNERO ===
     const idx_genero_previo = buscarIndiceColumna(headers, ['GÉNERO/']);
@@ -5357,17 +5379,39 @@ function importarEntrevistasDesdeKobo() {
       // Función helper para obtener valor seguro
       const getVal = (idx) => idx >= 0 && row[idx] ? row[idx].toString().trim() : '';
 
-      // Filtro: procesar Alimentos y Bebidas, Tecnología y Servicio al Cliente
+      // Detectar sector desde el campo cursoInteres
       const cursoParsona = colMap.cursoInteres >= 0 ? getVal(colMap.cursoInteres) : '';
-      const cursoLower = cursoParsona.toLowerCase();
-      const esAB = cursoLower.includes('alimentos') || cursoLower.includes('bebidas');
-      const esTech = cursoLower.includes('tecnolog');
-      const esSAC = cursoLower.includes('servicio');
+      const cursoNorm = normalizarTextoColumna(cursoParsona);
+      let esAB    = cursoNorm.includes('alimento') || cursoNorm.includes('bebida');
+      let esTech  = cursoNorm.includes('tecnolog');
+      let esSAC   = cursoNorm.includes('servicio') || cursoNorm.includes('cliente');
+
+      // Fallback: si cursoInteres no encontró el sector, detectar por qué columnas del CSV tienen datos
+      if (!esAB && !esTech && !esSAC) {
+        const tieneDataAB   = colsAB.length   > 0 && colsAB.slice(0, 5).some(ci => row[ci] && row[ci].toString().trim() !== '');
+        const tieneDataTECH = colsTECH.length > 0 && colsTECH.slice(0, 5).some(ci => row[ci] && row[ci].toString().trim() !== '');
+        const tieneDataSAC  = colsSAC.length  > 0 && colsSAC.slice(0, 5).some(ci => row[ci] && row[ci].toString().trim() !== '');
+        if (tieneDataAB)   { esAB   = true; Logger.log(`⚡ Fila ${i+1}: sector detectado por datos: ALIMENTOS Y BEBIDAS (curso="${cursoParsona}")`); }
+        if (tieneDataTECH) { esTech = true; Logger.log(`⚡ Fila ${i+1}: sector detectado por datos: TECNOLOGÍA (curso="${cursoParsona}")`); }
+        if (tieneDataSAC)  { esSAC  = true; Logger.log(`⚡ Fila ${i+1}: sector detectado por datos: SERVICIO AL CLIENTE (curso="${cursoParsona}")`); }
+      }
 
       if (!esTech && !esSAC && !esAB) {
         filtradosPorCurso++;
         Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" - SECTOR NO RECONOCIDO - FILTRADO`);
         continue;
+      }
+
+      // Si por alguna razón se detectaron varios sectores, priorizar el que tiene más datos
+      if ([esAB, esTech, esSAC].filter(Boolean).length > 1) {
+        const cntAB   = colsAB.filter(ci   => row[ci] && row[ci].toString().trim() !== '').length;
+        const cntTECH = colsTECH.filter(ci => row[ci] && row[ci].toString().trim() !== '').length;
+        const cntSAC  = colsSAC.filter(ci  => row[ci] && row[ci].toString().trim() !== '').length;
+        const maxCnt  = Math.max(cntAB, cntTECH, cntSAC);
+        esAB   = cntAB   === maxCnt;
+        esTech = cntTECH === maxCnt && !esAB;
+        esSAC  = cntSAC  === maxCnt && !esAB && !esTech;
+        Logger.log(`⚡ Fila ${i+1}: múltiples sectores detectados. AB:${cntAB} TECH:${cntTECH} SAC:${cntSAC} → usando sector con más datos`);
       }
 
       const tipoSector = esAB ? 'ALIMENTOS Y BEBIDAS' : (esTech ? 'TECNOLOGÍA' : 'SERVICIO AL CLIENTE');
@@ -5607,13 +5651,23 @@ function importarEntrevistasDesdeKobo() {
 }
 
 /**
- * Busca el índice de una columna por nombre parcial (case insensitive)
+ * Normaliza texto: minúsculas + sin acentos + sin signos ¿¡
+ * Esto permite comparar "Tecnologia" con "Tecnología", "interes" con "interés", etc.
+ */
+function normalizarTextoColumna(s) {
+  return s.toString().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[¿¡]/g, '');
+}
+
+/**
+ * Busca el índice de una columna por nombre parcial (case insensitive, sin acentos)
  */
 function buscarIndiceColumna(headers, posiblesNombres) {
   for (let i = 0; i < headers.length; i++) {
-    const header = headers[i].toString().toLowerCase();
+    const header = normalizarTextoColumna(headers[i]);
     for (const nombre of posiblesNombres) {
-      if (header.includes(nombre.toLowerCase())) {
+      if (header.includes(normalizarTextoColumna(nombre))) {
         return i;
       }
     }
@@ -5622,17 +5676,31 @@ function buscarIndiceColumna(headers, posiblesNombres) {
 }
 
 /**
- * Busca columna que contenga TODOS los términos (AND logic)
- * Útil para headers que comparten parte del texto (como varios "Comentario:" en la misma sección)
+ * Busca columna que contenga TODOS los términos (AND logic, sin acentos)
  */
 function buscarIndiceColumnaAND(headers, terminos) {
   for (let i = 0; i < headers.length; i++) {
-    const header = headers[i].toString().toLowerCase();
-    if (terminos.every(t => header.includes(t.toLowerCase()))) {
+    const header = normalizarTextoColumna(headers[i]);
+    if (terminos.every(t => header.includes(normalizarTextoColumna(t)))) {
       return i;
     }
   }
   return -1;
+}
+
+/**
+ * Retorna todos los índices de columnas que contienen el término de sección (en orden)
+ * Útil como fallback para mapear columnas por posición cuando los nombres no coinciden exactamente
+ */
+function encontrarColumnasPorSeccion(headers, terminoSeccion) {
+  const term = normalizarTextoColumna(terminoSeccion);
+  const indices = [];
+  for (let i = 0; i < headers.length; i++) {
+    if (normalizarTextoColumna(headers[i]).includes(term)) {
+      indices.push(i);
+    }
+  }
+  return indices;
 }
 
 /**
