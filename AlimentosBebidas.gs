@@ -870,218 +870,8 @@ function crearHojaEntrevistas() {
  * - DW-EH: Metadatos Kobo (12)
  */
 function crearHojaDetalleEntrevistas() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss.getSheetByName('Detalle Entrevistas')) return;
-  const sheet = ss.insertSheet('Detalle Entrevistas');
-
-  const headers = [
-    // === SECCIÓN 1: DATOS PERSONALES (A-H) ===
-    'Fecha Entrevista',                        // A
-    'Creamos ID',                              // B - CLAVE DE VINCULACIÓN
-    'Nombres y Apellidos',                     // C
-    'Género',                                  // D
-    'Formación Previa',                        // E
-    'Dónde y De Qué Formación',               // F
-    'Sector Interés',                          // G
-    'Curso Interés',                           // H
-
-    // === SECCIÓN 2: ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO (I-U) ===
-    'AB: Por Qué Interesa Curso',              // I
-    'AB: Qué Llama la Atención',               // J
-    'AB: Expectativa del Curso',               // K
-    'AB: Dificultades Curso',                  // L
-    'AB: Áreas Vida Cambiarán',                // M
-    'AB: Disponibilidad Prácticas',            // N
-    'AB: Plan Disponibilidad',                 // O
-    'AB: Tramitar Papelería',                  // P
-    'AB: Plan Papelería',                      // Q
-    'AB: Transporte',                          // R
-    'AB: Plan Transporte',                     // S
-    'AB: Firmar Documento',                    // T
-    'AB: Comentario Documento',                // U
-
-    // === SECCIÓN 2: ALIMENTOS Y BEBIDAS - ÁREA DE EMPLEABILIDAD (V-AQ) ===
-    'AB: Actualmente Tiene Trabajo',           // V
-    'AB: Cuéntanos Más Trabajo',               // W
-    'AB: Satisfecho con Trabajo',              // X
-    'AB: Comentario Satisfacción',             // Y
-    'AB: Qué Hacer Próximos Meses',            // Z
-    'AB: Importancia Conseguir Trabajo',       // AA
-    'AB: Te Ves Trabajando Sector',            // AB
-    'AB: Ayuda Económica',                     // AC
-    'AB: Comentario Ayuda',                    // AD
-    'AB: Dependientes Económicos',             // AE
-    'AB: Comentario Dependientes',             // AF
-    'AB: Responsabilidades Cuidado',           // AG
-    'AB: Comentario Cuidado',                  // AH
-    'AB: Deudas Bancarias',                    // AI
-    'AB: Comentario Deudas',                   // AJ
-    'AB: Antecedentes Penales',                // AK
-    'AB: Comentario Antecedentes',             // AL
-    'AB: Caso Legal',                          // AM
-    'AB: Comentario Legal',                    // AN
-    'AB: Dispuesto Empleabilidad',             // AO
-    'AB: Comentario Empleabilidad',            // AP
-    'AB: Temporalidad Metas',                  // AQ
-
-    // === SECCIÓN 2B: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BD) ===
-    'TEC: Por Qué Interesa Curso',             // AR
-    'TEC: Qué Llama la Atención',              // AS
-    'TEC: Expectativa del Curso',              // AT
-    'TEC: Dificultades Curso',                 // AU
-    'TEC: Áreas Vida Cambiarán',               // AV
-    'TEC: Disponibilidad Prácticas',           // AW
-    'TEC: Plan Disponibilidad',                // AX
-    'TEC: Tramitar Papelería',                 // AY
-    'TEC: Plan Papelería',                     // AZ
-    'TEC: Transporte',                         // BA
-    'TEC: Plan Transporte',                    // BB
-    'TEC: Firmar Documento',                   // BC
-    'TEC: Comentario Documento',               // BD
-
-    // === SECCIÓN 2B: TECNOLOGÍA - ÁREA DE EMPLEABILIDAD (BE-BZ) ===
-    'TEC: Actualmente Tiene Trabajo',          // BE
-    'TEC: Cuéntanos Más Trabajo',              // BF
-    'TEC: Satisfecho con Trabajo',             // BG
-    'TEC: Comentario Satisfacción',            // BH
-    'TEC: Qué Hacer Próximos Meses',           // BI
-    'TEC: Importancia Conseguir Trabajo',      // BJ
-    'TEC: Te Ves Trabajando Sector',           // BK
-    'TEC: Ayuda Económica',                    // BL
-    'TEC: Comentario Ayuda',                   // BM
-    'TEC: Dependientes Económicos',            // BN
-    'TEC: Comentario Dependientes',            // BO
-    'TEC: Responsabilidades Cuidado',          // BP
-    'TEC: Comentario Cuidado',                 // BQ
-    'TEC: Deudas Bancarias',                   // BR
-    'TEC: Comentario Deudas',                  // BS
-    'TEC: Antecedentes Penales',               // BT
-    'TEC: Comentario Antecedentes',            // BU
-    'TEC: Caso Legal',                         // BV
-    'TEC: Comentario Legal',                   // BW
-    'TEC: Dispuesto Empleabilidad',            // BX
-    'TEC: Comentario Empleabilidad',           // BY
-    'TEC: Temporalidad Metas',                 // BZ
-
-    // === SECCIÓN 2C: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (CA-CM) ===
-    'SAC: Por Qué Interesa Curso',             // CA
-    'SAC: Qué Llama la Atención',              // CB
-    'SAC: Expectativa del Curso',              // CC
-    'SAC: Dificultades Curso',                 // CD
-    'SAC: Áreas Vida Cambiarán',               // CE
-    'SAC: Disponibilidad Prácticas',           // CF
-    'SAC: Plan Disponibilidad',                // CG
-    'SAC: Tramitar Papelería',                 // CH
-    'SAC: Plan Papelería',                     // CI
-    'SAC: Transporte',                         // CJ
-    'SAC: Plan Transporte',                    // CK
-    'SAC: Firmar Documento',                   // CL
-    'SAC: Comentario Documento',               // CM
-
-    // === SECCIÓN 2C: SERVICIO AL CLIENTE - ÁREA DE EMPLEABILIDAD (CN-DI) ===
-    'SAC: Actualmente Tiene Trabajo',          // CN
-    'SAC: Cuéntanos Más Trabajo',              // CO
-    'SAC: Satisfecho con Trabajo',             // CP
-    'SAC: Comentario Satisfacción',            // CQ
-    'SAC: Qué Hacer Próximos Meses',           // CR
-    'SAC: Importancia Conseguir Trabajo',      // CS
-    'SAC: Te Ves Trabajando Sector',           // CT
-    'SAC: Ayuda Económica',                    // CU
-    'SAC: Comentario Ayuda',                   // CV
-    'SAC: Dependientes Económicos',            // CW
-    'SAC: Comentario Dependientes',            // CX
-    'SAC: Responsabilidades Cuidado',          // CY
-    'SAC: Comentario Cuidado',                 // CZ
-    'SAC: Deudas Bancarias',                   // DA
-    'SAC: Comentario Deudas',                  // DB
-    'SAC: Antecedentes Penales',               // DC
-    'SAC: Comentario Antecedentes',            // DD
-    'SAC: Caso Legal',                         // DE
-    'SAC: Comentario Legal',                   // DF
-    'SAC: Dispuesto Empleabilidad',            // DG
-    'SAC: Comentario Empleabilidad',           // DH
-    'SAC: Temporalidad Metas',                 // DI
-
-    // === SECCIÓN 3: GÉNERO (DJ-DV) ===
-    'Género: Comentario Previo',               // DJ
-    'Género: Grupos Mixtos',                   // DK
-    'Género: Comentario Mixtos',               // DL
-    'Género: Grupos Diversos',                 // DM
-    'Género: Comentario Diversos',             // DN
-    'Género: Conflicto en Grupos',             // DO
-    'Género: Comentario Conflicto Grupos',     // DP
-    'Género: Conflicto Horarios',              // DQ
-    'Género: Comentario Conflicto Horarios',   // DR
-    'Género: Grupo Mayoritariamente Mujeres',  // DS
-    'Género: Igualdad H/M',                    // DT
-    'Género: Familiares Creamos',              // DU
-    'Género: Nombres Familiares',              // DV
-
-    // === NOTAS Y METADATOS KOBO (DW-EH) ===
-    'Notas del Entrevistador',                 // DW
-    '_id',                                     // DX
-    '_uuid',                                   // DY
-    '_submission_time',                        // DZ
-    '_validation_status',                      // EA
-    '_notes',                                  // EB
-    '_status',                                 // EC
-    '_submitted_by',                           // ED
-    '__version__',                             // EE
-    '_tags',                                   // EF
-    'meta/rootUuid',                           // EG
-    '_index'                                   // EH
-  ];
-
-  // Expandir la hoja para acomodar todas las columnas (138 columnas)
-  const currentCols = sheet.getMaxColumns();
-  if (headers.length > currentCols) {
-    sheet.insertColumnsAfter(currentCols, headers.length - currentCols);
-  }
-
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
-    .setFontColor('white')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center')
-    .setWrap(true);
-
-  // Congelar fila de encabezados
-  sheet.setFrozenRows(1);
-
-  // Anchos de columna (138 valores: A a EH)
-  const anchos = [
-    // Datos personales A-H (8)
-    100, 100, 200, 80, 80, 150, 120, 150,
-    // AB: Preguntas del Curso I-U (13)
-    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200, 80, 200,
-    // AB: Empleabilidad V-AQ (22)
-    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
-    // TEC: Preguntas del Curso AR-BD (13)
-    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200, 80, 200,
-    // TEC: Empleabilidad BE-BZ (22)
-    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
-    // SAC: Preguntas del Curso CA-CM (13)
-    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200, 80, 200,
-    // SAC: Empleabilidad CN-DI (22)
-    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
-    // Género DJ-DV (13)
-    200, 80, 150, 80, 150, 80, 200, 80, 200, 150, 200, 80, 200,
-    // Notas y metadatos DW-EH (12)
-    250, 100, 150, 120, 100, 120, 100, 100, 80, 120, 150, 80
-  ];
-  anchos.forEach((w, i) => {
-    sheet.setColumnWidth(i + 1, w);
-  });
-
-  // Colorear secciones de encabezado
-  sheet.getRange('A1:H1').setBackground('#1565c0');    // Datos Personales - Azul
-  sheet.getRange('I1:U1').setBackground('#e65100');    // AB: Preguntas Curso - Naranja
-  sheet.getRange('V1:AQ1').setBackground('#bf360c');   // AB: Empleabilidad - Naranja oscuro
-  sheet.getRange('AR1:BD1').setBackground('#558b2f');  // TEC: Preguntas Curso - Verde
-  sheet.getRange('BE1:BZ1').setBackground('#33691e');  // TEC: Empleabilidad - Verde oscuro
-  sheet.getRange('CA1:CM1').setBackground('#00838f');  // SAC: Preguntas Curso - Cian
-  sheet.getRange('CN1:DI1').setBackground('#006064');  // SAC: Empleabilidad - Cian oscuro
-  sheet.getRange('DJ1:DV1').setBackground('#880e4f');  // Género - Rosa
-  sheet.getRange('DW1:EH1').setBackground('#455a64');  // Notas y metadatos - Gris azulado
+  // Usar la función unificada que incluye todas las secciones (AB, TECH, SAC)
+  crearHojaDetalleEntrevistasUnificada();
 }
 
 /**
@@ -5437,9 +5227,18 @@ function importarEntrevistasDesdeKobo() {
         return new Date();
       };
 
-      // Crear registro para Detalle Entrevistas (138 columnas: A a EH - estructura unificada)
-      // Inicializar array de 138 elementos vacíos
-      const registro = new Array(138).fill('');
+      // Crear registro para Detalle Entrevistas (134 columnas: A a ED)
+      // Estructura de la hoja creada por crearHojaDetalleEntrevistasUnificada():
+      //   Datos Personales (A-H): 8 cols, índices 0-7
+      //   AB Preguntas (I-U): 13 cols, índices 8-20
+      //   AB Empleabilidad (V-AQ): 22 cols, índices 21-42
+      //   TECH Preguntas (AR-BB): 11 cols, índices 43-53
+      //   TECH Empleabilidad (BC-BX): 22 cols, índices 54-75
+      //   SAC Preguntas (BY-CI): 11 cols, índices 76-86
+      //   SAC Empleabilidad (CJ-DE): 22 cols, índices 87-108
+      //   Género (DF-DR): 13 cols, índices 109-121
+      //   Metadatos (DS-ED): 12 cols, índices 122-133
+      const registro = new Array(134).fill('');
 
       // === SECCIÓN 1: DATOS PERSONALES (A-H) === índices 0-7
       registro[0] = getFechaEntrevista();              // A: Fecha Entrevista
@@ -5495,7 +5294,7 @@ function importarEntrevistasDesdeKobo() {
         registro[42] = getVal(colMap.ab_temporalidadMetas);      // AQ
       }
       else if (tipoPrograma === 'TECNOLOGÍA') {
-        // === SECCIÓN 2B: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BD) === índices 43-55
+        // === SECCIÓN 2B: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BB) === índices 43-53
         registro[43] = getVal(colMap.tec_porQueInteres);           // AR
         registro[44] = getVal(colMap.tec_queLlamaAtencion);        // AS
         registro[45] = getVal(colMap.tec_expectativaCurso);        // AT
@@ -5503,107 +5302,103 @@ function importarEntrevistasDesdeKobo() {
         registro[47] = getVal(colMap.tec_areasVida);               // AV
         registro[48] = getVal(colMap.tec_disponibilidadPracticas); // AW
         registro[49] = getVal(colMap.tec_planPracticas);           // AX
-        registro[50] = getVal(colMap.tec_tramitarPapeleria);       // AY
-        registro[51] = getVal(colMap.tec_planPapeleria);           // AZ
-        registro[52] = getVal(colMap.tec_transporte);              // BA
-        registro[53] = getVal(colMap.tec_planTransporte);          // BB
-        registro[54] = getVal(colMap.tec_firmarDocumento);         // BC
-        registro[55] = getVal(colMap.tec_comentarioDoc);           // BD
+        registro[50] = getVal(colMap.tec_transporte);              // AY
+        registro[51] = getVal(colMap.tec_planTransporte);          // AZ
+        registro[52] = getVal(colMap.tec_firmarDocumento);         // BA
+        registro[53] = getVal(colMap.tec_comentarioDoc);           // BB
 
-        // === SECCIÓN 2B: TECNOLOGÍA - EMPLEABILIDAD (BE-BZ) === índices 56-77
-        registro[56] = getVal(colMap.tec_tieneTrabajoActual);      // BE
-        registro[57] = getVal(colMap.tec_cuentanosTrabajo);        // BF
-        registro[58] = getVal(colMap.tec_satisfechoTrabajo);       // BG
-        registro[59] = getVal(colMap.tec_comentarioSatisfaccion);  // BH
-        registro[60] = getVal(colMap.tec_proximosMeses);           // BI
-        registro[61] = getVal(colMap.tec_importanciaTrabajo);      // BJ
-        registro[62] = getVal(colMap.tec_teVesSector);             // BK
-        registro[63] = getVal(colMap.tec_ayudaEconomica);          // BL
-        registro[64] = getVal(colMap.tec_comentarioAyuda);         // BM
-        registro[65] = getVal(colMap.tec_dependientes);            // BN
-        registro[66] = getVal(colMap.tec_comentarioDependientes);  // BO
-        registro[67] = getVal(colMap.tec_responsabilidadesCuidado); // BP
-        registro[68] = getVal(colMap.tec_comentarioCuidado);       // BQ
-        registro[69] = getVal(colMap.tec_deudasBancarias);         // BR
-        registro[70] = getVal(colMap.tec_comentarioDeudas);        // BS
-        registro[71] = getVal(colMap.tec_antecedentes);            // BT
-        registro[72] = getVal(colMap.tec_comentarioAntecedentes);  // BU
-        registro[73] = getVal(colMap.tec_casoLegal);               // BV
-        registro[74] = getVal(colMap.tec_comentarioLegal);         // BW
-        registro[75] = getVal(colMap.tec_dispuestoEmpleabilidad);  // BX
-        registro[76] = getVal(colMap.tec_comentarioEmpleabilidad); // BY
-        registro[77] = getVal(colMap.tec_temporalidadMetas);       // BZ
+        // === SECCIÓN 2B: TECNOLOGÍA - EMPLEABILIDAD (BC-BX) === índices 54-75
+        registro[54] = getVal(colMap.tec_tieneTrabajoActual);      // BC
+        registro[55] = getVal(colMap.tec_cuentanosTrabajo);        // BD
+        registro[56] = getVal(colMap.tec_satisfechoTrabajo);       // BE
+        registro[57] = getVal(colMap.tec_comentarioSatisfaccion);  // BF
+        registro[58] = getVal(colMap.tec_proximosMeses);           // BG
+        registro[59] = getVal(colMap.tec_importanciaTrabajo);      // BH
+        registro[60] = getVal(colMap.tec_teVesSector);             // BI
+        registro[61] = getVal(colMap.tec_ayudaEconomica);          // BJ
+        registro[62] = getVal(colMap.tec_comentarioAyuda);         // BK
+        registro[63] = getVal(colMap.tec_dependientes);            // BL
+        registro[64] = getVal(colMap.tec_comentarioDependientes);  // BM
+        registro[65] = getVal(colMap.tec_responsabilidadesCuidado); // BN
+        registro[66] = getVal(colMap.tec_comentarioCuidado);       // BO
+        registro[67] = getVal(colMap.tec_deudasBancarias);         // BP
+        registro[68] = getVal(colMap.tec_comentarioDeudas);        // BQ
+        registro[69] = getVal(colMap.tec_antecedentes);            // BR
+        registro[70] = getVal(colMap.tec_comentarioAntecedentes);  // BS
+        registro[71] = getVal(colMap.tec_casoLegal);               // BT
+        registro[72] = getVal(colMap.tec_comentarioLegal);         // BU
+        registro[73] = getVal(colMap.tec_dispuestoEmpleabilidad);  // BV
+        registro[74] = getVal(colMap.tec_comentarioEmpleabilidad); // BW
+        registro[75] = getVal(colMap.tec_temporalidadMetas);       // BX
       }
       else if (tipoPrograma === 'SERVICIO AL CLIENTE') {
-        // === SECCIÓN 2C: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (CA-CM) === índices 78-90
-        registro[78] = getVal(colMap.sac_porQueInteres);           // CA
-        registro[79] = getVal(colMap.sac_queLlamaAtencion);        // CB
-        registro[80] = getVal(colMap.sac_expectativaCurso);        // CC
-        registro[81] = getVal(colMap.sac_dificultadesCurso);       // CD
-        registro[82] = getVal(colMap.sac_areasVida);               // CE
-        registro[83] = getVal(colMap.sac_disponibilidadPracticas); // CF
-        registro[84] = getVal(colMap.sac_planPracticas);           // CG
-        registro[85] = getVal(colMap.sac_tramitarPapeleria);       // CH
-        registro[86] = getVal(colMap.sac_planPapeleria);           // CI
-        registro[87] = getVal(colMap.sac_transporte);              // CJ
-        registro[88] = getVal(colMap.sac_planTransporte);          // CK
-        registro[89] = getVal(colMap.sac_firmarDocumento);         // CL
-        registro[90] = getVal(colMap.sac_comentarioDoc);           // CM
+        // === SECCIÓN 2C: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (BY-CI) === índices 76-86
+        registro[76] = getVal(colMap.sac_porQueInteres);           // BY
+        registro[77] = getVal(colMap.sac_queLlamaAtencion);        // BZ
+        registro[78] = getVal(colMap.sac_expectativaCurso);        // CA
+        registro[79] = getVal(colMap.sac_dificultadesCurso);       // CB
+        registro[80] = getVal(colMap.sac_areasVida);               // CC
+        registro[81] = getVal(colMap.sac_disponibilidadPracticas); // CD
+        registro[82] = getVal(colMap.sac_planPracticas);           // CE
+        registro[83] = getVal(colMap.sac_transporte);              // CF
+        registro[84] = getVal(colMap.sac_planTransporte);          // CG
+        registro[85] = getVal(colMap.sac_firmarDocumento);         // CH
+        registro[86] = getVal(colMap.sac_comentarioDoc);           // CI
 
-        // === SECCIÓN 2C: SERVICIO AL CLIENTE - EMPLEABILIDAD (CN-DE) === índices 91-112
-        registro[91] = getVal(colMap.sac_tieneTrabajoActual);      // CN
-        registro[92] = getVal(colMap.sac_cuentanosTrabajo);        // CO
-        registro[93] = getVal(colMap.sac_satisfechoTrabajo);       // CP
-        registro[94] = getVal(colMap.sac_comentarioSatisfaccion);  // CQ
-        registro[95] = getVal(colMap.sac_proximosMeses);           // CR
-        registro[96] = getVal(colMap.sac_importanciaTrabajo);      // CS
-        registro[97] = getVal(colMap.sac_teVesSector);             // CT
-        registro[98] = getVal(colMap.sac_ayudaEconomica);          // CU
-        registro[99] = getVal(colMap.sac_comentarioAyuda);         // CV
-        registro[100] = getVal(colMap.sac_dependientes);           // CW
-        registro[101] = getVal(colMap.sac_comentarioDependientes); // CX
-        registro[102] = getVal(colMap.sac_responsabilidadesCuidado); // CY
-        registro[103] = getVal(colMap.sac_comentarioCuidado);      // CZ
-        registro[104] = getVal(colMap.sac_deudasBancarias);        // DA
-        registro[105] = getVal(colMap.sac_comentarioDeudas);       // DB
-        registro[106] = getVal(colMap.sac_antecedentes);           // DC
-        registro[107] = getVal(colMap.sac_comentarioAntecedentes); // DD
-        registro[108] = getVal(colMap.sac_casoLegal);              // DE
-        registro[109] = getVal(colMap.sac_comentarioLegal);        // DF
-        registro[110] = getVal(colMap.sac_dispuestoEmpleabilidad); // DG
-        registro[111] = getVal(colMap.sac_comentarioEmpleabilidad); // DH
-        registro[112] = getVal(colMap.sac_temporalidadMetas);      // DI
+        // === SECCIÓN 2C: SERVICIO AL CLIENTE - EMPLEABILIDAD (CJ-DE) === índices 87-108
+        registro[87]  = getVal(colMap.sac_tieneTrabajoActual);      // CJ
+        registro[88]  = getVal(colMap.sac_cuentanosTrabajo);        // CK
+        registro[89]  = getVal(colMap.sac_satisfechoTrabajo);       // CL
+        registro[90]  = getVal(colMap.sac_comentarioSatisfaccion);  // CM
+        registro[91]  = getVal(colMap.sac_proximosMeses);           // CN
+        registro[92]  = getVal(colMap.sac_importanciaTrabajo);      // CO
+        registro[93]  = getVal(colMap.sac_teVesSector);             // CP
+        registro[94]  = getVal(colMap.sac_ayudaEconomica);          // CQ
+        registro[95]  = getVal(colMap.sac_comentarioAyuda);         // CR
+        registro[96]  = getVal(colMap.sac_dependientes);            // CS
+        registro[97]  = getVal(colMap.sac_comentarioDependientes);  // CT
+        registro[98]  = getVal(colMap.sac_responsabilidadesCuidado); // CU
+        registro[99]  = getVal(colMap.sac_comentarioCuidado);       // CV
+        registro[100] = getVal(colMap.sac_deudasBancarias);         // CW
+        registro[101] = getVal(colMap.sac_comentarioDeudas);        // CX
+        registro[102] = getVal(colMap.sac_antecedentes);            // CY
+        registro[103] = getVal(colMap.sac_comentarioAntecedentes);  // CZ
+        registro[104] = getVal(colMap.sac_casoLegal);               // DA
+        registro[105] = getVal(colMap.sac_comentarioLegal);         // DB
+        registro[106] = getVal(colMap.sac_dispuestoEmpleabilidad);  // DC
+        registro[107] = getVal(colMap.sac_comentarioEmpleabilidad); // DD
+        registro[108] = getVal(colMap.sac_temporalidadMetas);       // DE
       }
-      // Si es 'DESCONOCIDO', las columnas 8-112 quedan vacías (fill(''))
+      // Si es 'DESCONOCIDO', las columnas específicas de programa quedan vacías (fill(''))
 
-      // === SECCIÓN 3: GÉNERO (DJ-DV) === índices 113-125
-      registro[113] = getVal(colMap.genero_comentarioPrevio);         // DJ
-      registro[114] = getVal(colMap.genero_gruposMixtos);             // DK
-      registro[115] = getVal(colMap.genero_comentarioMixtos);         // DL
-      registro[116] = getVal(colMap.genero_gruposDiversos);           // DM
-      registro[117] = getVal(colMap.genero_comentarioDiversos);       // DN
-      registro[118] = getVal(colMap.genero_conflictoGrupos);          // DO
-      registro[119] = getVal(colMap.genero_comentarioConflictoGrupos); // DP
-      registro[120] = getVal(colMap.genero_conflictoHorarios);        // DQ
-      registro[121] = getVal(colMap.genero_comentarioConflictoHorarios); // DR
-      registro[122] = getVal(colMap.genero_grupoMujeres);             // DS
-      registro[123] = getVal(colMap.genero_igualdadHM);               // DT
-      registro[124] = getVal(colMap.genero_familiaresCreamos);        // DU
-      registro[125] = getVal(colMap.genero_nombresFamiliares);        // DV
+      // === SECCIÓN 3: GÉNERO (DF-DR) === índices 109-121
+      registro[109] = getVal(colMap.genero_comentarioPrevio);         // DF
+      registro[110] = getVal(colMap.genero_gruposMixtos);             // DG
+      registro[111] = getVal(colMap.genero_comentarioMixtos);         // DH
+      registro[112] = getVal(colMap.genero_gruposDiversos);           // DI
+      registro[113] = getVal(colMap.genero_comentarioDiversos);       // DJ
+      registro[114] = getVal(colMap.genero_conflictoGrupos);          // DK
+      registro[115] = getVal(colMap.genero_comentarioConflictoGrupos); // DL
+      registro[116] = getVal(colMap.genero_conflictoHorarios);        // DM
+      registro[117] = getVal(colMap.genero_comentarioConflictoHorarios); // DN
+      registro[118] = getVal(colMap.genero_grupoMujeres);             // DO
+      registro[119] = getVal(colMap.genero_igualdadHM);               // DP
+      registro[120] = getVal(colMap.genero_familiaresCreamos);        // DQ
+      registro[121] = getVal(colMap.genero_nombresFamiliares);        // DR
 
-      // === NOTAS Y METADATOS KOBO (DW-EH) === índices 126-137
-      registro[126] = getVal(colMap.notasEntrevistador);     // DW
-      registro[127] = getVal(colMap.koboId);                 // DX
-      registro[128] = getVal(colMap.koboUuid);               // DY
-      registro[129] = getVal(colMap.koboSubmissionTime);     // DZ
-      registro[130] = getVal(colMap.koboValidationStatus);   // EA
-      registro[131] = getVal(colMap.koboNotes);              // EB
-      registro[132] = getVal(colMap.koboStatus);             // EC
-      registro[133] = getVal(colMap.koboSubmittedBy);        // ED
-      registro[134] = getVal(colMap.koboVersion);            // EE
-      registro[135] = getVal(colMap.koboTags);               // EF
-      registro[136] = getVal(colMap.koboRootUuid);           // EG
-      registro[137] = getVal(colMap.koboIndex);              // EH
+      // === NOTAS Y METADATOS KOBO (DS-ED) === índices 122-133
+      registro[122] = getVal(colMap.notasEntrevistador);     // DS
+      registro[123] = getVal(colMap.koboId);                 // DT
+      registro[124] = getVal(colMap.koboUuid);               // DU
+      registro[125] = getVal(colMap.koboSubmissionTime);     // DV
+      registro[126] = getVal(colMap.koboValidationStatus);   // DW
+      registro[127] = getVal(colMap.koboNotes);              // DX
+      registro[128] = getVal(colMap.koboStatus);             // DY
+      registro[129] = getVal(colMap.koboSubmittedBy);        // DZ
+      registro[130] = getVal(colMap.koboVersion);            // EA
+      registro[131] = getVal(colMap.koboTags);               // EB
+      registro[132] = getVal(colMap.koboRootUuid);           // EC
+      registro[133] = getVal(colMap.koboIndex);              // ED
 
       // Usar obtenerPrimeraFilaVacia para prevenir sobrescrituras
       const nuevaFila = obtenerPrimeraFilaVacia(detalleSheet, 'B');
