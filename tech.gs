@@ -230,10 +230,17 @@ function setupMenuTech() {
         .addItem('🔗 URL Registros Kobo', 'configurarKoboURL')
         .addItem('🔗 URL Entrevistas Kobo', 'configurarKoboEntrevistasURL')
         .addSeparator()
-        .addItem('📄 Instalar Hoja Detalle Entrevistas', 'instalarHojaDetalleEntrevistas')
-        .addItem('📝 Importar Entrevistas (Detalle)', 'importarEntrevistasDesdeKobo')
-        .addItem('📊 Ver Estado Sincronización', 'mostrarEstadoSincronizacionEntrevistasTech')
-        .addItem('🔄 Resetear Sincronización (Re-importar Todo)', 'resetearSincronizacionEntrevistasTech')
+        .addSubMenu(ui.createMenu('📝 Detalle de Entrevistas')
+          .addItem('🚀 Configurar Sistema Completo (TODO EN UNO)', 'configurarSistemaEntrevistasCompleto')
+          .addSeparator()
+          .addItem('📄 Crear Hoja Detalle Entrevistas', 'instalarHojaDetalleEntrevistas')
+          .addItem('📥 Importar Datos desde Kobo', 'importarEntrevistasDesdeKobo')
+          .addSeparator()
+          .addItem('⚙️ Activar Actualización Automática', 'configurarActualizacionAutomaticaEntrevistas')
+          .addItem('🛑 Desactivar Actualización Automática', 'desactivarActualizacionAutomaticaEntrevistas')
+          .addSeparator()
+          .addItem('📊 Ver Estado Sincronización', 'mostrarEstadoSincronizacionEntrevistasTech')
+          .addItem('🔄 Resetear Sincronización (Re-importar Todo)', 'resetearSincronizacionEntrevistasTech'))
         .addSeparator()
         .addItem('📧 Configurar Email General', 'configurarEmail')
         .addItem('📧 Configurar Email Eva', 'configurarEmailEva')
@@ -10696,6 +10703,166 @@ function mostrarEstadoSincronizacionEntrevistasTech() {
       'La próxima sincronización traerá TODOS los registros.';
 
   ui.alert('📊 Estado de Sincronización de Entrevistas', mensaje, ui.ButtonSet.OK);
+}
+
+/**
+ * =====================================================================
+ * IMPORTACIÓN AUTOMÁTICA COMPLETA DE DETALLE DE ENTREVISTAS
+ * =====================================================================
+ * Esta función configura TODO el sistema de entrevistas detalladas:
+ * 1. Crea la hoja "Detalle Entrevistas" si no existe
+ * 2. Importa todos los datos desde KoboToolbox
+ * 3. Configura actualización automática cada hora
+ */
+function configurarSistemaEntrevistasCompleto() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Paso 1: Verificar/Crear hoja de Detalle Entrevistas
+    ui.alert(
+      '🚀 Configuración del Sistema de Entrevistas',
+      'Este proceso:\n\n' +
+      '1️⃣ Creará la hoja "Detalle Entrevistas" (si no existe)\n' +
+      '2️⃣ Importará todos los datos desde KoboToolbox\n' +
+      '3️⃣ Configurará actualización automática cada hora\n\n' +
+      '¿Desea continuar?',
+      ui.ButtonSet.OK_CANCEL
+    ) === ui.Button.CANCEL ? null : (() => {
+
+      ss.toast('📋 Paso 1/3: Verificando hoja...', 'Configurando', 3);
+
+      // Crear hoja si no existe
+      if (!ss.getSheetByName('Detalle Entrevistas')) {
+        crearHojaDetalleEntrevistasUnificada();
+        ss.toast('✅ Hoja "Detalle Entrevistas" creada con 134 columnas', 'Éxito', 5);
+      } else {
+        ss.toast('✅ Hoja "Detalle Entrevistas" ya existe', 'OK', 3);
+      }
+
+      Utilities.sleep(2000);
+
+      // Paso 2: Importar datos desde Kobo
+      ss.toast('📥 Paso 2/3: Importando datos desde KoboToolbox...', 'Importando', 5);
+      importarEntrevistasDesdeKobo();
+
+      Utilities.sleep(2000);
+
+      // Paso 3: Configurar trigger automático
+      ss.toast('⚙️ Paso 3/3: Configurando actualización automática...', 'Configurando', 3);
+
+      // Eliminar triggers anteriores de entrevistas
+      const triggers = ScriptApp.getProjectTriggers();
+      triggers.forEach(t => {
+        if (t.getHandlerFunction() === 'importarEntrevistasDesdeKobo') {
+          ScriptApp.deleteTrigger(t);
+        }
+      });
+
+      // Crear nuevo trigger cada hora
+      ScriptApp.newTrigger('importarEntrevistasDesdeKobo')
+        .timeBased()
+        .everyHours(1)
+        .create();
+
+      // Mensaje final
+      ui.alert(
+        '✅ Sistema Configurado Correctamente',
+        '🎉 El sistema de Detalle de Entrevistas está listo:\n\n' +
+        '✅ Hoja creada con todas las secciones:\n' +
+        '   • Datos Personales\n' +
+        '   • Alimentos y Bebidas (Preguntas + Empleabilidad)\n' +
+        '   • Tecnología (Preguntas + Empleabilidad)\n' +
+        '   • Servicio al Cliente (Preguntas + Empleabilidad)\n' +
+        '   • Género\n' +
+        '   • Metadatos Kobo\n\n' +
+        '✅ Datos importados desde KoboToolbox\n\n' +
+        '✅ Actualización automática configurada (cada hora)\n\n' +
+        '💡 Los datos se sincronizarán automáticamente.\n' +
+        '   Solo se importarán registros NUEVOS (sincronización incremental).',
+        ui.ButtonSet.OK
+      );
+
+      Logger.log('✅ Sistema de Detalle de Entrevistas configurado completamente');
+
+    })();
+
+  } catch (error) {
+    Logger.log('❌ Error en configuración: ' + error.message);
+    ui.alert('❌ Error', 'Ocurrió un error: ' + error.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Configura SOLO el trigger automático para entrevistas (sin importar)
+ */
+function configurarActualizacionAutomaticaEntrevistas() {
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    // Eliminar triggers anteriores
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(t => {
+      if (t.getHandlerFunction() === 'importarEntrevistasDesdeKobo') {
+        ScriptApp.deleteTrigger(t);
+      }
+    });
+
+    // Crear nuevo trigger cada hora
+    ScriptApp.newTrigger('importarEntrevistasDesdeKobo')
+      .timeBased()
+      .everyHours(1)
+      .create();
+
+    ui.alert(
+      '✅ Actualización Automática Activada',
+      'La hoja "Detalle Entrevistas" se actualizará automáticamente cada hora.\n\n' +
+      '🔄 Solo se importarán registros NUEVOS (sincronización incremental).\n\n' +
+      'Para desactivar, ve a: Extensiones > Apps Script > Activadores\n' +
+      'y elimina el trigger "importarEntrevistasDesdeKobo".',
+      ui.ButtonSet.OK
+    );
+
+    Logger.log('✅ Trigger automático de entrevistas configurado');
+
+  } catch (error) {
+    Logger.log('❌ Error: ' + error.message);
+    ui.alert('❌ Error', 'Ocurrió un error: ' + error.message, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Desactiva la actualización automática de entrevistas
+ */
+function desactivarActualizacionAutomaticaEntrevistas() {
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    let eliminados = 0;
+
+    triggers.forEach(t => {
+      if (t.getHandlerFunction() === 'importarEntrevistasDesdeKobo') {
+        ScriptApp.deleteTrigger(t);
+        eliminados++;
+      }
+    });
+
+    ui.alert(
+      '✅ Actualización Automática Desactivada',
+      `Se eliminaron ${eliminados} trigger(s).\n\n` +
+      'La hoja "Detalle Entrevistas" ya NO se actualizará automáticamente.\n\n' +
+      'Podrás importar datos manualmente desde el menú:\n' +
+      'Configuración → Importar Entrevistas (Detalle)',
+      ui.ButtonSet.OK
+    );
+
+    Logger.log(`✅ ${eliminados} trigger(s) de entrevistas eliminados`);
+
+  } catch (error) {
+    Logger.log('❌ Error: ' + error.message);
+    ui.alert('❌ Error', 'Ocurrió un error: ' + error.message, ui.ButtonSet.OK);
+  }
 }
 
 // =====================================================================
