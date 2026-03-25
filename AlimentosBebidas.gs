@@ -877,8 +877,114 @@ function crearHojaEntrevistas() {
  * - DW-EH: Metadatos Kobo (12)
  */
 function crearHojaDetalleEntrevistas() {
-  // Usar la función unificada que incluye todas las secciones (AB, TECH, SAC)
-  crearHojaDetalleEntrevistasUnificada();
+  crearHojaDetalleEntrevistasUnificadaAB();
+}
+
+/**
+ * =====================================================================
+ * ESTRUCTURA UNIFICADA PARA DETALLE DE ENTREVISTAS
+ * Incluida aquí para no depender de EntrevistasUnificado.gs
+ * =====================================================================
+ */
+function crearHojaDetalleEntrevistasUnificadaAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  if (ss.getSheetByName('Detalle Entrevistas')) return;
+
+  const sheet = ss.insertSheet('Detalle Entrevistas');
+
+  const headers = [
+    // === SECCIÓN 1: DATOS PERSONALES (A-H) === 8 columnas
+    'Fecha Entrevista', 'Creamos ID', 'Nombres y Apellidos', 'Género',
+    'Formación Previa', 'Dónde y De Qué Formación', 'Sector Interés', 'Curso Interés',
+    // === SECCIÓN 2A: ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO (I-U) === 13 columnas
+    'AB: Por Qué Interesa Curso', 'AB: Qué Llama la Atención', 'AB: Expectativa del Curso',
+    'AB: Dificultades Curso', 'AB: Áreas Vida Cambiarán', 'AB: Disponibilidad Prácticas',
+    'AB: Plan Disponibilidad', 'AB: Tramitar Papelería', 'AB: Plan Papelería',
+    'AB: Transporte', 'AB: Plan Transporte', 'AB: Firmar Documento', 'AB: Comentario Documento',
+    // === SECCIÓN 2A: ALIMENTOS Y BEBIDAS - ÁREA DE EMPLEABILIDAD (V-AQ) === 22 columnas
+    'AB: Actualmente Tiene Trabajo', 'AB: Cuéntanos Más Trabajo', 'AB: Satisfecho con Trabajo',
+    'AB: Comentario Satisfacción', 'AB: Qué Hacer Próximos Meses', 'AB: Importancia Conseguir Trabajo',
+    'AB: Te Ves Trabajando Sector', 'AB: Ayuda Económica', 'AB: Comentario Ayuda',
+    'AB: Dependientes Económicos', 'AB: Comentario Dependientes', 'AB: Responsabilidades Cuidado',
+    'AB: Comentario Cuidado', 'AB: Deudas Bancarias', 'AB: Comentario Deudas',
+    'AB: Antecedentes Penales', 'AB: Comentario Antecedentes', 'AB: Caso Legal',
+    'AB: Comentario Legal', 'AB: Dispuesto Empleabilidad', 'AB: Comentario Empleabilidad',
+    'AB: Temporalidad Metas',
+    // === SECCIÓN 2B: TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BB) === 11 columnas
+    'TECH: Por Qué Interesa Curso', 'TECH: Qué Llama la Atención', 'TECH: Expectativa del Curso',
+    'TECH: Dificultades Curso', 'TECH: Áreas Vida Cambiarán', 'TECH: Disponibilidad Curso',
+    'TECH: Plan Disponibilidad', 'TECH: Transporte', 'TECH: Plan Transporte',
+    'TECH: Firmar Documento', 'TECH: Comentario Documento',
+    // === SECCIÓN 2B: TECNOLOGÍA - ÁREA DE EMPLEABILIDAD (BC-BX) === 22 columnas
+    'TECH: Actualmente Tiene Trabajo', 'TECH: Cuéntanos Más Trabajo', 'TECH: Satisfecho con Trabajo',
+    'TECH: Comentario Satisfacción', 'TECH: Qué Hacer Próximos Meses', 'TECH: Importancia Conseguir Trabajo',
+    'TECH: Te Ves Trabajando Sector', 'TECH: Ayuda Económica', 'TECH: Comentario Ayuda',
+    'TECH: Dependientes Económicos', 'TECH: Comentario Dependientes', 'TECH: Responsabilidades Cuidado',
+    'TECH: Comentario Cuidado', 'TECH: Deudas Bancarias', 'TECH: Comentario Deudas',
+    'TECH: Antecedentes Penales', 'TECH: Comentario Antecedentes', 'TECH: Caso Legal',
+    'TECH: Comentario Legal', 'TECH: Dispuesto Empleabilidad', 'TECH: Comentario Empleabilidad',
+    'TECH: Temporalidad Metas',
+    // === SECCIÓN 2C: SERVICIO AL CLIENTE - PREGUNTAS DEL CURSO (BY-CI) === 11 columnas
+    'SAC: Por Qué Interesa Curso', 'SAC: Qué Llama la Atención', 'SAC: Expectativa del Curso',
+    'SAC: Dificultades Curso', 'SAC: Áreas Vida Cambiarán', 'SAC: Disponibilidad Curso',
+    'SAC: Plan Disponibilidad', 'SAC: Transporte', 'SAC: Plan Transporte',
+    'SAC: Firmar Documento', 'SAC: Comentario Documento',
+    // === SECCIÓN 2C: SERVICIO AL CLIENTE - ÁREA DE EMPLEABILIDAD (CJ-DE) === 22 columnas
+    'SAC: Actualmente Tiene Trabajo', 'SAC: Cuéntanos Más Trabajo', 'SAC: Satisfecho con Trabajo',
+    'SAC: Comentario Satisfacción', 'SAC: Qué Hacer Próximos Meses', 'SAC: Importancia Conseguir Trabajo',
+    'SAC: Te Ves Trabajando Sector', 'SAC: Ayuda Económica', 'SAC: Comentario Ayuda',
+    'SAC: Dependientes Económicos', 'SAC: Comentario Dependientes', 'SAC: Responsabilidades Cuidado',
+    'SAC: Comentario Cuidado', 'SAC: Deudas Bancarias', 'SAC: Comentario Deudas',
+    'SAC: Antecedentes Penales', 'SAC: Comentario Antecedentes', 'SAC: Caso Legal',
+    'SAC: Comentario Legal', 'SAC: Dispuesto Empleabilidad', 'SAC: Comentario Empleabilidad',
+    'SAC: Temporalidad Metas',
+    // === SECCIÓN 3: GÉNERO (DF-DR) === 13 columnas
+    'Género: Comentario Previo', 'Género: Grupos Mixtos', 'Género: Comentario Mixtos',
+    'Género: Grupos Diversos', 'Género: Comentario Diversos', 'Género: Conflicto en Grupos',
+    'Género: Comentario Conflicto Grupos', 'Género: Conflicto Horarios',
+    'Género: Comentario Conflicto Horarios', 'Género: Grupo Mayoritariamente Mujeres',
+    'Género: Igualdad H/M', 'Género: Familiares Creamos', 'Género: Nombres Familiares',
+    // === NOTAS Y METADATOS KOBO (DS-ED) === 12 columnas
+    'Notas del Entrevistador', '_id', '_uuid', '_submission_time', '_validation_status',
+    '_notes', '_status', '_submitted_by', '__version__', '_tags', 'meta/rootUuid', '_index'
+  ];
+
+  const currentCols = sheet.getMaxColumns();
+  if (headers.length > currentCols) {
+    sheet.insertColumnsAfter(currentCols, headers.length - currentCols);
+  }
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setFontColor('white').setFontWeight('bold')
+    .setHorizontalAlignment('center').setWrap(true);
+
+  sheet.setFrozenRows(1);
+
+  const anchos = [
+    100, 100, 200, 80, 80, 150, 120, 150,
+    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200, 80, 200,
+    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
+    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200,
+    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
+    200, 200, 200, 200, 200, 80, 200, 80, 200, 80, 200,
+    80, 200, 80, 200, 200, 150, 200, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 150, 80, 200, 200,
+    200, 80, 150, 80, 150, 80, 200, 80, 200, 150, 200, 80, 200,
+    250, 100, 150, 120, 100, 120, 100, 100, 80, 120, 150, 80
+  ];
+  anchos.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+
+  sheet.getRange('A1:H1').setBackground('#1565c0');
+  sheet.getRange('I1:U1').setBackground('#e65100');
+  sheet.getRange('V1:AQ1').setBackground('#bf360c');
+  sheet.getRange('AR1:BB1').setBackground('#283593');
+  sheet.getRange('BC1:BX1').setBackground('#1a237e');
+  sheet.getRange('BY1:CI1').setBackground('#1b5e20');
+  sheet.getRange('CJ1:DE1').setBackground('#33691e');
+  sheet.getRange('DF1:DR1').setBackground('#880e4f');
+  sheet.getRange('DS1:ED1').setBackground('#455a64');
+
+  Logger.log('✅ Hoja "Detalle Entrevistas" creada con éxito - 134 columnas');
 }
 
 /**
@@ -10606,7 +10712,7 @@ function configurarSistemaEntrevistasCompleto() {
 
       // Crear hoja si no existe
       if (!ss.getSheetByName('Detalle Entrevistas')) {
-        crearHojaDetalleEntrevistasUnificada();
+        crearHojaDetalleEntrevistasUnificadaAB();
         ss.toast('✅ Hoja "Detalle Entrevistas" creada con 134 columnas', 'Éxito', 5);
       } else {
         ss.toast('✅ Hoja "Detalle Entrevistas" ya existe', 'OK', 3);
