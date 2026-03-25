@@ -4826,6 +4826,45 @@ function importarEntrevistasDesdeKobo() {
     Logger.log(`   Nombre: ${idx_nombre >= 0 ? 'Columna ' + idx_nombre : 'NO ENCONTRADA ❌'}`);
     Logger.log(`   Curso Interés: ${idx_cursoInteres >= 0 ? 'Columna ' + idx_cursoInteres : 'NO ENCONTRADA ❌'}`);
 
+    // === ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO ===
+    const idx_ab_q1 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/1. ¿Por qué', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/1. ¿Por qué']);
+    const idx_ab_q2 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/2. ¿Qué te llama', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/2. ¿Qué te llama']);
+    const idx_ab_q3 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/3. ¿Cuál es tu expectativa', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/3. ¿Cuál es tu expectativa']);
+    const idx_ab_q4 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/4. Al tomar', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/4. Al tomar']);
+    const idx_ab_q5 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/5. ¿Cuáles son las principales áreas', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/5. ¿Cuáles son las principales áreas']);
+    const idx_ab_q6 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/6. ¿Cuentas con disponibilidad de tiempo para realizar prácticas', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/6. ¿Cuentas con disponibilidad de tiempo para realizar prácticas']);
+    const idx_ab_planPracticas = sigCol(idx_ab_q6);
+    const idx_ab_q7 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/7. ¿Estás dispuesta', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/7. ¿Estás dispuesta']);
+    const idx_ab_planPapeleria = sigCol(idx_ab_q7);
+    const idx_ab_q8 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/8. ¿Cuentas con transporte', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/8. ¿Cuentas con transporte']);
+    const idx_ab_planTransporte = sigCol(idx_ab_q8);
+    const idx_ab_q9 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/9. ¿Estarías dispuesta', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/9. ¿Estarías dispuesta']);
+    const idx_ab_comentarioDoc = sigCol(idx_ab_q9);
+
+    // === ALIMENTOS Y BEBIDAS - EMPLEABILIDAD ===
+    const idx_ab_e1 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/1. ¿Actualmente tienes trabajo', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/1. ¿Actualmente tienes trabajo']);
+    const idx_ab_cuentanosTrabajo = sigCol(idx_ab_e1);
+    const idx_ab_e2 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/2. ¿Estás satisfecha', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/2. ¿Estás satisfecha']);
+    const idx_ab_comentarioSatisfaccion = sigCol(idx_ab_e2);
+    const idx_ab_e3 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/3. ¿Qué te gustaría hacer en los próximos meses', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/3. ¿Qué te gustaría hacer en los próximos meses']);
+    const idx_ab_e4 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/4. ¿Qué tan importante es para ti conseguir trabajo', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/4. ¿Qué tan importante es para ti conseguir trabajo']);
+    const idx_ab_e5 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/5. ¿Te ves trabajando en el sector', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/5. ¿Te ves trabajando en el sector']);
+    const idx_ab_e6 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/6. ¿Alguien te ayuda económicamente', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/6. ¿Alguien te ayuda económicamente']);
+    const idx_ab_comentarioAyuda = sigCol(idx_ab_e6);
+    const idx_ab_e7 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/7. ¿Alguien depende de ti económicamente', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/7. ¿Alguien depende de ti económicamente']);
+    const idx_ab_comentarioDependientes = sigCol(idx_ab_e7);
+    const idx_ab_e8 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/8. ¿Tienes responsabilidades de cuidado', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/8. ¿Tienes responsabilidades de cuidado']);
+    const idx_ab_comentarioCuidado = sigCol(idx_ab_e8);
+    const idx_ab_e9 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/9. ¿Tienes deudas bancarias', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/9. ¿Tienes deudas bancarias']);
+    const idx_ab_comentarioDeudas = sigCol(idx_ab_e9);
+    const idx_ab_e10 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/10. ¿Tienes manchados', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/10. ¿Tienes manchados']);
+    const idx_ab_comentarioAntecedentes = sigCol(idx_ab_e10);
+    const idx_ab_e11 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/11. ¿Tienes algún caso', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/11. ¿Tienes algún caso']);
+    const idx_ab_comentarioLegal = sigCol(idx_ab_e11);
+    const idx_ab_e12 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/12. ¿Estás dispuesto a continuar', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/12. ¿Estás dispuesto a continuar']);
+    const idx_ab_comentarioEmpleabilidad = sigCol(idx_ab_e12);
+    const idx_ab_e13 = buscarIndiceColumna(headers, ['ALIMENTOS Y BEBIDAS/13. ¿En qué temporalidad', '🍎 SECCIÓN 2: ALIMENTOS Y BEBIDAS/13. ¿En qué temporalidad']);
+
     // === TECNOLOGÍA - PREGUNTAS DEL CURSO ===
     // TECNOLOGÍA section has 8 questions (no Q6 papelería like AB)
     const idx_tech_q1 = buscarIndiceColumna(headers, ['TECNOLOGÍA/1. ¿Por qué']);
@@ -4925,6 +4964,45 @@ function importarEntrevistasDesdeKobo() {
       dondeFormacion: idx_dondeFormacion,
       sectorInteres: idx_sectorInteres,
       cursoInteres: idx_cursoInteres,
+
+      // === ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO ===
+      ab_porQueInteres: idx_ab_q1,
+      ab_queLlamaAtencion: idx_ab_q2,
+      ab_expectativaCurso: idx_ab_q3,
+      ab_dificultadesCurso: idx_ab_q4,
+      ab_areasVida: idx_ab_q5,
+      ab_disponibilidadPracticas: idx_ab_q6,
+      ab_planPracticas: idx_ab_planPracticas,
+      ab_tramitarPapeleria: idx_ab_q7,
+      ab_planPapeleria: idx_ab_planPapeleria,
+      ab_transporte: idx_ab_q8,
+      ab_planTransporte: idx_ab_planTransporte,
+      ab_firmarDocumento: idx_ab_q9,
+      ab_comentarioDoc: idx_ab_comentarioDoc,
+
+      // === ALIMENTOS Y BEBIDAS - EMPLEABILIDAD ===
+      ab_tieneTrabajoActual: idx_ab_e1,
+      ab_cuentanosTrabajo: idx_ab_cuentanosTrabajo,
+      ab_satisfechoTrabajo: idx_ab_e2,
+      ab_comentarioSatisfaccion: idx_ab_comentarioSatisfaccion,
+      ab_proximosMeses: idx_ab_e3,
+      ab_importanciaTrabajo: idx_ab_e4,
+      ab_teVesSector: idx_ab_e5,
+      ab_ayudaEconomica: idx_ab_e6,
+      ab_comentarioAyuda: idx_ab_comentarioAyuda,
+      ab_dependientes: idx_ab_e7,
+      ab_comentarioDependientes: idx_ab_comentarioDependientes,
+      ab_responsabilidadesCuidado: idx_ab_e8,
+      ab_comentarioCuidado: idx_ab_comentarioCuidado,
+      ab_deudasBancarias: idx_ab_e9,
+      ab_comentarioDeudas: idx_ab_comentarioDeudas,
+      ab_antecedentes: idx_ab_e10,
+      ab_comentarioAntecedentes: idx_ab_comentarioAntecedentes,
+      ab_casoLegal: idx_ab_e11,
+      ab_comentarioLegal: idx_ab_comentarioLegal,
+      ab_dispuestoEmpleabilidad: idx_ab_e12,
+      ab_comentarioEmpleabilidad: idx_ab_comentarioEmpleabilidad,
+      ab_temporalidadMetas: idx_ab_e13,
 
       // === TECNOLOGÍA - PREGUNTAS DEL CURSO ===
       tech_porQueInteres: idx_tech_q1,
@@ -5076,19 +5154,20 @@ function importarEntrevistasDesdeKobo() {
       // Función helper para obtener valor seguro
       const getVal = (idx) => idx >= 0 && row[idx] ? row[idx].toString().trim() : '';
 
-      // Filtro: solo procesar filas de Tecnología o Servicio al Cliente
+      // Filtro: procesar Alimentos y Bebidas, Tecnología y Servicio al Cliente
       const cursoParsona = colMap.cursoInteres >= 0 ? getVal(colMap.cursoInteres) : '';
       const cursoLower = cursoParsona.toLowerCase();
+      const esAB = cursoLower.includes('alimentos') || cursoLower.includes('bebidas');
       const esTech = cursoLower.includes('tecnolog');
       const esSAC = cursoLower.includes('servicio');
 
-      if (!esTech && !esSAC) {
+      if (!esTech && !esSAC && !esAB) {
         filtradosPorCurso++;
-        Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" - NO ES TECH/SAC - FILTRADO`);
+        Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" - SECTOR NO RECONOCIDO - FILTRADO`);
         continue;
       }
 
-      const tipoSector = esTech ? 'TECNOLOGÍA' : 'SERVICIO AL CLIENTE';
+      const tipoSector = esAB ? 'ALIMENTOS Y BEBIDAS' : (esTech ? 'TECNOLOGÍA' : 'SERVICIO AL CLIENTE');
       Logger.log(`✓ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" (${tipoSector}) - PROCESANDO...`);
 
       // Obtener fecha de entrevista desde Kobo o usar fecha actual como fallback
@@ -5133,9 +5212,47 @@ function importarEntrevistasDesdeKobo() {
       registro[7] = getVal(colMap.cursoInteres);       // H: Curso Interés
 
       // === LLENAR SOLO LA SECCIÓN CORRESPONDIENTE AL TIPO DE CURSO ===
-      // Dejar AB vacío (índices 8-42) - se llena desde AlimentosBebidas.gs
 
-      if (esTech) {
+      if (esAB) {
+        // === SECCIÓN 2A: ALIMENTOS Y BEBIDAS - PREGUNTAS DEL CURSO (I-U) === índices 8-20
+        registro[8]  = getVal(colMap.ab_porQueInteres);            // I
+        registro[9]  = getVal(colMap.ab_queLlamaAtencion);         // J
+        registro[10] = getVal(colMap.ab_expectativaCurso);         // K
+        registro[11] = getVal(colMap.ab_dificultadesCurso);        // L
+        registro[12] = getVal(colMap.ab_areasVida);                // M
+        registro[13] = getVal(colMap.ab_disponibilidadPracticas);  // N
+        registro[14] = getVal(colMap.ab_planPracticas);            // O
+        registro[15] = getVal(colMap.ab_tramitarPapeleria);        // P
+        registro[16] = getVal(colMap.ab_planPapeleria);            // Q
+        registro[17] = getVal(colMap.ab_transporte);               // R
+        registro[18] = getVal(colMap.ab_planTransporte);           // S
+        registro[19] = getVal(colMap.ab_firmarDocumento);          // T
+        registro[20] = getVal(colMap.ab_comentarioDoc);            // U
+
+        // === SECCIÓN 2A: ALIMENTOS Y BEBIDAS - EMPLEABILIDAD (V-AQ) === índices 21-42
+        registro[21] = getVal(colMap.ab_tieneTrabajoActual);       // V
+        registro[22] = getVal(colMap.ab_cuentanosTrabajo);         // W
+        registro[23] = getVal(colMap.ab_satisfechoTrabajo);        // X
+        registro[24] = getVal(colMap.ab_comentarioSatisfaccion);   // Y
+        registro[25] = getVal(colMap.ab_proximosMeses);            // Z
+        registro[26] = getVal(colMap.ab_importanciaTrabajo);       // AA
+        registro[27] = getVal(colMap.ab_teVesSector);              // AB
+        registro[28] = getVal(colMap.ab_ayudaEconomica);           // AC
+        registro[29] = getVal(colMap.ab_comentarioAyuda);          // AD
+        registro[30] = getVal(colMap.ab_dependientes);             // AE
+        registro[31] = getVal(colMap.ab_comentarioDependientes);   // AF
+        registro[32] = getVal(colMap.ab_responsabilidadesCuidado); // AG
+        registro[33] = getVal(colMap.ab_comentarioCuidado);        // AH
+        registro[34] = getVal(colMap.ab_deudasBancarias);          // AI
+        registro[35] = getVal(colMap.ab_comentarioDeudas);         // AJ
+        registro[36] = getVal(colMap.ab_antecedentes);             // AK
+        registro[37] = getVal(colMap.ab_comentarioAntecedentes);   // AL
+        registro[38] = getVal(colMap.ab_casoLegal);                // AM
+        registro[39] = getVal(colMap.ab_comentarioLegal);          // AN
+        registro[40] = getVal(colMap.ab_dispuestoEmpleabilidad);   // AO
+        registro[41] = getVal(colMap.ab_comentarioEmpleabilidad);  // AP
+        registro[42] = getVal(colMap.ab_temporalidadMetas);        // AQ
+      } else if (esTech) {
         // === TECNOLOGÍA - PREGUNTAS DEL CURSO (AR-BB) === índices 43-53
         registro[43] = getVal(colMap.tech_porQueInteres);        // AR
         registro[44] = getVal(colMap.tech_queLlamaAtencion);     // AS

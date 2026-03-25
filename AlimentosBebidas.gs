@@ -4902,14 +4902,12 @@ function importarEntrevistasDesdeKobo() {
     const idx_tec_q3 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/3. ¿Cuál es tu expectativa', 'TECNOLOGÍA/3. ¿Cuál es tu expectativa']);
     const idx_tec_q4 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/4. Al tomar', 'TECNOLOGÍA/4. Al tomar']);
     const idx_tec_q5 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/5. ¿Cuáles son las principales áreas', 'TECNOLOGÍA/5. ¿Cuáles son las principales áreas']);
-    const idx_tec_q6 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/6. ¿Cuentas con disponibilidad de tiempo para realizar prácticas', 'TECNOLOGÍA/6. ¿Cuentas con disponibilidad de tiempo para realizar prácticas']);
-    const idx_tec_planPracticas = sigCol(idx_tec_q6);
-    const idx_tec_q7 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/7. ¿Estás dispuesta', 'TECNOLOGÍA/7. ¿Estás dispuesta']);
-    const idx_tec_planPapeleria = sigCol(idx_tec_q7);
-    const idx_tec_q8 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/8. ¿Cuentas con transporte', 'TECNOLOGÍA/8. ¿Cuentas con transporte']);
-    const idx_tec_planTransporte = sigCol(idx_tec_q8);
-    const idx_tec_q9 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/9. ¿Estarías dispuesta', 'TECNOLOGÍA/9. ¿Estarías dispuesta']);
-    const idx_tec_comentarioDoc = sigCol(idx_tec_q9);
+    const idx_tec_q6 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/6. ¿Cuentas con disponibilidad', 'TECNOLOGÍA/6. ¿Cuentas con disponibilidad']);
+    const idx_tec_planDisponibilidad = sigCol(idx_tec_q6);
+    const idx_tec_q7 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/7. ¿Cuentas con transporte', 'TECNOLOGÍA/7. ¿Cuentas con transporte']);
+    const idx_tec_planTransporte = sigCol(idx_tec_q7);
+    const idx_tec_q8 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/8. ¿Estarías dispuesta', 'TECNOLOGÍA/8. ¿Estarías dispuesta']);
+    const idx_tec_comentarioDoc = sigCol(idx_tec_q8);
 
     // === TECNOLOGÍA - EMPLEABILIDAD ===
     const idx_tec_e1 = buscarIndiceColumna(headers, ['💻 SECCIÓN 2: TECNOLOGÍA/1. ¿Actualmente tienes trabajo', 'TECNOLOGÍA/1. ¿Actualmente tienes trabajo']);
@@ -4941,14 +4939,12 @@ function importarEntrevistasDesdeKobo() {
     const idx_sac_q3 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/3. ¿Cuál es tu expectativa', 'SERVICIO AL CLIENTE/3. ¿Cuál es tu expectativa']);
     const idx_sac_q4 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/4. Al tomar', 'SERVICIO AL CLIENTE/4. Al tomar']);
     const idx_sac_q5 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/5. ¿Cuáles son las principales áreas', 'SERVICIO AL CLIENTE/5. ¿Cuáles son las principales áreas']);
-    const idx_sac_q6 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/6. ¿Cuentas con disponibilidad de tiempo para realizar prácticas', 'SERVICIO AL CLIENTE/6. ¿Cuentas con disponibilidad de tiempo para realizar prácticas']);
-    const idx_sac_planPracticas = sigCol(idx_sac_q6);
-    const idx_sac_q7 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/7. ¿Estás dispuesta', 'SERVICIO AL CLIENTE/7. ¿Estás dispuesta']);
-    const idx_sac_planPapeleria = sigCol(idx_sac_q7);
-    const idx_sac_q8 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/8. ¿Cuentas con transporte', 'SERVICIO AL CLIENTE/8. ¿Cuentas con transporte']);
-    const idx_sac_planTransporte = sigCol(idx_sac_q8);
-    const idx_sac_q9 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/9. ¿Estarías dispuesta', 'SERVICIO AL CLIENTE/9. ¿Estarías dispuesta']);
-    const idx_sac_comentarioDoc = sigCol(idx_sac_q9);
+    const idx_sac_q6 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/6. ¿Cuentas con disponibilidad', 'SERVICIO AL CLIENTE/6. ¿Cuentas con disponibilidad']);
+    const idx_sac_planDisponibilidad = sigCol(idx_sac_q6);
+    const idx_sac_q7 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/7. ¿Cuentas con transporte', 'SERVICIO AL CLIENTE/7. ¿Cuentas con transporte']);
+    const idx_sac_planTransporte = sigCol(idx_sac_q7);
+    const idx_sac_q8 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/8. ¿Estarías dispuesta', 'SERVICIO AL CLIENTE/8. ¿Estarías dispuesta']);
+    const idx_sac_comentarioDoc = sigCol(idx_sac_q8);
 
     // === SERVICIO AL CLIENTE - EMPLEABILIDAD ===
     const idx_sac_e1 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/1. ¿Actualmente tienes trabajo', 'SERVICIO AL CLIENTE/1. ¿Actualmente tienes trabajo']);
@@ -5044,13 +5040,11 @@ function importarEntrevistasDesdeKobo() {
       tec_expectativaCurso: idx_tec_q3,
       tec_dificultadesCurso: idx_tec_q4,
       tec_areasVida: idx_tec_q5,
-      tec_disponibilidadPracticas: idx_tec_q6,
-      tec_planPracticas: idx_tec_planPracticas,
-      tec_tramitarPapeleria: idx_tec_q7,
-      tec_planPapeleria: idx_tec_planPapeleria,
-      tec_transporte: idx_tec_q8,
+      tec_disponibilidadCurso: idx_tec_q6,
+      tec_planDisponibilidad: idx_tec_planDisponibilidad,
+      tec_transporte: idx_tec_q7,
       tec_planTransporte: idx_tec_planTransporte,
-      tec_firmarDocumento: idx_tec_q9,
+      tec_firmarDocumento: idx_tec_q8,
       tec_comentarioDoc: idx_tec_comentarioDoc,
 
       // === TECNOLOGÍA - EMPLEABILIDAD ===
@@ -5083,13 +5077,11 @@ function importarEntrevistasDesdeKobo() {
       sac_expectativaCurso: idx_sac_q3,
       sac_dificultadesCurso: idx_sac_q4,
       sac_areasVida: idx_sac_q5,
-      sac_disponibilidadPracticas: idx_sac_q6,
-      sac_planPracticas: idx_sac_planPracticas,
-      sac_tramitarPapeleria: idx_sac_q7,
-      sac_planPapeleria: idx_sac_planPapeleria,
-      sac_transporte: idx_sac_q8,
+      sac_disponibilidadCurso: idx_sac_q6,
+      sac_planDisponibilidad: idx_sac_planDisponibilidad,
+      sac_transporte: idx_sac_q7,
       sac_planTransporte: idx_sac_planTransporte,
-      sac_firmarDocumento: idx_sac_q9,
+      sac_firmarDocumento: idx_sac_q8,
       sac_comentarioDoc: idx_sac_comentarioDoc,
 
       // === SERVICIO AL CLIENTE - EMPLEABILIDAD ===
@@ -5307,8 +5299,8 @@ function importarEntrevistasDesdeKobo() {
         registro[45] = getVal(colMap.tec_expectativaCurso);        // AT
         registro[46] = getVal(colMap.tec_dificultadesCurso);       // AU
         registro[47] = getVal(colMap.tec_areasVida);               // AV
-        registro[48] = getVal(colMap.tec_disponibilidadPracticas); // AW
-        registro[49] = getVal(colMap.tec_planPracticas);           // AX
+        registro[48] = getVal(colMap.tec_disponibilidadCurso);    // AW
+        registro[49] = getVal(colMap.tec_planDisponibilidad);      // AX
         registro[50] = getVal(colMap.tec_transporte);              // AY
         registro[51] = getVal(colMap.tec_planTransporte);          // AZ
         registro[52] = getVal(colMap.tec_firmarDocumento);         // BA
@@ -5345,8 +5337,8 @@ function importarEntrevistasDesdeKobo() {
         registro[78] = getVal(colMap.sac_expectativaCurso);        // CA
         registro[79] = getVal(colMap.sac_dificultadesCurso);       // CB
         registro[80] = getVal(colMap.sac_areasVida);               // CC
-        registro[81] = getVal(colMap.sac_disponibilidadPracticas); // CD
-        registro[82] = getVal(colMap.sac_planPracticas);           // CE
+        registro[81] = getVal(colMap.sac_disponibilidadCurso);    // CD
+        registro[82] = getVal(colMap.sac_planDisponibilidad);      // CE
         registro[83] = getVal(colMap.sac_transporte);              // CF
         registro[84] = getVal(colMap.sac_planTransporte);          // CG
         registro[85] = getVal(colMap.sac_firmarDocumento);         // CH
