@@ -5396,7 +5396,15 @@ function importarEntrevistasDesdeKobo() {
         if (tieneDataSAC)  { esSAC  = true; Logger.log(`⚡ Fila ${i+1}: sector detectado por datos: SERVICIO AL CLIENTE (curso="${cursoParsona}")`); }
       }
 
-      if (!esTech && !esSAC && !esAB) {
+      // ⚠️ TECH.GS solo procesa TECNOLOGÍA y SERVICIO AL CLIENTE
+      // Alimentos y Bebidas corresponde al otro spreadsheet (AlimentosBebidas.gs)
+      if (esAB && !esTech && !esSAC) {
+        filtradosPorCurso++;
+        Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" es ALIMENTOS Y BEBIDAS → omitido (corresponde al otro sistema)`);
+        continue;
+      }
+
+      if (!esTech && !esSAC) {
         filtradosPorCurso++;
         Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoParsona}" - SECTOR NO RECONOCIDO - FILTRADO`);
         continue;

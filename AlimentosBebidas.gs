@@ -5354,6 +5354,14 @@ function importarEntrevistasDesdeKobo() {
         Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoSeleccionado}" - PROGRAMA NO IDENTIFICADO`);
       }
 
+      // ⚠️ ALIMENTOSBEBIDAS.GS solo procesa ALIMENTOS Y BEBIDAS
+      // Tecnología y Servicio al Cliente corresponden al otro spreadsheet (tech.gs)
+      if (!esAlimentos) {
+        filtradosPorCurso++;
+        Logger.log(`⚠️ Fila ${i + 1}: Creamos ID ${creamosId}, Curso "${cursoSeleccionado}" es "${tipoPrograma}" → omitido (corresponde al otro sistema)`);
+        continue;
+      }
+
       Logger.log(`✓ Fila ${i + 1}: Creamos ID ${creamosId}, Programa "${tipoPrograma}", Curso "${cursoSeleccionado}" - PROCESANDO...`);
 
       // Obtener fecha de entrevista desde Kobo o usar fecha actual como fallback
