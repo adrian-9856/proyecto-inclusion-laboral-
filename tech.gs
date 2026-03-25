@@ -4595,9 +4595,9 @@ function calcularEdad(fechaNacimiento) {
 
 
 /**
- * DIAGNÓSTICO: Ver cómo se está parseando el CSV
+ * DIAGNÓSTICO COMPLETO: Crea una hoja temporal con toda la información del CSV
  */
-function diagnosticarCSV() {
+function diagnosticarCSVCompleto() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
@@ -4605,76 +4605,147 @@ function diagnosticarCSV() {
   const url = props.getProperty('KOBO_ENTREVISTAS_URL') || CONFIG_TECH.KOBO_ENTREVISTAS_URL;
 
   if (!url) {
-    ui.alert('URL no configurada');
+    ui.alert('⚠️ URL no configurada', 'Configure la URL de Entrevistas de KoboToolbox primero.', ui.ButtonSet.OK);
     return;
   }
 
   try {
+    ss.toast('📥 Descargando CSV desde Kobo...', 'Diagnóstico', 3);
+
     const response = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
       followRedirects: true,
-      headers: { 'Accept': 'text/csv' }
+      headers: { 'Accept': 'text/csv, application/csv, text/plain' }
     });
 
+    const responseCode = response.getResponseCode();
+    if (responseCode !== 200) {
+      ui.alert('Error HTTP', 'Código de respuesta: ' + responseCode, ui.ButtonSet.OK);
+      return;
+    }
+
     let csvData = response.getContentText('UTF-8');
+    if (!csvData || csvData.trim().length === 0) {
+      ui.alert('Error', 'No se recibieron datos del servidor', ui.ButtonSet.OK);
+      return;
+    }
 
     // Limpiar BOM
     if (csvData.charCodeAt(0) === 0xFEFF) {
       csvData = csvData.substring(1);
     }
 
-    // Mostrar primeras 3 líneas sin procesar
-    const lineas = csvData.split('\n');
-    let mensaje = '🔍 DIAGNÓSTICO DEL CSV\n\n';
-    mensaje += '📏 Total de líneas: ' + lineas.length + '\n\n';
-    mensaje += '--- PRIMERAS 3 LÍNEAS (RAW) ---\n\n';
-
-    for (let i = 0; i < Math.min(3, lineas.length); i++) {
-      mensaje += `Línea ${i + 1} (${lineas[i].length} caracteres):\n`;
-      mensaje += lineas[i].substring(0, 200) + '...\n\n';
+    // Crear o limpiar hoja de diagnóstico
+    let diagnosticoSheet = ss.getSheetByName('🔍 Diagnóstico CSV');
+    if (diagnosticoSheet) {
+      diagnosticoSheet.clear();
+    } else {
+      diagnosticoSheet = ss.insertSheet('🔍 Diagnóstico CSV');
     }
 
-    // Detectar separador
+    // Analizar separadores
+    const lineas = csvData.split('\n');
     const primeraLinea = lineas[0];
     const countComas = (primeraLinea.match(/,/g) || []).length;
     const countPuntoComa = (primeraLinea.match(/;/g) || []).length;
     const countTabs = (primeraLinea.match(/\t/g) || []).length;
 
-    mensaje += '--- CONTEO DE SEPARADORES EN LÍNEA 1 ---\n';
-    mensaje += 'Comas (,): ' + countComas + '\n';
-    mensaje += 'Punto y coma (;): ' + countPuntoComa + '\n';
-    mensaje += 'Tabs: ' + countTabs + '\n\n';
+    // Escribir información general
+    let row = 1;
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([['🔍 DIAGNÓSTICO CSV', new Date()]]);
+    diagnosticoSheet.getRange(row++, 1).setValue('');
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([['Total de líneas:', lineas.length]]);
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([['Tamaño (caracteres):', csvData.length]]);
+    diagnosticoSheet.getRange(row++, 1).setValue('');
+    diagnosticoSheet.getRange(row++, 1).setValue('CONTEO DE SEPARADORES (línea 1):');
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([['Comas (,)', countComas]]);
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([['Punto y coma (;)', countPuntoComa]]);
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([['Tabs (\\t)', countTabs]]);
+    diagnosticoSheet.getRange(row++, 1).setValue('');
 
-    // Intentar parsear
+    // Detectar separador
     const separador = countPuntoComa > countComas ? ';' : ',';
-    mensaje += '✅ Separador detectado: "' + separador + '"\n\n';
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([['Separador detectado:', separador === ';' ? 'Punto y coma (;)' : 'Coma (,)']]);
+    diagnosticoSheet.getRange(row++, 1).setValue('');
 
-    let rows;
-    try {
-      rows = Utilities.parseCsv(csvData, separador);
-      mensaje += '✅ Utilities.parseCsv OK\n';
-      mensaje += '📊 Headers encontrados: ' + rows[0].length + '\n';
-      mensaje += '📊 Filas de datos: ' + (rows.length - 1) + '\n\n';
-
-      mensaje += '--- PRIMEROS 5 ENCABEZADOS ---\n';
-      for (let i = 0; i < Math.min(5, rows[0].length); i++) {
-        mensaje += `[${i}] ${rows[0][i]}\n`;
-      }
-
-    } catch (e) {
-      mensaje += '❌ Utilities.parseCsv FALLÓ: ' + e.message + '\n';
-      mensaje += 'Intentando parseo manual...\n';
-      rows = parsearCSVManual(csvData, separador);
-      mensaje += '✅ Parseo manual OK\n';
-      mensaje += '📊 Columnas: ' + rows[0].length + '\n';
+    // Mostrar primeras 5 líneas RAW
+    diagnosticoSheet.getRange(row++, 1).setValue('PRIMERAS 5 LÍNEAS (SIN PROCESAR):');
+    for (let i = 0; i < Math.min(5, lineas.length); i++) {
+      diagnosticoSheet.getRange(row++, 1).setValue(`Línea ${i + 1}:`);
+      diagnosticoSheet.getRange(row++, 1).setValue(lineas[i].substring(0, 500));
+      diagnosticoSheet.getRange(row++, 1).setValue('');
     }
 
-    ui.alert('Diagnóstico CSV', mensaje, ui.ButtonSet.OK);
-    Logger.log(mensaje);
+    // Intentar parsear
+    let rows;
+    let metodoUsado = '';
+    try {
+      rows = Utilities.parseCsv(csvData, separador);
+      metodoUsado = 'Utilities.parseCsv';
+    } catch (e) {
+      try {
+        rows = parsearCSVManual(csvData, separador);
+        metodoUsado = 'parsearCSVManual';
+      } catch (e2) {
+        diagnosticoSheet.getRange(row++, 1).setValue('❌ ERROR AL PARSEAR:');
+        diagnosticoSheet.getRange(row++, 1).setValue(e.message);
+        diagnosticoSheet.getRange(row++, 1).setValue(e2.message);
+        ui.alert('Error', 'No se pudo parsear el CSV. Ver detalles en la hoja "🔍 Diagnóstico CSV"', ui.ButtonSet.OK);
+        return;
+      }
+    }
+
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([['Método de parseo:', metodoUsado]]);
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([['Columnas detectadas:', rows[0].length]]);
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([['Filas de datos:', rows.length - 1]]);
+    diagnosticoSheet.getRange(row++, 1).setValue('');
+
+    // Mostrar headers
+    diagnosticoSheet.getRange(row++, 1).setValue('ENCABEZADOS (Primeros 20):');
+    for (let i = 0; i < Math.min(20, rows[0].length); i++) {
+      diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([[`[${i}]`, rows[0][i]]]);
+    }
+
+    // Mostrar primera fila de datos
+    if (rows.length > 1) {
+      diagnosticoSheet.getRange(row++, 1).setValue('');
+      diagnosticoSheet.getRange(row++, 1).setValue('PRIMERA FILA DE DATOS (Primeras 10 columnas):');
+      for (let i = 0; i < Math.min(10, rows[1].length); i++) {
+        diagnosticoSheet.getRange(row++, 1, 1, 3).setValues([[`[${i}] ${rows[0][i]}`, '→', rows[1][i]]]);
+      }
+    }
+
+    // Formatear
+    diagnosticoSheet.getRange(1, 1, row, 3).setFontFamily('Consolas');
+    diagnosticoSheet.getRange(1, 1).setFontSize(14).setFontWeight('bold');
+    diagnosticoSheet.setColumnWidth(1, 300);
+    diagnosticoSheet.setColumnWidth(2, 400);
+    diagnosticoSheet.setColumnWidth(3, 400);
+
+    // Activar la hoja
+    ss.setActiveSheet(diagnosticoSheet);
+
+    ui.alert('✅ Diagnóstico Completo',
+      `Se creó la hoja "🔍 Diagnóstico CSV" con toda la información.\n\n` +
+      `Columnas detectadas: ${rows[0].length}\n` +
+      `Filas de datos: ${rows.length - 1}\n` +
+      `Separador: ${separador === ';' ? 'Punto y coma' : 'Coma'}\n` +
+      `Método: ${metodoUsado}`,
+      ui.ButtonSet.OK);
 
   } catch (error) {
-    ui.alert('Error', error.message, ui.ButtonSet.OK);
+    ui.alert('Error', error.message + '\n\n' + error.stack, ui.ButtonSet.OK);
+    Logger.log('Error en diagnosticarCSVCompleto: ' + error.stack);
   }
+}
+
+
+/**
+ * DIAGNÓSTICO: Ver cómo se está parseando el CSV
+ */
+function diagnosticarCSV() {
+  // Llamar a la función completa que es más útil
+  diagnosticarCSVCompleto();
 }
 
 
