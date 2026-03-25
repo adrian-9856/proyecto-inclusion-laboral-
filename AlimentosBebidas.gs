@@ -4781,12 +4781,58 @@ function diagnosticarCSVCompleto() {
       diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([[`[${i}]`, rows[0][i]]]);
     }
 
-    // Mostrar primera fila de datos
-    if (rows.length > 1) {
+    // === DETECTAR Y MOSTRAR FILAS DESCRIPTIVAS VS DATOS REALES ===
+    diagnosticoSheet.getRange(row++, 1).setValue('');
+    diagnosticoSheet.getRange(row++, 1).setValue('DETECCIÓN DE FILAS DESCRIPTIVAS:');
+
+    const patronesHeadersDescriptivos = [
+      '*Las preguntas no son',
+      '¿Qué hacemos?',
+      'Facilitar la inserción',
+      '*Las siguientes preguntas',
+      'Comentario previo',
+      '### ',
+      'Preguntas del Curso',
+      'ÁREA DE EMPLEABILIDAD'
+    ];
+
+    let indiceDatosReales = 1;
+    for (let i = 1; i < Math.min(10, rows.length); i++) {
+      const primeraColumna = (rows[i][0] || '').toString().trim();
+      const segundaColumna = (rows[i][1] || '').toString().trim();
+
+      let esHeaderDescriptivo = false;
+      for (const patron of patronesHeadersDescriptivos) {
+        if (primeraColumna.includes(patron) || segundaColumna.includes(patron)) {
+          esHeaderDescriptivo = true;
+          break;
+        }
+      }
+
+      const tipo = esHeaderDescriptivo ? '❌ DESCRIPTIVA' : '✅ DATOS';
+      diagnosticoSheet.getRange(row++, 1, 1, 3).setValues([[
+        `Fila ${i + 1}: ${tipo}`,
+        primeraColumna.substring(0, 100),
+        segundaColumna.substring(0, 100)
+      ]]);
+
+      if (!esHeaderDescriptivo && primeraColumna.length > 0 && indiceDatosReales === 1) {
+        indiceDatosReales = i;
+      }
+    }
+
+    diagnosticoSheet.getRange(row++, 1).setValue('');
+    diagnosticoSheet.getRange(row++, 1, 1, 2).setValues([[
+      '📍 Primera fila de datos reales detectada:',
+      `Fila ${indiceDatosReales + 1} (índice ${indiceDatosReales})`
+    ]]);
+
+    // Mostrar primera fila de datos REALES
+    if (rows.length > indiceDatosReales) {
       diagnosticoSheet.getRange(row++, 1).setValue('');
-      diagnosticoSheet.getRange(row++, 1).setValue('PRIMERA FILA DE DATOS (Primeras 10 columnas):');
-      for (let i = 0; i < Math.min(10, rows[1].length); i++) {
-        diagnosticoSheet.getRange(row++, 1, 1, 3).setValues([[`[${i}] ${rows[0][i]}`, '→', rows[1][i]]]);
+      diagnosticoSheet.getRange(row++, 1).setValue('PRIMERA FILA DE DATOS REALES (Primeras 10 columnas):');
+      for (let i = 0; i < Math.min(10, rows[indiceDatosReales].length); i++) {
+        diagnosticoSheet.getRange(row++, 1, 1, 3).setValues([[`[${i}] ${rows[0][i]}`, '→', rows[indiceDatosReales][i]]]);
       }
     }
 
@@ -4910,20 +4956,24 @@ function importarEntrevistasDesdeKobo() {
     // Buscar la primera fila que NO sea un header descriptivo
     for (let i = 1; i < Math.min(20, rows.length); i++) {
       const primeraColumna = (rows[i][0] || '').toString().trim();
+      const segundaColumna = (rows[i][1] || '').toString().trim();
+      const terceraColumna = (rows[i][2] || '').toString().trim();
 
       // Verificar si esta fila es un header descriptivo
+      // Revisar primeras 3 columnas para mejor detección
       let esHeaderDescriptivo = false;
       for (const patron of patronesHeadersDescriptivos) {
-        if (primeraColumna.includes(patron)) {
+        if (primeraColumna.includes(patron) || segundaColumna.includes(patron) || terceraColumna.includes(patron)) {
           esHeaderDescriptivo = true;
+          Logger.log(`🧹 Fila ${i + 1} es descriptiva (patrón: "${patron}"): ${segundaColumna.substring(0, 50)}`);
           break;
         }
       }
 
-      // Si no es header descriptivo y tiene algo en la primera columna, es una fila de datos
+      // Si no es header descriptivo y tiene algo en la primera columna (Creamos ID), es una fila de datos
       if (!esHeaderDescriptivo && primeraColumna.length > 0) {
         indiceDatosReales = i;
-        Logger.log(`✅ Primera fila de datos reales encontrada en índice: ${i}`);
+        Logger.log(`✅ Primera fila de datos reales encontrada en índice: ${i} (Creamos ID: ${primeraColumna})`);
         break;
       }
     }
