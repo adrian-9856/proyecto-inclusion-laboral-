@@ -5485,8 +5485,8 @@ function importarEntrevistasDesdeKobo() {
       registro[97] = getVal(colMap.koboRootUuid);          // CT
       registro[98] = getVal(colMap.koboIndex);             // CU
 
-      // Usar obtenerPrimeraFilaVacia para prevenir sobrescrituras
-      const nuevaFila = obtenerPrimeraFilaVacia(detalleSheet, 'B');
+      // Usar getLastRow para evitar sobrescribir filas con Creamos ID vacío
+      const nuevaFila = detalleSheet.getLastRow() + 1;
       detalleSheet.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
       uuidsExistentesDetalle.add(koboUuidVal);
       importados++;
