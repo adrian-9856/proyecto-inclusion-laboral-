@@ -2633,12 +2633,21 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
     SpreadsheetApp.flush();
   }
 
-  // Enviar AL ARCHIVO EXTERNO en un solo batch después del loop
-  // (evita fallos por cuota/caché al llamar openById múltiples veces)
+  // Enviar email con lista completa de graduadas
   if (graduadasCount > 0) {
-    reenviarCohorteAlSeguimiento(nombreCohorte, hojaCohorte, true); // silencioso = toast only
-    // Enviar email con lista completa de graduadas
     enviarEmailListaGraduadx(nombreCohorte, listaParaEmail);
+  }
+
+  // Preguntar antes de enviar al archivo externo de seguimiento
+  if (graduadasCount > 0) {
+    const respuestaExterno = ui.alert(
+      '📤 Archivo de Seguimiento Externo',
+      '¿Deseas enviar los ' + graduadasCount + ' graduado(s) de "' + nombreCohorte + '" al archivo de seguimiento externo ahora?',
+      ui.ButtonSet.YES_NO
+    );
+    if (respuestaExterno === ui.Button.YES) {
+      reenviarCohorteAlSeguimiento(nombreCohorte, hojaCohorte, false);
+    }
   }
 
   // Recordatorio Salesforce para toda la cohorte
@@ -2657,6 +2666,7 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
  */
 function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
   const graduadas = ss.getSheetByName('Graduadx');
 
   const datos = sheet.getRange(fila, 1, 1, 11).getValues()[0];
@@ -2685,12 +2695,8 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   graduadas.getRange(nuevaFilaGrad, 1, 1, 11).setValues([registroGraduada]);
 
   // Autocompletar campos vacíos desde Directorio Maestro
-  // Graduadx: B[1]=CreamosID, C[2]=DPI, D[3]=Nombre, F[5]=Edad, H[7]=NivelEducativo, I[8]=Zona
   autocompletarFilaDesdeDirectorio(graduadas, nuevaFilaGrad,
     { creamosId: 1, dpi: 2, nombre: 3, edad: 5, nivelEducativo: 7, zona: 8 });
-
-  // Enviar automáticamente al archivo externo de seguimiento
-  enviarAArchivoSeguimiento(datos[2], datos[4], datos[7], datos[8], nombreCohorte);
 
   // Marcar como Graduada en la hoja de cohorte (NO eliminar — queda como archivo)
   sheet.getRange(fila, 11).setValue('Graduadx');
@@ -2698,18 +2704,54 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
 
   // Si falta Creamos ID, resaltar esa celda en naranja
   if (!datos[2]) {
-    sheet.getRange(fila, 3).setBackground('#ffe0b2'); // Naranja claro en col C (Creamos ID)
+    sheet.getRange(fila, 3).setBackground('#ffe0b2');
   }
 
   ss.toast('🎓 ' + datos[4] + ' graduada exitosamente', 'Completado', 3);
 
+  // Preguntar antes de enviar al archivo externo de seguimiento
+  const respuestaExterno = ui.alert(
+    '📤 Archivo de Seguimiento Externo',
+    '¿Deseas enviar a ' + datos[4] + ' al archivo de seguimiento externo ahora?',
+    ui.ButtonSet.YES_NO
+  );
+  if (respuestaExterno === ui.Button.YES) {
+    enviarAArchivoSeguimiento(datos[2], datos[4], datos[7], datos[8], nombreCohorte);
+  }
+
   // Recordatorio Salesforce
-  SpreadsheetApp.getUi().alert(
+  ui.alert(
     '⚠️ Recordatorio Salesforce',
     datos[4] + ' ha sido graduada.\n\n' +
     'Recuerda cambiar la etapa en Salesforce a "Graduada" para mantener el CRM actualizado.',
-    SpreadsheetApp.getUi().ButtonSet.OK
+    ui.ButtonSet.OK
   );
+
+  // Verificar si todos los participantes de la cohorte ya tienen estado
+  const datosActualizados = sheet.getDataRange().getValues();
+  const pendientes = datosActualizados.slice(1).filter(r => r[4] && (!r[10] || r[10] === '')).length;
+
+  if (pendientes === 0) {
+    const respuestaFinalizar = ui.alert(
+      '🎓 Cohorte Completada',
+      'Todos los participantes de "' + nombreCohorte + '" ya tienen estado asignado.\n\n' +
+      '¿Deseas marcar esta cohorte como "Finalizada"?',
+      ui.ButtonSet.YES_NO
+    );
+    if (respuestaFinalizar === ui.Button.YES) {
+      const hojaCohortes = ss.getSheetByName('Cohortes');
+      if (hojaCohortes) {
+        const datosCohortes = hojaCohortes.getDataRange().getValues();
+        for (let i = 1; i < datosCohortes.length; i++) {
+          if (datosCohortes[i][0] === nombreCohorte) {
+            hojaCohortes.getRange(i + 1, 14).setValue('Finalizada');
+            break;
+          }
+        }
+      }
+      ss.toast('✅ Cohorte "' + nombreCohorte + '" marcada como Finalizada', 'Completado', 5);
+    }
+  }
 }
 
 /**
