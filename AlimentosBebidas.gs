@@ -4795,8 +4795,16 @@ function importarEntrevistasDesdeKobo() {
     ss.toast('📥 Descargando datos de entrevistas desde KoboToolbox...', 'Importando', 5);
 
     // Obtener última fecha de sincronización
-    const ultimaSync = obtenerUltimaSincronizacionEntrevistas();
-    Logger.log(`📅 Última sincronización: ${ultimaSync || 'Primera vez'}`);
+    // Si la hoja está vacía (recién creada o reseteada), forzar importación completa
+    const hojaDetalleExistente = ss.getSheetByName('Detalle Entrevistas');
+    const hojaEstaVacia = !hojaDetalleExistente || hojaDetalleExistente.getLastRow() <= 1;
+    let ultimaSync = hojaEstaVacia ? null : obtenerUltimaSincronizacionEntrevistas();
+    if (hojaEstaVacia && obtenerUltimaSincronizacionEntrevistas()) {
+      guardarUltimaSincronizacionEntrevistas(new Date(0)); // reset
+      ultimaSync = null;
+      Logger.log('🔄 Hoja vacía detectada → Forzando importación completa (sync reseteada)');
+    }
+    Logger.log(`📅 Última sincronización: ${ultimaSync || 'Primera vez (importación completa)'}`);
 
     const response = UrlFetchApp.fetch(url, {
       muteHttpExceptions: true,
