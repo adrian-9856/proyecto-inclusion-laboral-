@@ -5254,15 +5254,14 @@ function importarEntrevistasDesdeKobo() {
       detalleSheet = ss.getSheetByName('Detalle Entrevistas');
     }
 
-    // Obtener IDs existentes para evitar duplicados
-    // Columna B (índice 1) = Creamos ID; columna BF (índice 57) = Kobo _id (fallback)
+    // Deduplicación por _uuid de Kobo (siempre presente, único por envío)
+    // El Creamos ID es OPCIONAL: se guarda si existe pero no bloquea la importación
+    // Columna BG (índice 58) = koboUuid en la hoja AB de 68 columnas
     const datosExistentes = detalleSheet.getDataRange().getValues();
-    const idsExistentes = new Set();
+    const uuidsExistentesDetalle = new Set();
     for (let i = 1; i < datosExistentes.length; i++) {
-      const cId = datosExistentes[i][1] ? datosExistentes[i][1].toString().trim() : '';
-      const kId = datosExistentes[i][57] ? datosExistentes[i][57].toString().trim() : '';
-      if (cId) idsExistentes.add(cId);
-      else if (kId) idsExistentes.add('KOBO-' + kId);
+      const uuid = datosExistentes[i][58] ? datosExistentes[i][58].toString().trim() : '';
+      if (uuid) uuidsExistentesDetalle.add(uuid);
     }
 
     // Procesar cada fila (solo las nuevas)
@@ -5276,26 +5275,25 @@ function importarEntrevistasDesdeKobo() {
     for (let i = 0; i < filasParaProcesar.length; i++) {
       const row = filasParaProcesar[i];
       const creamosId = colMap.creamosId >= 0 ? (row[colMap.creamosId] || '').toString().trim() : '';
-      // Si no tiene Creamos ID, usar el _id de Kobo como clave de deduplicación
-      const koboId = colMap.koboId >= 0 ? (row[colMap.koboId] || '').toString().trim() : '';
-      const claveDedup = creamosId || (koboId ? 'KOBO-' + koboId : '');
+      const koboUuidVal = colMap.koboUuid >= 0 ? (row[colMap.koboUuid] || '').toString().trim() : '';
 
-      if (!claveDedup) {
+      // Necesitamos al menos el UUID de Kobo para identificar el registro
+      if (!koboUuidVal) {
         sinCreamosId++;
-        Logger.log(`⚠️ Fila ${i + 1}: Sin Creamos ID ni Kobo ID - OMITIDA`);
+        Logger.log(`⚠️ Fila ${i + 1}: Sin UUID de Kobo - OMITIDA`);
         continue;
       }
 
       if (!creamosId) {
         sinCreamosId++;
-        Logger.log(`⚠️ Fila ${i + 1}: Sin Creamos ID (Kobo ID: ${koboId}) - se importará SIN ID, marcar en Salesforce`);
-        // No hacer continue: permitir importar con Creamos ID vacío
+        Logger.log(`⚠️ Fila ${i + 1}: Sin Creamos ID (UUID: ${koboUuidVal}) - se importará sin ID`);
+        // NO continue: el Creamos ID es opcional
       }
 
-      // Verificar duplicados
-      if (idsExistentes.has(claveDedup)) {
+      // Verificar duplicados por UUID de Kobo
+      if (uuidsExistentesDetalle.has(koboUuidVal)) {
         duplicados++;
-        Logger.log(`⚠️ Fila ${i + 1}: Registro ${claveDedup} ya existe - DUPLICADO`);
+        Logger.log(`⚠️ Fila ${i + 1}: UUID ${koboUuidVal} ya existe - DUPLICADO`);
         continue;
       }
 
@@ -5552,7 +5550,7 @@ function importarEntrevistasDesdeKobo() {
       // Usar obtenerPrimeraFilaVacia para prevenir sobrescrituras
       const nuevaFila = obtenerPrimeraFilaVacia(detalleSheet, 'B');
       detalleSheet.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
-      idsExistentes.add(claveDedup);
+      uuidsExistentesDetalle.add(koboUuidVal);
       importados++;
     }
 
