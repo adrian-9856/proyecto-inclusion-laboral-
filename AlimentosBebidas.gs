@@ -4950,18 +4950,13 @@ function importarEntrevistasDesdeKobo() {
       Logger.log(`🧹 Eliminadas ${filasEliminadas} filas de headers descriptivos de Kobo`);
     }
 
-    // === SINCRONIZACIÓN INCREMENTAL: Filtrar solo registros nuevos ===
+    // === PROCESAR TODOS LOS REGISTROS (deduplicación por UUID, no por fecha) ===
+    // El filtro por fecha fue reemplazado por dedup UUID — más confiable y no pierde registros
     const totalRegistrosKobo = rows.length - 1;
     Logger.log(`📊 Total registros en CSV de Kobo: ${totalRegistrosKobo}`);
 
-    const filasParaProcesar = filtrarFilasNuevasEntrevistas(rows, headers, ultimaSync);
-    Logger.log(`📊 Nuevos a importar después del filtro de fecha: ${filasParaProcesar.length}`);
-
-    if (filasParaProcesar.length === 0) {
-      ss.toast('✅ No hay registros nuevos desde la última sincronización', 'Sincronizado', 3);
-      Logger.log('⚠️ No hay filas para procesar. Última sync: ' + ultimaSync);
-      return;
-    }
+    const filasParaProcesar = rows.slice(1); // Todas las filas excepto el header
+    Logger.log(`📊 Filas a procesar: ${filasParaProcesar.length}`);
 
     // Mapeo de columnas de Kobo a nuestra hoja
     // Usa rutas exactas del CSV de Kobo para evitar colisiones entre secciones
@@ -5610,9 +5605,7 @@ function importarEntrevistasDesdeKobo() {
     }
 
     // Mostrar mensaje de resultado
-    const mensajeSincro = ultimaSync
-      ? `\n🔄 Sincronización incremental (desde ${ultimaSync.toLocaleDateString('es-GT')})`
-      : '\n📥 Primera importación (todos los registros)';
+    const mensajeSincro = `\n📊 Total en Kobo: ${totalRegistrosKobo}`;
 
     Logger.log('📊 RESUMEN DE IMPORTACIÓN:');
     Logger.log(`   ✅ Importados: ${importados}`);
