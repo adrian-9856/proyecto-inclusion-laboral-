@@ -4928,8 +4928,10 @@ function importarEntrevistasDesdeKobo() {
         }
       }
 
-      // Si no es header descriptivo y tiene algo en la primera columna (Creamos ID), es una fila de datos
-      if (!esHeaderDescriptivo && primeraColumna.length > 0) {
+      // Una fila es datos reales si: no es descriptiva Y tiene contenido en alguna de las primeras columnas
+      // (NO requiere Creamos ID en col 1 — puede estar vacío para registros sin ID asignado)
+      const tieneAlgunValor = primeraColumna.length > 0 || segundaColumna.length > 0 || terceraColumna.length > 0;
+      if (!esHeaderDescriptivo && tieneAlgunValor) {
         indiceDatosReales = i;
         Logger.log(`✅ Primera fila de datos reales encontrada en índice: ${i} (Creamos ID: ${primeraColumna})`);
         break;
@@ -5301,7 +5303,8 @@ function importarEntrevistasDesdeKobo() {
     // Procesar cada fila (solo las nuevas)
     let importados = 0;
     let duplicados = 0;
-    let sinCreamosId = 0;
+    let sinCreamosId = 0;    // Importados sin Creamos ID (no es error)
+    let sinUUID = 0;         // Omitidos por no tener UUID (sí es error)
     let filtradosPorCurso = 0;
 
     Logger.log('🔄 Iniciando procesamiento de ' + filasParaProcesar.length + ' filas...');
@@ -5313,7 +5316,7 @@ function importarEntrevistasDesdeKobo() {
 
       // Necesitamos al menos el UUID de Kobo para identificar el registro
       if (!koboUuidVal) {
-        sinCreamosId++;
+        sinUUID++;
         Logger.log(`⚠️ Fila ${i + 1}: Sin UUID de Kobo - OMITIDA`);
         continue;
       }
@@ -5557,7 +5560,10 @@ function importarEntrevistasDesdeKobo() {
     Logger.log(`   📊 Total en Kobo: ${totalRegistrosKobo}`);
     Logger.log(`   📊 Nuevos a procesar: ${filasParaProcesar.length}`);
 
-    const mensajeDetallado = `✅ Importados: ${importados}\n⚠️ Duplicados: ${duplicados}\n⚠️ Sin ID: ${sinCreamosId}\n⚠️ Filtrados: ${filtradosPorCurso}${mensajeSincro}`;
+    const partesSinId = [];
+    if (sinCreamosId > 0) partesSinId.push(`${sinCreamosId} sin Creamos ID`);
+    if (sinUUID > 0) partesSinId.push(`${sinUUID} sin UUID (omitidos)`);
+    const mensajeDetallado = `✅ Importados: ${importados}\n⚠️ Duplicados: ${duplicados}\n${partesSinId.length ? '⚠️ ' + partesSinId.join(', ') + '\n' : ''}⚠️ Filtrados (otro sector): ${filtradosPorCurso}${mensajeSincro}`;
 
     ss.toast(mensajeDetallado, 'Sincronización Completa', 8);
 
