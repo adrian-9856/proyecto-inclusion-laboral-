@@ -206,6 +206,7 @@ function setupMenuTech() {
       // ========== REPORTES Y EXPORTACIÓN ==========
       .addSubMenu(ui.createMenu('📊 Reportes y Exportación')
         .addItem('📊 Actualizar Reportes', 'actualizarReportesTech')
+        .addItem('🔧 Reparar Fórmulas del Reporte', 'repararFormulasReporte')
         .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual'))
 
       // ========== COHORTES ==========
@@ -1925,7 +1926,21 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     // Mover a Inscritx
     const seleccionadas = ss.getSheetByName('Inscritx');
     const colMapInscritx = obtenerMapaColumnas(seleccionadas);
-    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, ['B', 'D']);  // Columnas B=CreamosID y D=Nombre (evita sobrescritura en ambos casos)
+
+    // ✅ DEDUP: Verificar si ya existe en Inscritx antes de escribir
+    if (creamosId) {
+      const datosInscritx = seleccionadas.getDataRange().getValues();
+      const idxInscritxId = colMapInscritx['creamosid'];
+      for (let r = 1; r < datosInscritx.length; r++) {
+        const idExistente = idxInscritxId !== undefined ? (datosInscritx[r][idxInscritxId] || '').toString().trim() : '';
+        if (idExistente && idExistente === creamosId.toString().trim()) {
+          ss.toast('⚠️ ' + (datos[colMapEntrevistas['nombrecompleto']] || creamosId) + ' ya está en Inscritx', 'Duplicado omitido', 5);
+          return;
+        }
+      }
+    }
+
+    const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, ['B', 'D']);
 
     // Preparar registro para Inscritx de forma dinámica
     const numColumnasInscritx = seleccionadas.getLastColumn();
@@ -6429,11 +6444,46 @@ function actualizarReportesTech() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const reporte = ss.getSheetByName('Reporte');
     if (reporte) {
-      reporte.getRange('B2').setValue(new Date());
+      // Auto-reparar fórmulas si alguna celda clave está vacía o es un número sin fórmula
+      const b5 = reporte.getRange('B5').getFormula();
+      if (!b5 || !b5.includes('COUNTA')) {
+        repararFormulasReporte();
+      } else {
+        reporte.getRange('B2').setValue(new Date());
+      }
       SpreadsheetApp.flush();
     }
     return true;
   } catch (e) { return false; }
+}
+
+/**
+ * Re-aplica todas las fórmulas del Reporte sin borrar datos existentes.
+ * Usar cuando el reporte muestra celdas vacías o datos incorrectos.
+ */
+function repararFormulasReporte() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const reporte = ss.getSheetByName('Reporte');
+  if (!reporte) { ss.toast('❌ No existe la hoja Reporte', 'Error', 3); return; }
+
+  reporte.getRange('B5').setFormula("=IFERROR(COUNTA('Hoja de Interés'!E:E)-1,0)");
+  reporte.getRange('C5').setFormula("=IFERROR(COUNTIFS('Hoja de Interés'!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
+  reporte.getRange('B8').setFormula('=IFERROR(COUNTA(Entrevistas!D:D)-1,0)');
+  reporte.getRange('C8').setFormula('=IFERROR(COUNTIF(Entrevistas!N:N,""),0)');
+  reporte.getRange('B11').setFormula('=IFERROR(COUNTA(Inscritx!D:D)-1,0)');
+  reporte.getRange('B17').setFormula('=IFERROR(COUNTA(Graduadx!D:D)-1,0)');
+  reporte.getRange('C17').setFormula("=IFERROR(COUNTIFS(Graduadx!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
+  reporte.getRange('B20').setFormula('=IFERROR(COUNTA(Retiradx!D:D)-1,0)');
+  reporte.getRange('C20').setFormula("=IFERROR(COUNTIFS(Retiradx!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
+  reporte.getRange('D20').setFormula('=IFERROR(IF((B17+B20)>0,ROUND(B20/(B17+B20)*100,1)&"%","0%"),"0%")');
+  reporte.getRange('B23').setFormula("=IFERROR(COUNTA('No Inscritx'!C:C)-1,0)");
+  reporte.getRange('C23').setFormula("=IFERROR(COUNTIFS('No Inscritx'!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
+  reporte.getRange('B26').setFormula('=B5+B17+B20+B23');
+  reporte.getRange('B27').setFormula('=IFERROR(IF((B17+B20)>0,ROUND(B17/(B17+B20)*100,1)&"%","0%"),"0%")');
+  reporte.getRange('B28').setFormula('=B11');
+  reporte.getRange('B2').setValue(new Date());
+
+  ss.toast('✅ Fórmulas del Reporte reparadas', 'Reporte', 4);
 }
 
 function guardarReporteMensual() {
@@ -6459,9 +6509,30 @@ function guardarReporteMensual() {
       new Date()
     ];
 
+    // ✅ DEDUP: Verificar si el mes ya fue guardado
+    const datosExistentes = mensuales.getDataRange().getValues();
+    let filaExistente = -1;
+    for (let i = 1; i < datosExistentes.length; i++) {
+      if ((datosExistentes[i][0] || '').toString().trim() === mesActual) {
+        filaExistente = i + 1;
+        break;
+      }
+    }
+
+    if (filaExistente > 0) {
+      const ui = SpreadsheetApp.getUi();
+      const resp = ui.alert('⚠️ Mes ya guardado',
+        'El reporte de "' + mesActual + '" ya existe.\n¿Deseas actualizarlo con los datos actuales?',
+        ui.ButtonSet.YES_NO);
+      if (resp === ui.Button.YES) {
+        mensuales.getRange(filaExistente, 1, 1, 13).setValues([datos]);
+        ss.toast('✅ Reporte actualizado: ' + mesActual, 'OK', 4);
+      }
+      return;
+    }
+
     const nuevaFila = mensuales.getLastRow() + 1;
     mensuales.getRange(nuevaFila, 1, 1, 13).setValues([datos]);
-
     ss.toast('✅ Reporte guardado: ' + mesActual, 'OK', 4);
   } catch (e) { Logger.log('Error: ' + e.message); }
 }
