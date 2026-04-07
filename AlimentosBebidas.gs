@@ -5964,7 +5964,7 @@ function crearNuevaCohorteAB() {
   ];
 
   // Mostrar opciones numeradas
-  let mensajeOpciones = '➕ Crear Nueva Cohorte - Paso 1/4\n\nSelecciona el PROGRAMA escribiendo el número:\n\n';
+  let mensajeOpciones = '➕ Crear Nueva Cohorte - Paso 1/5\n\nSelecciona el PROGRAMA escribiendo el número:\n\n';
   programasDisponibles.forEach((prog, index) => {
     mensajeOpciones += (index + 1) + '. ' + prog + '\n';
   });
@@ -6003,7 +6003,7 @@ function crearNuevaCohorteAB() {
   const nombre = nombreBase + ' ' + numeroCohorte + ' (' + anioActual + ')';
 
   const respCupo = ui.prompt(
-    '➕ Crear Nueva Cohorte - Paso 2/4',
+    '➕ Crear Nueva Cohorte - Paso 2/5',
     'Ingresa el CUPO MÁXIMO:',
     ui.ButtonSet.OK_CANCEL
   );
@@ -6011,7 +6011,7 @@ function crearNuevaCohorteAB() {
   const cupo = parseInt(respCupo.getResponseText().trim()) || 20;
 
   const respFechaInicio = ui.prompt(
-    '➕ Crear Nueva Cohorte - Paso 3/4',
+    '➕ Crear Nueva Cohorte - Paso 3/5',
     'Ingresa la FECHA DE INICIO (dd/mm/aaaa):\n\n(Si dejas vacío se usará la fecha de hoy)',
     ui.ButtonSet.OK_CANCEL
   );
@@ -6026,7 +6026,7 @@ function crearNuevaCohorteAB() {
   }
 
   const respFechaFin = ui.prompt(
-    '➕ Crear Nueva Cohorte - Paso 4/4',
+    '➕ Crear Nueva Cohorte - Paso 4/5',
     'Ingresa la FECHA DE FIN (dd/mm/aaaa):',
     ui.ButtonSet.OK_CANCEL
   );
@@ -6040,6 +6040,34 @@ function crearNuevaCohorteAB() {
     } else {
       fechaFin = fechaFinTexto;
     }
+  }
+
+  // Paso 5: Preguntar si esta cohorte tendrá estipendios
+  const respEstipendios = ui.alert(
+    '💰 Estipendios - Paso 5/5',
+    '¿Esta cohorte tendrá ESTIPENDIOS (pagos a participantes)?\n\nSí = se pedirá el presupuesto ahora\nNo = se crea sin presupuesto de estipendios',
+    ui.ButtonSet.YES_NO
+  );
+
+  let presupuestoCurso = '';
+  let presupuestoPracticas = '';
+
+  if (respEstipendios === ui.Button.YES) {
+    const respPresupuestoCurso = ui.prompt(
+      '💰 Presupuesto Estipendios',
+      'Ingresa el PRESUPUESTO DE CURSO (Q):\n\nEjemplo: 5000\n(Solo el número, sin Q ni comas)',
+      ui.ButtonSet.OK_CANCEL
+    );
+    if (respPresupuestoCurso.getSelectedButton() !== ui.Button.OK) return;
+    presupuestoCurso = parseFloat(respPresupuestoCurso.getResponseText().trim().replace(/,/g, '')) || 0;
+
+    const respPresupuestoPracticas = ui.prompt(
+      '💰 Presupuesto Estipendios',
+      'Ingresa el PRESUPUESTO DE PRÁCTICAS (Q):\n\nEjemplo: 3000\n(Solo el número, sin Q ni comas)\n\nEscribe 0 si no aplica.',
+      ui.ButtonSet.OK_CANCEL
+    );
+    if (respPresupuestoPracticas.getSelectedButton() !== ui.Button.OK) return;
+    presupuestoPracticas = parseFloat(respPresupuestoPracticas.getResponseText().trim().replace(/,/g, '')) || 0;
   }
 
   // Responsable automático: Eva
@@ -6059,12 +6087,54 @@ function crearNuevaCohorteAB() {
   cohortes.getRange('I' + nuevaFila).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + nuevaFila + '),0)');
   cohortes.getRange('J' + nuevaFila).setFormula('=IFERROR(COUNTIF(Retiradx!H:H,A' + nuevaFila + '),0)');
 
+  // Si tiene estipendios, escribir presupuesto en columnas O, P, Q, y fórmulas R-T
+  if (respEstipendios === ui.Button.YES) {
+    // Asegurarse de que existan los encabezados de estipendios en la fila 1
+    _asegurarEncabezadosEstipendiosCohortes(cohortes);
+
+    cohortes.getRange(nuevaFila, 15).setValue(presupuestoCurso);   // O: Presupuesto Curso
+    cohortes.getRange(nuevaFila, 16).setValue(presupuestoPracticas); // P: Presupuesto Prácticas
+    cohortes.getRange(nuevaFila, 17).setFormula('=O' + nuevaFila + '+P' + nuevaFila); // Q: Total
+    // R: Gastado (SUMIF en hoja Estipendios por nombre de cohorte)
+    cohortes.getRange(nuevaFila, 18).setFormula('=IFERROR(SUMIF(Estipendios!E:E,A' + nuevaFila + ',Estipendios!H:H),0)');
+    // S: Disponible
+    cohortes.getRange(nuevaFila, 19).setFormula('=Q' + nuevaFila + '-R' + nuevaFila);
+    // T: % Ejecución
+    cohortes.getRange(nuevaFila, 20).setFormula('=IFERROR(R' + nuevaFila + '/Q' + nuevaFila + ',0)');
+    cohortes.getRange(nuevaFila, 20).setNumberFormat('0.0%');
+  }
+
   // Crear hoja individual para la cohorte
   crearHojaIndividualCohorte(nombre);
 
   configurarValidaciones();
 
-  ss.toast('✅ Cohorte "' + nombre + '" creada con su hoja individual', 'Nueva Cohorte', 5);
+  const msgEstipendio = respEstipendios === ui.Button.YES
+    ? '\n💰 Presupuesto: Q' + (presupuestoCurso + presupuestoPracticas).toLocaleString()
+    : '';
+  ss.toast('✅ Cohorte "' + nombre + '" creada con su hoja individual' + msgEstipendio, 'Nueva Cohorte', 7);
+}
+
+/**
+ * Asegura que existan los encabezados de estipendios en la hoja Cohortes (cols O-T)
+ * Sin borrar nada existente
+ */
+function _asegurarEncabezadosEstipendiosCohortes(cohortes) {
+  const headersEst = [
+    'Presupuesto Curso (Q)',
+    'Presupuesto Prácticas (Q)',
+    'Presupuesto Total (Q)',
+    'Gastado (Q)',
+    'Disponible (Q)',
+    '% Ejecución'
+  ];
+  headersEst.forEach((h, i) => {
+    const col = 15 + i; // columna O = 15
+    const celda = cohortes.getRange(1, col);
+    if (!celda.getValue()) {
+      celda.setValue(h).setFontWeight('bold').setBackground('#fce4ec');
+    }
+  });
 }
 
 /**
