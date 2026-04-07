@@ -435,19 +435,35 @@ function importarEstipendiosDesdeKobo() {
 
     Logger.log(`✅ ${filas.length} registros obtenidos desde Kobo`);
 
-    // Obtener índices
+    // Normalizar nombre de columna para búsqueda flexible
+    const findCol = (posibles) => {
+      for (const p of posibles) {
+        const idx = headers.findIndex(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g,'') === p.toLowerCase().replace(/[^a-z0-9]/g,''));
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    };
+
+    // Obtener índices (busca variantes del nombre para mayor compatibilidad)
     const indices = {
-      'Creamos_ID': headers.indexOf('Creamos_ID'),
-      'Nombre_s': headers.indexOf('Nombre_s'),
-      'Apellido_s': headers.indexOf('Apellido_s'),
-      'Fecha': headers.indexOf('Fecha'),
-      'Proyecto': headers.indexOf('Proyecto'),
-      'Especialidad': headers.indexOf('Especialidad'),
-      'Fase': headers.indexOf('Fase'),
-      'Monto_total': headers.indexOf('Monto_total'),
-      'Comentarios': headers.indexOf('Comentarios'),
-      'Firma': headers.indexOf('Firma'),
-      '_submission_time': headers.indexOf('_submission_time')
+      'Creamos_ID':       findCol(['Creamos_ID', 'CreamosID', 'Creamos ID']),
+      'Nombre_s':         findCol(['Nombre_s', 'Nombre', 'Nombres']),
+      'Apellido_s':       findCol(['Apellido_s', 'Apellido', 'Apellidos']),
+      'Fecha':            findCol(['Fecha', 'Fecha_de_pago', 'FechaPago']),
+      'Proyecto':         findCol(['Proyecto']),
+      'Cohorte':          findCol(['Cohorte', 'Nombre_de_Cohorte', 'NombreCohorte']),  // ← NUEVO
+      'Especialidad':     findCol(['Especialidad']),
+      'Fase':             findCol(['Fase']),
+      'Total_de_horas':   findCol(['Total_de_horas', 'TotalHoras', 'Horas']),          // ← NUEVO
+      'Tasa_por_hora':    findCol(['Tasa_por_hora', 'TasaHora', 'Tasa']),              // ← NUEVO
+      'Monto_total':      findCol(['Monto_total', 'MontoCal', 'Monto calculado', 'Monto_final', 'Monto final']),
+      'Monto_descuento':  findCol(['Monto_descuento', 'MontoDescuento', 'Descuento']), // ← NUEVO
+      'Motivo_descuento': findCol(['Motivo_de_descuento', 'MotivoDescuento', 'Motivo_descuento']),
+      'Incentivo':        findCol(['Incentivo']),
+      'Comentarios':      findCol(['Comentarios']),
+      'Firma':            findCol(['Firma']),
+      '_uuid':            findCol(['_uuid']),
+      '_submission_time': findCol(['_submission_time'])
     };
 
     // Procesar datos
@@ -461,37 +477,62 @@ function importarEstipendiosDesdeKobo() {
     let nuevosRegistros = 0;
     const dataExistente = sheetEstipendios.getDataRange().getValues();
 
+    // UUID set para dedup
+    const uuidsExistentes = new Set();
+    dataExistente.slice(1).forEach(row => {
+      const u = row[17] ? row[17].toString().trim() : '';
+      if (u) uuidsExistentes.add(u);
+    });
+
     filas.forEach((fila, index) => {
       try {
-        const creamosID = indices['Creamos_ID'] >= 0 ? fila[indices['Creamos_ID']] : '';
-        const nombre = indices['Nombre_s'] >= 0 ? fila[indices['Nombre_s']] : '';
-        const apellido = indices['Apellido_s'] >= 0 ? fila[indices['Apellido_s']] : '';
-        const fecha = indices['Fecha'] >= 0 ? fila[indices['Fecha']] : '';
-        const proyecto = indices['Proyecto'] >= 0 ? fila[indices['Proyecto']] : '';
-        const especialidad = indices['Especialidad'] >= 0 ? fila[indices['Especialidad']] : '';
-        const fase = indices['Fase'] >= 0 ? fila[indices['Fase']] : '';
-        const monto = indices['Monto_total'] >= 0 ? fila[indices['Monto_total']] : '';
-        const comentarios = indices['Comentarios'] >= 0 ? fila[indices['Comentarios']] : '';
-        const firma = indices['Firma'] >= 0 ? fila[indices['Firma']] : '';
-        const submissionTime = indices['_submission_time'] >= 0 ? fila[indices['_submission_time']] : '';
+        const get = (key) => indices[key] >= 0 ? (fila[indices[key]] || '').toString().trim() : '';
+
+        const uuid         = get('_uuid');
+        const creamosID    = get('Creamos_ID');
+        const nombre       = get('Nombre_s');
+        const apellido     = get('Apellido_s');
+        const fecha        = get('Fecha');
+        const proyecto     = get('Proyecto');
+        const especialidad = get('Especialidad');
+        const fase         = get('Fase');
+        const comentarios  = get('Comentarios');
+        const firma        = get('Firma');
+        const submissionTime = get('_submission_time');
+        const motivo       = get('Motivo_descuento');
+        const incentivo    = get('Incentivo');
+
+        // Cohorte: usar campo Cohorte si existe, sino derivar de Especialidad
+        const año = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
+        const cohorteKobo = get('Cohorte');
+        const cohorte = cohorteKobo || determinarCohorteDesdeEspecialidad(especialidad, año);
+
+        // Calcular monto: usar Monto_total si existe, sino horas × tasa
+        let monto = parseFloat(get('Monto_total').replace(/,/g, '')) || 0;
+        if (!monto) {
+          const horas = parseFloat(get('Total_de_horas').replace(/,/g, '')) || 0;
+          const tasa  = parseFloat(get('Tasa_por_hora').replace(/,/g, '')) || 0;
+          monto = horas * tasa;
+        }
+        // Restar descuento si aplica
+        const descuento = parseFloat(get('Monto_descuento').replace(/,/g, '')) || 0;
+        const montoFinal = monto - descuento;
 
         if (!creamosID) return;
+
+        // Dedup por UUID (preferido) o por CreamosID+Fecha
+        if (uuid && uuidsExistentes.has(uuid)) return;
+        if (!uuid) {
+          const existe = dataExistente.some((row, i) =>
+            i > 0 && row[2] === creamosID && row[8] && row[8].toString() === fecha
+          );
+          if (existe) return;
+        }
 
         // Mapear Fase → Tipo
         let tipoEstipendio = '';
         if (fase === 'Teórica') tipoEstipendio = 'Curso';
         else if (fase === 'Práctica' || fase === 'Formación Dual') tipoEstipendio = 'Prácticas';
-
-        // Determinar cohorte desde especialidad
-        const año = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
-        const cohorte = determinarCohorteDesdeEspecialidad(especialidad, año);
-
-        // Verificar si ya existe
-        const existe = dataExistente.some((row, i) =>
-          i > 0 && row[2] === creamosID && row[9] && new Date(row[9]).getTime() === new Date(fecha).getTime()
-        );
-
-        if (existe) return;
 
         // Generar ID
         const ultimaFila = sheetEstipendios.getLastRow();
@@ -507,19 +548,21 @@ function importarEstipendiosDesdeKobo() {
           cohorte,
           proyecto,
           tipoEstipendio,
-          parseFloat(monto) || 0,
+          montoFinal,
           fecha,
           fecha,
-          '',  // Estado (fórmula)
+          '',        // Estado (fórmula)
           'Efectivo',
-          '',  // # Recibo
-          '',  // Responsable
+          '',        // # Recibo
+          '',        // Responsable
           firma,
-          '',  // Días atraso (fórmula)
-          comentarios
+          '',        // Días atraso (fórmula)
+          comentarios,
+          uuid       // UUID para dedup futuro
         ];
 
         sheetEstipendios.appendRow(nuevoRegistro);
+        if (uuid) uuidsExistentes.add(uuid);
         nuevosRegistros++;
 
         // Registrar en auditoría
