@@ -299,7 +299,10 @@ function setupMenuTech() {
         .addSeparator()
         .addItem('⚙️ Activar Actualización Automática', 'configurarTriggersEstipendios')
         .addItem('🛑 Desactivar Actualización Automática', 'desactivarTriggersEstipendios')
-        .addItem('🔍 Verificar Presupuestos Ahora', 'verificarPresupuestoEstipendios'))
+        .addItem('🔍 Verificar Presupuestos Ahora', 'verificarPresupuestoEstipendios')
+        .addSeparator()
+        .addItem('📋 Generar Formulario Kobo (XLSForm)', 'crearFormularioEstipendiosXLSForm')
+        .addItem('🏗️ Crear Cohortes de Ejemplo', 'crearCohortesDemo'))
 
       .addToUi();
   } catch (e) {
