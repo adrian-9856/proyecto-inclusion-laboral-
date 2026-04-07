@@ -11329,3 +11329,59 @@ function desactivarActualizacionAutomaticaEntrevistas() {
 }
 
 // =====================================================================
+
+// =====================================================================
+// GESTIÓN DE VISIBILIDAD DE HOJAS (TECH)
+// =====================================================================
+
+function _hojasSecundariasTech() {
+  return [
+    'Detalle Entrevistas',
+    'No Inscritx',
+    'Lista Definitiva',
+    'Reportes Mensuales',
+    'Referencias de Programas',
+    '🔍 Diagnóstico CSV',
+    'Estipendios',
+    'Dashboard Estipendios',
+    'Auditoría Estipendios',
+    'Presupuesto Cohortes',
+    'Calendario Pagos',
+    'Datos Kobo',
+    'EXPORT_PowerBI',
+  ];
+}
+
+function ocultarHojasSecundarias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ocultadas = 0;
+  _hojasSecundariasTech().forEach(function(nombre) {
+    const hoja = ss.getSheetByName(nombre);
+    if (hoja) { hoja.hideSheet(); ocultadas++; }
+  });
+  ss.toast('✅ ' + ocultadas + ' hoja(s) ocultadas. Usa "Mostrar hojas secundarias" para verlas.', '👁️ Hojas', 5);
+}
+
+function mostrarHojasSecundarias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let mostradas = 0;
+  _hojasSecundariasTech().forEach(function(nombre) {
+    const hoja = ss.getSheetByName(nombre);
+    if (hoja) { hoja.showSheet(); mostradas++; }
+  });
+  ss.toast('✅ ' + mostradas + ' hoja(s) ahora visibles.', '👁️ Hojas', 4);
+}
+
+function _mostrarHojaTech(nombre) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName(nombre);
+  if (hoja) { hoja.showSheet(); ss.setActiveSheet(hoja); }
+  else { SpreadsheetApp.getUi().alert('⚠️ No se encontró la hoja: ' + nombre); }
+}
+
+function verDetalleEntrevistas()   { _mostrarHojaTech('Detalle Entrevistas'); }
+function verNoInscritx()           { _mostrarHojaTech('No Inscritx'); }
+function verListaDefinitiva()      { _mostrarHojaTech('Lista Definitiva'); }
+function verReportesMensuales()    { _mostrarHojaTech('Reportes Mensuales'); }
+function verEstipendios()          { _mostrarHojaTech('Estipendios'); }
+function verDashboardEstipendios() { _mostrarHojaTech('Dashboard Estipendios'); }

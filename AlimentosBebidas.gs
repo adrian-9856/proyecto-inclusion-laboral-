@@ -11107,3 +11107,59 @@ function desactivarActualizacionAutomaticaEntrevistas() {
 }
 
 // =====================================================================
+
+// =====================================================================
+// GESTIÓN DE VISIBILIDAD DE HOJAS (AB)
+// =====================================================================
+
+function _hojasSecundariasAB() {
+  return [
+    'Detalle Entrevistas',
+    'No Inscritx',
+    'Lista Definitiva',
+    'Reportes Mensuales',
+    'Referencias de Programas',
+    '🔍 Diagnóstico CSV',
+    'Estipendios',
+    'Dashboard Estipendios',
+    'Auditoría Estipendios',
+    'Presupuesto Cohortes',
+    'Calendario Pagos',
+    'Datos Kobo',
+    'EXPORT_PowerBI',
+  ];
+}
+
+function ocultarHojasSecundarias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ocultadas = 0;
+  _hojasSecundariasAB().forEach(function(nombre) {
+    const hoja = ss.getSheetByName(nombre);
+    if (hoja) { hoja.hideSheet(); ocultadas++; }
+  });
+  ss.toast('✅ ' + ocultadas + ' hoja(s) ocultadas. Usa "Mostrar hojas secundarias" para verlas.', '👁️ Hojas', 5);
+}
+
+function mostrarHojasSecundarias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let mostradas = 0;
+  _hojasSecundariasAB().forEach(function(nombre) {
+    const hoja = ss.getSheetByName(nombre);
+    if (hoja) { hoja.showSheet(); mostradas++; }
+  });
+  ss.toast('✅ ' + mostradas + ' hoja(s) ahora visibles.', '👁️ Hojas', 4);
+}
+
+function _mostrarHojaAB(nombre) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName(nombre);
+  if (hoja) { hoja.showSheet(); ss.setActiveSheet(hoja); }
+  else { SpreadsheetApp.getUi().alert('⚠️ No se encontró la hoja: ' + nombre); }
+}
+
+function verDetalleEntrevistas()   { _mostrarHojaAB('Detalle Entrevistas'); }
+function verNoInscritx()           { _mostrarHojaAB('No Inscritx'); }
+function verListaDefinitiva()      { _mostrarHojaAB('Lista Definitiva'); }
+function verReportesMensuales()    { _mostrarHojaAB('Reportes Mensuales'); }
+function verEstipendios()          { _mostrarHojaAB('Estipendios'); }
+function verDashboardEstipendios() { _mostrarHojaAB('Dashboard Estipendios'); }
