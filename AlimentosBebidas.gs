@@ -252,6 +252,19 @@ function setupMenuAB() {
         .addSeparator()
         .addItem('⚙️ Instalar Sistema (solo hojas)', 'instalarSistema'))
 
+      // ========== HOJAS ==========
+      .addSubMenu(ui.createMenu('👁️ Hojas')
+        .addItem('🙈 Ocultar hojas secundarias', 'ocultarHojasSecundarias')
+        .addItem('👁️ Mostrar hojas secundarias', 'mostrarHojasSecundarias')
+        .addSeparator()
+        .addItem('📋 Ver Detalle Entrevistas', 'verDetalleEntrevistas')
+        .addItem('📋 Ver No Inscritx', 'verNoInscritx')
+        .addItem('📋 Ver Lista Definitiva', 'verListaDefinitiva')
+        .addItem('📋 Ver Reportes Mensuales', 'verReportesMensuales')
+        .addItem('💰 Ver Estipendios', 'verEstipendios')
+        .addItem('📊 Ver Dashboard Estipendios', 'verDashboardEstipendios'))
+      .addSeparator()
+
       // ========== HERRAMIENTAS ==========
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
