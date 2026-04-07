@@ -260,9 +260,14 @@ function crearHojaEstipendios() {
     .setFontColor('#ffffff')
     .setHorizontalAlignment('center');
 
-  // Fórmulas en fila 2
-  sheet.getRange('K2').setFormula('=IF(J2<>"","Pagado",IF(I2<TODAY(),"🔴 Atrasado","Programado"))');
-  sheet.getRange('P2').setFormula('=IF(AND(K2<>"Pagado",I2<TODAY()),TODAY()-I2,0)');
+  // Fórmulas ARRAYFORMULA — se calculan solas para cada fila con datos
+  // Solo muestra valor si hay ID Pago en col A (fila no está vacía)
+  sheet.getRange('K2').setFormula(
+    '=ARRAYFORMULA(IF(A2:A="","",IF(J2:J<>"","Pagado",IF(I2:I="","Programado",IF(I2:I<TODAY(),"🔴 Atrasado","Programado")))))'
+  );
+  sheet.getRange('P2').setFormula(
+    '=ARRAYFORMULA(IF(A2:A="","",IF(AND(K2:K<>"Pagado",I2:I<>"",I2:I<TODAY()),TODAY()-I2:I,0)))'
+  );
 
   // Anchos de columna
   sheet.setColumnWidth(1, 120);  // ID Pago
@@ -996,10 +1001,94 @@ function desactivarTriggersEstipendios() {
  *   .addSeparator()
  *   .addItem('⚙️ Activar Actualización Automática', 'configurarTriggersEstipendios')
  *   .addItem('🛑 Desactivar Actualización Automática', 'desactivarTriggersEstipendios')
- *   .addItem('🔍 Verificar Presupuestos Ahora', 'verificarPresupuestoEstipendios'))
+ *   .addItem('🔍 Verificar Presupuestos Ahora', 'verificarPresupuestoEstipendios')
+ *   .addItem('🔧 Reparar Hoja Estipendios', 'repararHojaEstipendios'))
  *
  */
 
+// =====================================================================
+// REPARACIÓN DE HOJA ESTIPENDIOS
+// =====================================================================
+
+/**
+ * Limpia las filas fantasma "Atrasado" de la hoja Estipendios
+ * y corrige las fórmulas de Estado y Días Atraso.
+ * Ejecutar una sola vez para arreglar la hoja existente.
+ */
+function repararHojaEstipendios() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const sheet = ss.getSheetByName('Estipendios');
+
+  if (!sheet) {
+    ui.alert('❌ No se encontró la hoja "Estipendios".\nEjecuta primero: Estipendios → Instalar Sistema');
+    return;
+  }
+
+  ss.toast('🔧 Reparando hoja Estipendios...', 'Estipendios', 5);
+
+  const lastRow = sheet.getLastRow();
+
+  // 1. Limpiar columnas K y P de todas las filas (Estado y Días Atraso)
+  //    para eliminar fórmulas pre-llenadas en filas vacías
+  if (lastRow >= 2) {
+    sheet.getRange('K2:K' + Math.max(lastRow, 1000)).clearContent();
+    sheet.getRange('P2:P' + Math.max(lastRow, 1000)).clearContent();
+  }
+
+  // 2. Poner ARRAYFORMULA correcta en K2
+  //    - Solo muestra valor si hay datos en col A (ID Pago)
+  //    - Si no hay Fecha Programada → "Programado" (no "Atrasado")
+  sheet.getRange('K2').setFormula(
+    '=ARRAYFORMULA(IF(A2:A="","",IF(J2:J<>"","Pagado",IF(I2:I="","Programado",IF(I2:I<TODAY(),"🔴 Atrasado","Programado")))))'
+  );
+
+  // 3. Poner ARRAYFORMULA correcta en P2 (Días Atraso)
+  sheet.getRange('P2').setFormula(
+    '=ARRAYFORMULA(IF(A2:A="","",IF(AND(K2:K<>"Pagado",I2:I<>"",I2:I<TODAY()),TODAY()-I2:I,0)))'
+  );
+
+  // 4. Limpiar reglas de formato condicional antiguas y recrear
+  sheet.clearConditionalFormatRules();
+
+  const rango = sheet.getRange('K2:K1000');
+
+  const rojo = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextContains('Atrasado')
+    .setBackground('#ffcdd2')
+    .setFontColor('#c62828')
+    .setRanges([rango])
+    .build();
+
+  const verde = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Pagado')
+    .setBackground('#e8f5e9')
+    .setFontColor('#2e7d32')
+    .setRanges([rango])
+    .build();
+
+  const azul = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo('Programado')
+    .setBackground('#e3f2fd')
+    .setFontColor('#1565c0')
+    .setRanges([rango])
+    .build();
+
+  sheet.setConditionalFormatRules([rojo, verde, azul]);
+
+  SpreadsheetApp.flush();
+
+  ui.alert(
+    '✅ Hoja Estipendios Reparada',
+    'Se eliminaron las filas "Atrasado" falsas.\n\n' +
+    'Ahora el Estado solo aparece cuando hay datos reales importados desde Kobo.\n\n' +
+    '• Sin fecha → Programado\n' +
+    '• Fecha pasada sin pago → 🔴 Atrasado\n' +
+    '• Fecha futura sin pago → Programado\n' +
+    '• Con Fecha Pago Real → Pagado',
+    ui.ButtonSet.OK
+  );
+}
 
 // =====================================================================
 // FIN DEL MÓDULO DE ESTIPENDIOS

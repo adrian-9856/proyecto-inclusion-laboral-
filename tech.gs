@@ -312,7 +312,8 @@ function setupMenuTech() {
         .addSeparator()
         .addItem('⚙️ Activar Actualización Automática', 'configurarTriggersEstipendios')
         .addItem('🛑 Desactivar Actualización Automática', 'desactivarTriggersEstipendios')
-        .addItem('🔍 Verificar Presupuestos Ahora', 'verificarPresupuestoEstipendios'))
+        .addItem('🔍 Verificar Presupuestos Ahora', 'verificarPresupuestoEstipendios')
+        .addItem('🔧 Reparar Hoja Estipendios', 'repararHojaEstipendios'))
 
       .addToUi();
   } catch (e) {
