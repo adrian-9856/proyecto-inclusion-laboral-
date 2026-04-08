@@ -11331,25 +11331,87 @@ function repararHojaEstipendios() {
     return;
   }
 
-  ss.toast('🔧 Reparando hoja Estipendios...', 'Estipendios', 5);
+  ss.toast('🔧 Migrando hoja Estipendios a estructura nueva...', 'Estipendios', 8);
 
-  const lastRow = sheet.getLastRow();
+  // ── PASO 1: Leer datos reales (filas donde col A tiene valor) ──────────
+  const todosLosDatos = sheet.getDataRange().getValues();
+  const esEstructuraVieja = todosLosDatos[0] && todosLosDatos[0].length > 18;
 
-  // 1. Limpiar columnas K (Estado) y P (Días Atraso) — elimina fórmulas falsas en filas vacías
-  sheet.getRange('K2:K' + Math.max(lastRow, 1000)).clearContent();
-  sheet.getRange('P2:P' + Math.max(lastRow, 1000)).clearContent();
+  // Filtrar solo filas con ID Pago real en col A
+  const filasReales = todosLosDatos.slice(1).filter(function(row) {
+    return row[0] && row[0].toString().trim() !== '';
+  });
 
-  // 2. ARRAYFORMULA correcta en K2 — solo muestra si hay ID Pago en col A
+  // Migrar columnas: vieja (22 cols) → nueva (18 cols)
+  // Viejo: O(14)=GPS, P(15)=Firma, Q(16)=Foto, R(17)=DíasAtraso, S-U=Mes/Año/Sem, V(21)=Notas
+  // Nuevo: O(14)=Firma, P(15)=DíasAtraso(ARRAYFORMULA), Q(16)=Notas, R(17)=UUID
+  const datosMigrados = filasReales.map(function(row) {
+    return [
+      row[0],                          // A ID Pago
+      row[1],                          // B Fecha Registro
+      row[2],                          // C ID Participante
+      row[3],                          // D Nombre Completo
+      row[4],                          // E Cohorte
+      row[5],                          // F Programa
+      row[6],                          // G Tipo Estipendio
+      row[7],                          // H Monto (Q)
+      row[8],                          // I Fecha Programada
+      row[9],                          // J Fecha Pago Real
+      '',                              // K Estado (ARRAYFORMULA)
+      row[11],                         // L Método Pago
+      row[12],                         // M # Recibo
+      row[13],                         // N Responsable
+      esEstructuraVieja ? (row[15] || '') : (row[14] || ''), // O URL Firma
+      '',                              // P Días Atraso (ARRAYFORMULA)
+      esEstructuraVieja ? (row[21] || '') : (row[16] || ''), // Q Notas
+      esEstructuraVieja ? ''           : (row[17] || '')     // R UUID
+    ];
+  });
+
+  // ── PASO 2: Limpiar toda la hoja (filas 2+) ───────────────────────────
+  const maxCol = sheet.getMaxColumns();
+  const maxRow = sheet.getMaxRows();
+  if (maxRow > 1) {
+    sheet.getRange(2, 1, maxRow - 1, maxCol).clearContent();
+    sheet.getRange(2, 1, maxRow - 1, maxCol).setBackground(null);
+  }
+
+  // ── PASO 3: Actualizar encabezados a nueva estructura de 18 cols ──────
+  const newHeaders = [
+    'ID Pago', 'Fecha Registro', 'ID Participante', 'Nombre Completo',
+    'Cohorte', 'Programa', 'Tipo Estipendio', 'Monto (Q)',
+    'Fecha Programada', 'Fecha Pago Real', 'Estado', 'Método Pago',
+    '# Recibo', 'Responsable', 'URL Firma', 'Días Atraso', 'Notas', 'UUID'
+  ];
+  sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+  sheet.getRange(1, 1, 1, newHeaders.length)
+    .setFontWeight('bold').setBackground('#0f9d58')
+    .setFontColor('#ffffff').setHorizontalAlignment('center');
+  // Limpiar columnas sobrantes (19 en adelante) del encabezado
+  if (maxCol > 18) {
+    sheet.getRange(1, 19, 1, maxCol - 18).clearContent().setBackground(null);
+  }
+
+  // ── PASO 4: Reescribir datos migrados en posiciones correctas ─────────
+  if (datosMigrados.length > 0) {
+    sheet.getRange(2, 1, datosMigrados.length, 18).setValues(datosMigrados);
+  }
+
+  // ── PASO 5: ARRAYFORMULA en K2 — Estado con guardia ──────────────────
   sheet.getRange('K2').setFormula(
     '=ARRAYFORMULA(IF(A2:A="","",IF(J2:J<>"","Pagado",IF(I2:I="","Programado",IF(I2:I<TODAY(),"🔴 Atrasado","Programado")))))'
   );
 
-  // 3. ARRAYFORMULA correcta en P2 — días de atraso solo con datos reales
+  // ── PASO 6: ARRAYFORMULA en P2 — Días de atraso con guardia ──────────
   sheet.getRange('P2').setFormula(
     '=ARRAYFORMULA(IF(A2:A="","",IF(AND(K2:K<>"Pagado",I2:I<>"",I2:I<TODAY()),TODAY()-I2:I,0)))'
   );
 
-  // 4. Limpiar y recrear formato condicional
+  // ── PASO 7: Formatos ──────────────────────────────────────────────────
+  sheet.getRange('H:H').setNumberFormat('"Q"#,##0.00');
+  sheet.getRange('P:P').setNumberFormat('0');  // Días Atraso = número entero
+
+  // ── PASO 8: Formato condicional en Estado (K) ─────────────────────────
   sheet.clearConditionalFormatRules();
   const rango = sheet.getRange('K2:K1000');
   sheet.setConditionalFormatRules([
@@ -11362,12 +11424,14 @@ function repararHojaEstipendios() {
 
   ui.alert(
     '✅ Hoja Estipendios Reparada',
-    'Se eliminaron los "Atrasado" falsos.\n\n' +
-    'Ahora el Estado solo aparece cuando hay datos reales:\n' +
-    '• Sin fecha → Programado\n' +
-    '• Fecha pasada sin pago → 🔴 Atrasado\n' +
-    '• Fecha futura → Programado\n' +
-    '• Con Fecha Pago Real → Pagado',
+    'Migración completada a estructura de 18 columnas.\n\n' +
+    'Cambios realizados:\n' +
+    '• Encabezados actualizados (A–R)\n' +
+    '• Datos preservados y reubicados correctamente\n' +
+    '• ARRAYFORMULA aplicada en Estado (K) y Días Atraso (P)\n' +
+    '• Filas vacías ya NO muestran "Atrasado"\n' +
+    '• Columnas S–V (Mes/Año/Semana) eliminadas\n\n' +
+    (filasReales.length > 0 ? filasReales.length + ' registros preservados.' : 'No había registros reales — hoja limpia lista para importar.'),
     ui.ButtonSet.OK
   );
 }
