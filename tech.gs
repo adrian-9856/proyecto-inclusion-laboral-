@@ -11383,3 +11383,58 @@ function verListaDefinitiva()      { _mostrarHojaTech('Lista Definitiva'); }
 function verReportesMensuales()    { _mostrarHojaTech('Reportes Mensuales'); }
 function verEstipendios()          { _mostrarHojaTech('Estipendios'); }
 function verDashboardEstipendios() { _mostrarHojaTech('Dashboard Estipendios'); }
+
+// =====================================================================
+// REPARACIÓN DE HOJA ESTIPENDIOS (TECH)
+// =====================================================================
+
+function repararHojaEstipendios() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const sheet = ss.getSheetByName('Estipendios');
+
+  if (!sheet) {
+    ui.alert('❌ No se encontró la hoja "Estipendios".\nEjecuta primero: Estipendios → Instalar Sistema');
+    return;
+  }
+
+  ss.toast('🔧 Reparando hoja Estipendios...', 'Estipendios', 5);
+
+  const lastRow = sheet.getLastRow();
+
+  // 1. Limpiar columnas K (Estado) y P (Días Atraso) — elimina fórmulas falsas en filas vacías
+  sheet.getRange('K2:K' + Math.max(lastRow, 1000)).clearContent();
+  sheet.getRange('P2:P' + Math.max(lastRow, 1000)).clearContent();
+
+  // 2. ARRAYFORMULA correcta en K2 — solo muestra si hay ID Pago en col A
+  sheet.getRange('K2').setFormula(
+    '=ARRAYFORMULA(IF(A2:A="","",IF(J2:J<>"","Pagado",IF(I2:I="","Programado",IF(I2:I<TODAY(),"🔴 Atrasado","Programado")))))'
+  );
+
+  // 3. ARRAYFORMULA correcta en P2 — días de atraso solo con datos reales
+  sheet.getRange('P2').setFormula(
+    '=ARRAYFORMULA(IF(A2:A="","",IF(AND(K2:K<>"Pagado",I2:I<>"",I2:I<TODAY()),TODAY()-I2:I,0)))'
+  );
+
+  // 4. Limpiar y recrear formato condicional
+  sheet.clearConditionalFormatRules();
+  const rango = sheet.getRange('K2:K1000');
+  sheet.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule().whenTextContains('Atrasado').setBackground('#ffcdd2').setFontColor('#c62828').setRanges([rango]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Pagado').setBackground('#e8f5e9').setFontColor('#2e7d32').setRanges([rango]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Programado').setBackground('#e3f2fd').setFontColor('#1565c0').setRanges([rango]).build(),
+  ]);
+
+  SpreadsheetApp.flush();
+
+  ui.alert(
+    '✅ Hoja Estipendios Reparada',
+    'Se eliminaron los "Atrasado" falsos.\n\n' +
+    'Ahora el Estado solo aparece cuando hay datos reales:\n' +
+    '• Sin fecha → Programado\n' +
+    '• Fecha pasada sin pago → 🔴 Atrasado\n' +
+    '• Fecha futura → Programado\n' +
+    '• Con Fecha Pago Real → Pagado',
+    ui.ButtonSet.OK
+  );
+}
