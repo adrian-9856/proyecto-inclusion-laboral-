@@ -313,7 +313,8 @@ function setupMenuTech() {
         .addItem('⚙️ Activar Actualización Automática', 'configurarTriggersEstipendios')
         .addItem('🛑 Desactivar Actualización Automática', 'desactivarTriggersEstipendios')
         .addItem('🔍 Verificar Presupuestos Ahora', 'verificarPresupuestoEstipendios')
-        .addItem('🔧 Reparar Hoja Estipendios', 'repararHojaEstipendios'))
+        .addItem('🔧 Reparar Hoja Estipendios', 'repararHojaEstipendios')
+        .addItem('🔧 Reparar Dashboard', 'repararDashboardEstipendios'))
 
       .addToUi();
   } catch (e) {
@@ -10183,16 +10184,15 @@ function crearHojaDashboardEstipendios() {
 
   const kpis = [
     ['KPI', 'Valor', 'Fórmula'],
-    ['Total Presupuestado', '', '=SUM(Cohortes!K:K)'],
-    ['Total Gastado', '', '=SUM(Cohortes!L:L)'],
-    ['Total Disponible', '', '=B5-B6'],
-    ['% Ejecución Global', '', '=IF(B5>0,B6/B5,0)'],
-    ['# Cohortes Activas', '', '=COUNTIF(Cohortes!F:F,"Activa")'],
-    ['# Participantes Beneficiadas', '', '=COUNTA(UNIQUE(FILTER(Estipendios!C:C,Estipendios!C:C<>"")))'],
-    ['Total Pagos Realizados', '', '=COUNTIF(Estipendios!K:K,"Pagado")'],
-    ['Promedio por Participante', '', '=IF(B9>0,B6/B9,0)'],
-    ['Pagos Pendientes', '', '=COUNTIF(Estipendios!K:K,"Programado")'],
-    ['Pagos Atrasados', '', '=COUNTIF(Estipendios!K:K,"*Atrasado*")']
+    ['Total Presupuestado (Q)',    '', '=IFERROR(SUM(Cohortes!Q:Q),0)'],
+    ['Total Gastado (Q)',          '', '=IFERROR(SUM(Cohortes!R:R),0)'],
+    ['Total Disponible (Q)',       '', '=B5-B6'],
+    ['% Ejecución Global',         '', '=IFERROR(B6/B5,0)'],
+    ['# Cohortes con Estipendios', '', '=IFERROR(COUNTIF(Cohortes!Q:Q,">"&0),0)'],
+    ['# Cohortes Activas',         '', '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)'],
+    ['Total Pagos Importados',     '', '=IFERROR(COUNTA(Estipendios!A:A)-1,0)'],
+    ['Total Monto Pagado (Q)',     '', '=IFERROR(SUMIF(Estipendios!A:A,"EST-*",Estipendios!H:H),0)'],
+    ['Pagos Atrasados',            '', '=IFERROR(COUNTIF(Estipendios!K:K,"*Atrasado*"),0)']
   ];
 
   sheet.getRange(4, 1, kpis.length, kpis[0].length).setValues(kpis);
@@ -11443,4 +11443,59 @@ function repararHojaEstipendios() {
     '• Con Fecha Pago Real → Pagado',
     ui.ButtonSet.OK
   );
+}
+
+// =====================================================================
+// REPARACIÓN DE DASHBOARD ESTIPENDIOS (Tech/SAC)
+// =====================================================================
+
+function repararDashboardEstipendios() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dash = ss.getSheetByName('Dashboard Estipendios');
+  if (!dash) {
+    SpreadsheetApp.getUi().alert('❌ No existe la hoja "Dashboard Estipendios".\nEjecuta: Estipendios → Instalar Sistema');
+    return;
+  }
+
+  ss.toast('🔧 Reparando Dashboard...', 'Estipendios', 4);
+
+  // KPIs correctos — filas 5 a 13 (col B = fórmulas)
+  // Columnas Cohortes: Q=Presupuesto Total, R=Gastado, N=Estado
+  const formulas = [
+    [5,  '=IFERROR(SUM(Cohortes!Q:Q),0)'],           // Total Presupuestado
+    [6,  '=IFERROR(SUM(Cohortes!R:R),0)'],            // Total Gastado
+    [7,  '=B5-B6'],                                    // Total Disponible
+    [8,  '=IFERROR(B6/B5,0)'],                         // % Ejecución Global
+    [9,  '=IFERROR(COUNTIF(Cohortes!Q:Q,">"&0),0)'],  // # Cohortes con Estipendios
+    [10, '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)'],// # Cohortes Activas
+    [11, '=IFERROR(COUNTA(Estipendios!A:A)-1,0)'],     // Total Pagos Importados
+    [12, '=IFERROR(SUMIF(Estipendios!A:A,"EST-*",Estipendios!H:H),0)'], // Total Monto
+    [13, '=IFERROR(COUNTIF(Estipendios!K:K,"*Atrasado*"),0)']  // Pagos Atrasados
+  ];
+
+  formulas.forEach(function(f) {
+    dash.getRange('B' + f[0]).setFormula(f[1]);
+  });
+
+  // Formato: porcentaje en fila 8
+  dash.getRange('B8').setNumberFormat('0.0%');
+  // Formato: moneda en filas 5,6,7,12
+  [5,6,7,12].forEach(function(r) { dash.getRange('B' + r).setNumberFormat('"Q"#,##0.00'); });
+
+  // Nombres de KPIs (col A)
+  const nombres = [
+    [5,  'Total Presupuestado (Q)'],
+    [6,  'Total Gastado (Q)'],
+    [7,  'Total Disponible (Q)'],
+    [8,  '% Ejecución Global'],
+    [9,  '# Cohortes con Estipendios'],
+    [10, '# Cohortes Activas'],
+    [11, 'Total Pagos Importados'],
+    [12, 'Total Monto Pagado (Q)'],
+    [13, 'Pagos Atrasados']
+  ];
+  nombres.forEach(function(n) { dash.getRange('A' + n[0]).setValue(n[1]); });
+
+  SpreadsheetApp.flush();
+  ss.toast('✅ Dashboard reparado. Los KPIs ahora muestran datos reales.', 'Estipendios', 5);
 }
