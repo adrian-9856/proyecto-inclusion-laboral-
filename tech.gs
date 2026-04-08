@@ -310,7 +310,8 @@ function setupMenuTech() {
         .addSeparator()
         .addItem('📊 Exportar para Power BI', 'exportarParaPowerBI')
         .addSeparator()
-        .addItem('⚙️ Activar Actualización Automática', 'configurarTriggersEstipendios')
+        .addItem('⚙️ Activar Actualización (15 min)', 'configurarTriggersEstipendios')
+        .addItem('🧪 Modo Prueba (1 min)', 'configurarTriggersEstipendiosPrueba')
         .addItem('🛑 Desactivar Actualización Automática', 'desactivarTriggersEstipendios')
         .addItem('🔍 Verificar Presupuestos Ahora', 'verificarPresupuestoEstipendios')
         .addItem('🔧 Reparar Hoja Estipendios', 'repararHojaEstipendios')
@@ -10278,10 +10279,19 @@ function importarEstipendiosDesdeKobo() {
       throw new Error('No se obtuvieron datos de Kobo');
     }
 
-    // Parsear CSV
-    const data = Utilities.parseCsv(csv);
-    if (data.length <= 1) {
-      throw new Error('El CSV no contiene datos');
+    // Parsear CSV — Kobo usa punto y coma como separador
+    let data;
+    try {
+      data = Utilities.parseCsv(csv);
+      if (data[0].length < 3) throw new Error('pocas columnas');
+    } catch(e) {
+      data = Utilities.parseCsv(csv, ';');
+    }
+    if (!data || data.length <= 1) {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        'ℹ️ El formulario de estipendios aún no tiene respuestas enviadas en Kobo.',
+        '💰 Estipendios', 8);
+      return;
     }
 
     const headers = data[0];
@@ -10320,6 +10330,12 @@ function importarEstipendiosDesdeKobo() {
     let nuevosRegistros = 0;
     const dataExistente = sheetEstipendios.getDataRange().getValues();
 
+    // Encontrar próxima fila vacía en col A — appendRow falla por ARRAYFORMULA en K
+    let nextWriteRow = 2;
+    for (let r = dataExistente.length - 1; r >= 1; r--) {
+      if (dataExistente[r][0] !== '') { nextWriteRow = r + 2; break; }
+    }
+
     filas.forEach((fila, index) => {
       try {
         const creamosID = indices['Creamos_ID'] >= 0 ? fila[indices['Creamos_ID']] : '';
@@ -10357,13 +10373,12 @@ function importarEstipendiosDesdeKobo() {
 
         if (existe) return;
 
-        // Generar ID
-        const ultimaFila = sheetEstipendios.getLastRow();
-        const idPago = `EST-${año}-${String(ultimaFila).padStart(4, '0')}`;
+        // ID usa nextWriteRow (no getLastRow que falla por ARRAYFORMULA)
+        const idPago = `EST-${año}-${String(nextWriteRow - 1).padStart(4, '0')}`;
         const nombreCompleto = `${nombre} ${apellido}`.trim();
 
-        // Agregar registro
-        const nuevoRegistro = [
+        // Escribir en fila exacta (no appendRow) para evitar que ARRAYFORMULA desplace datos
+        sheetEstipendios.getRange(nextWriteRow, 1, 1, 18).setValues([[
           idPago,                     // A - ID Pago
           submissionTime || new Date(), // B - Fecha Registro
           creamosID,                  // C - ID Participante
@@ -10373,22 +10388,17 @@ function importarEstipendiosDesdeKobo() {
           tipoEstipendio,             // G - Tipo Estipendio
           parseFloat(monto) || 0,     // H - Monto
           fecha,                      // I - Fecha Programada
-          fecha,                      // J - Fecha Pago Real
-          '',                         // K - Estado (fórmula)
+          '',                         // J - Fecha Pago Real (vacía al importar)
+          '',                         // K - Estado (ARRAYFORMULA en K2)
           metodoPago,                 // L - Método Pago
           numeroComprobante,          // M - # Recibo
           responsable,                // N - Responsable
-          gps,                        // O - Ubicación GPS
-          firma,                      // P - URL Firma
-          fotoComprobante,            // Q - URL Foto Comprobante
-          '',                         // R - Días atraso (fórmula)
-          '',                         // S - Mes (fórmula)
-          '',                         // T - Año (fórmula)
-          '',                         // U - Semana (fórmula)
-          comentarios                 // V - Notas
-        ];
-
-        sheetEstipendios.appendRow(nuevoRegistro);
+          firma,                      // O - URL Firma
+          '',                         // P - Días atraso (ARRAYFORMULA en P2)
+          comentarios,                // Q - Notas
+          ''                          // R - UUID (para dedup)
+        ]]);
+        nextWriteRow++;
         nuevosRegistros++;
 
         // Registrar en auditoría
@@ -10763,7 +10773,7 @@ function configurarTriggersEstipendios() {
     });
 
     ScriptApp.newTrigger('importarEstipendiosDesdeKobo')
-      .timeBased().everyHours(1).create();
+      .timeBased().everyMinutes(15).create();
 
     ScriptApp.newTrigger('verificarPresupuestoEstipendios')
       .timeBased().everyHours(6).create();
@@ -10774,7 +10784,7 @@ function configurarTriggersEstipendios() {
     SpreadsheetApp.getUi().alert(
       '✅ Triggers Activados',
       'Procesos automáticos activados:\n\n' +
-      '• Importación desde Kobo: Cada hora\n' +
+      '• Importación desde Kobo: Cada 15 minutos\n' +
       '• Verificación presupuesto: Cada 6 horas\n' +
       '• Exportación Power BI: Diario a las 6:00 AM',
       SpreadsheetApp.getUi().ButtonSet.OK
@@ -10782,6 +10792,27 @@ function configurarTriggersEstipendios() {
 
   } catch (error) {
     Logger.log('❌ Error: ' + error.message);
+  }
+}
+
+function configurarTriggersEstipendiosPrueba() {
+  try {
+    ScriptApp.getProjectTriggers().forEach(function(t) {
+      if (t.getHandlerFunction().toLowerCase().includes('estipendios')) {
+        ScriptApp.deleteTrigger(t);
+      }
+    });
+    ScriptApp.newTrigger('importarEstipendiosDesdeKobo')
+      .timeBased().everyMinutes(1).create();
+    SpreadsheetApp.getUi().alert(
+      '🧪 Modo Prueba Activado',
+      'Importación automática cada 1 minuto.\n\n' +
+      'Cuando termines las pruebas usa:\n' +
+      'Estipendios → Activar Actualización (15 min)',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  } catch (error) {
+    Logger.log('❌ Error prueba trigger: ' + error.message);
   }
 }
 

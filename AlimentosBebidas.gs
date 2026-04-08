@@ -307,7 +307,8 @@ function setupMenuAB() {
         .addSeparator()
         .addItem('📊 Exportar para Power BI', 'exportarParaPowerBI')
         .addSeparator()
-        .addItem('⚙️ Activar Actualización Automática', 'configurarTriggersEstipendios')
+        .addItem('⚙️ Activar Actualización (15 min)', 'configurarTriggersEstipendios')
+        .addItem('🧪 Modo Prueba (1 min)', 'configurarTriggersEstipendiosPrueba')
         .addItem('🛑 Desactivar Actualización Automática', 'desactivarTriggersEstipendios')
         .addItem('🔍 Verificar Presupuestos Ahora', 'verificarPresupuestoEstipendios')
         .addItem('🔧 Reparar Hoja Estipendios', 'repararHojaEstipendios')
@@ -10325,6 +10326,12 @@ function importarEstipendiosDesdeKobo() {
     const dataExistente = sheetEst.getDataRange().getValues();
     const uuids = new Set(dataExistente.slice(1).map(r => (r[17] || '').toString().trim()).filter(Boolean));
 
+    // Encontrar próxima fila vacía en col A — appendRow falla por ARRAYFORMULA en K/P
+    var nextWriteRow = 2;
+    for (var r = dataExistente.length - 1; r >= 1; r--) {
+      if (dataExistente[r][0] !== '') { nextWriteRow = r + 2; break; }
+    }
+
     let nuevos = 0, omitidos = 0;
 
     filas.forEach(function(fila, i) {
@@ -10375,11 +10382,12 @@ function importarEstipendiosDesdeKobo() {
         if (fase === 'Teórica') tipo = 'Curso';
         else if (fase === 'Práctica' || fase === 'Formación Dual') tipo = 'Prácticas';
 
-        var idPago = 'EST-' + año + '-' + String(sheetEst.getLastRow()).padStart(4,'0');
+        // ID usa nextWriteRow (no getLastRow que falla por ARRAYFORMULA)
+        var idPago = 'EST-' + año + '-' + String(nextWriteRow - 1).padStart(4,'0');
         var nombreCompleto = (nombre + ' ' + apellido).trim();
 
-        // 17 columnas: A-Q (coincide con la estructura de crearHojaEstipendios)
-        sheetEst.appendRow([
+        // Escribir en fila exacta (no appendRow) para evitar que ARRAYFORMULA desplace datos
+        sheetEst.getRange(nextWriteRow, 1, 1, 18).setValues([[
           idPago,                      // A ID Pago
           submTime || new Date(),      // B Fecha Registro
           creamosId,                   // C ID Participante
@@ -10396,9 +10404,10 @@ function importarEstipendiosDesdeKobo() {
           responsable,                 // N Responsable
           firma,                       // O URL Firma
           '',                          // P Días Atraso (ARRAYFORMULA en P2)
-          comentarios,                 // Q Notas ... col 17
+          comentarios,                 // Q Notas
           uuid                         // R UUID (col 18, para dedup)
-        ]);
+        ]]);
+        nextWriteRow++;
 
         if (uuid) uuids.add(uuid);
         nuevos++;
@@ -10767,7 +10776,7 @@ function configurarTriggersEstipendios() {
     });
 
     ScriptApp.newTrigger('importarEstipendiosDesdeKobo')
-      .timeBased().everyHours(1).create();
+      .timeBased().everyMinutes(15).create();
 
     ScriptApp.newTrigger('verificarPresupuestoEstipendios')
       .timeBased().everyHours(6).create();
@@ -10778,7 +10787,7 @@ function configurarTriggersEstipendios() {
     SpreadsheetApp.getUi().alert(
       '✅ Triggers Activados',
       'Procesos automáticos activados:\n\n' +
-      '• Importación desde Kobo: Cada hora\n' +
+      '• Importación desde Kobo: Cada 15 minutos\n' +
       '• Verificación presupuesto: Cada 6 horas\n' +
       '• Exportación Power BI: Diario a las 6:00 AM',
       SpreadsheetApp.getUi().ButtonSet.OK
@@ -10786,6 +10795,29 @@ function configurarTriggersEstipendios() {
 
   } catch (error) {
     Logger.log('❌ Error: ' + error.message);
+  }
+}
+
+function configurarTriggersEstipendiosPrueba() {
+  try {
+    // Eliminar triggers de estipendios existentes
+    ScriptApp.getProjectTriggers().forEach(function(t) {
+      if (t.getHandlerFunction().toLowerCase().includes('estipendios')) {
+        ScriptApp.deleteTrigger(t);
+      }
+    });
+    // Trigger 1 minuto para pruebas rápidas
+    ScriptApp.newTrigger('importarEstipendiosDesdeKobo')
+      .timeBased().everyMinutes(1).create();
+    SpreadsheetApp.getUi().alert(
+      '🧪 Modo Prueba Activado',
+      'Importación automática cada 1 minuto.\n\n' +
+      'Cuando termines las pruebas usa:\n' +
+      'Estipendios → Activar Actualización (15 min)',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  } catch (error) {
+    Logger.log('❌ Error prueba trigger: ' + error.message);
   }
 }
 
