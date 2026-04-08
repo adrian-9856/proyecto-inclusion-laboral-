@@ -10158,37 +10158,40 @@ function crearHojaDashboardEstipendios() {
   sheet.getRange('A3').setValue('📈 KPIs GLOBALES').setFontWeight('bold')
     .setBackground('#e8eaf6').setFontSize(12);
 
-  // Columnas correctas en Cohortes:
-  // Q (col 17) = Presupuesto Total, R (col 18) = Gastado, N (col 14) = Estado
+  // Solo 2 columnas: KPI y Valor (col C eliminada para no mostrar texto de fórmulas)
   const kpis = [
-    ['KPI', 'Valor', 'Fórmula'],
-    ['Total Presupuestado (Q)',    '', '=IFERROR(SUM(Cohortes!Q:Q),0)'],
-    ['Total Gastado (Q)',          '', '=IFERROR(SUM(Cohortes!R:R),0)'],
-    ['Total Disponible (Q)',       '', '=B5-B6'],
-    ['% Ejecución Global',         '', '=IFERROR(B6/B5,0)'],
-    ['# Cohortes con Estipendios', '', '=IFERROR(COUNTIF(Cohortes!Q:Q,">"&0),0)'],
-    ['# Cohortes Activas',         '', '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)'],
-    ['Total Pagos Importados',     '', '=IFERROR(COUNTA(Estipendios!A:A)-1,0)'],
-    ['Total Monto Pagado (Q)',     '', '=IFERROR(SUMIF(Estipendios!A:A,"EST-*",Estipendios!H:H),0)'],
-    ['Pagos Atrasados',            '', '=IFERROR(COUNTIF(Estipendios!K:K,"*Atrasado*"),0)']
+    ['KPI', 'Valor'],
+    ['Total Presupuestado (Q)',    ''],
+    ['Total Gastado (Q)',          ''],
+    ['Total Disponible (Q)',       ''],
+    ['% Ejecución Global',         ''],
+    ['# Cohortes con Estipendios', ''],
+    ['# Cohortes Activas',         ''],
+    ['Total Pagos Importados',     ''],
+    ['Total Monto Pagado (Q)',     ''],
+    ['Pagos Atrasados',            '']
   ];
+  sheet.getRange(4, 1, kpis.length, 2).setValues(kpis);
 
-  sheet.getRange(4, 1, kpis.length, kpis[0].length).setValues(kpis);
-
-  // Aplicar fórmulas
-  for (let i = 1; i < kpis.length; i++) {
-    sheet.getRange(4 + i, 2).setFormula(kpis[i][2]);
-  }
+  // Aplicar fórmulas en col B
+  const formulas = [
+    '=IFERROR(SUM(Cohortes!Q:Q),0)',
+    '=IFERROR(SUM(Cohortes!R:R),0)',
+    '=B5-B6',
+    '=IFERROR(B6/B5,0)',
+    '=IFERROR(COUNTIF(Cohortes!Q:Q,">"&0),0)',
+    '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)',
+    '=IFERROR(COUNTA(Estipendios!A:A)-1,0)',
+    '=IFERROR(SUMIF(Estipendios!A:A,"EST-*",Estipendios!H:H),0)',
+    '=IFERROR(COUNTIF(Estipendios!K:K,"*Atrasado*"),0)'
+  ];
+  formulas.forEach(function(f, i) { sheet.getRange(5 + i, 2).setFormula(f); });
 
   // Formato
-  sheet.getRange('A4:C4').setFontWeight('bold').setBackground('#d9d9d9');
-  // Moneda solo en filas de monto: Presupuestado(5), Gastado(6), Disponible(7), Monto Pagado(12)
+  sheet.getRange('A4:B4').setFontWeight('bold').setBackground('#d9d9d9');
   [5,6,7,12].forEach(function(r) { sheet.getRange('B'+r).setNumberFormat('"Q"#,##0.00'); });
-  // Porcentaje
   sheet.getRange('B8').setNumberFormat('0.00%');
-  // Número entero para conteos: # Cohortes con Est(9), # Cohortes Activas(10), Pagos Imp(11), Atrasados(13)
   [9,10,11,13].forEach(function(r) { sheet.getRange('B'+r).setNumberFormat('0'); });
-  // Limpiar fila 14 por si quedaron datos de versiones anteriores
   sheet.getRange('A14:C14').clearContent();
 
   // === SECCIÓN 2: CALENDARIO PRÓXIMOS PAGOS ===
@@ -10211,18 +10214,9 @@ function crearHojaDashboardEstipendios() {
 
   sheet.getRange('A18').setValue('Ejecuta: Estipendios → Actualizar Dashboard');
 
-  // === SECCIÓN 4: AUDITORÍA ===
-  sheet.getRange('A25').setValue('📝 AUDITORÍA (Últimas 20 acciones)').setFontWeight('bold')
-    .setBackground('#e8eaf6').setFontSize(12);
-
-  const headersAuditoria = [['Fecha/Hora', 'Usuario', 'Acción', 'Detalles']];
-  sheet.getRange(26, 1, 1, 4).setValues(headersAuditoria);
-  sheet.getRange('A26:D26').setFontWeight('bold').setBackground('#d9d9d9');
-
   // Ajustar columnas
   sheet.setColumnWidths(1, 3, 200);
   sheet.setColumnWidths(5, 4, 120);
-
   sheet.setFrozenRows(1);
 
   Logger.log('✅ Hoja "Dashboard Estipendios" creada');
@@ -10322,6 +10316,15 @@ function importarEstipendiosDesdeKobo() {
       if (dataExistente[r][0] !== '') { nextWriteRow = r + 2; break; }
     }
 
+    // Leer nombres reales de cohortes para corregir nombres generados automáticamente
+    var nombresCohortes = [];
+    var shCoh = ss.getSheetByName('Cohortes');
+    if (shCoh && shCoh.getLastRow() > 1) {
+      nombresCohortes = shCoh.getDataRange().getValues().slice(1)
+        .map(function(c) { return (c[0] || '').toString().trim(); })
+        .filter(Boolean);
+    }
+
     // Validar Creamos IDs contra Lista Definitiva e Inscritx (una sola lectura)
     var idsValidosAB = new Set();
     var hayValidacionAB = false;
@@ -10369,6 +10372,9 @@ function importarEstipendiosDesdeKobo() {
         // Cohorte
         var año = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
         var cohorte = get('cohorte') || determinarCohorteDesdeEspecialidad(get('especialidad'), año);
+        // Corregir nombre de cohorte con el nombre real del sistema (fuzzy match)
+        var cohorteCorrecta = _buscarNombreCohorteReal(cohorte, nombresCohortes);
+        if (cohorteCorrecta) cohorte = cohorteCorrecta;
 
         // Validar Creamos ID en sistema (protege presupuesto)
         if (hayValidacionAB && !idsValidosAB.has(creamosId)) {
@@ -10421,7 +10427,7 @@ function importarEstipendiosDesdeKobo() {
 
         if (uuid) uuids.add(uuid);
         nuevos++;
-        registrarAuditoriaEstipendios('Importación Kobo', idPago, nombreCompleto);
+        // auditoría eliminada — cada fila en Estipendios ya es registro completo
 
       } catch(e) {
         Logger.log('⚠️ Fila ' + i + ': ' + e.message);
@@ -10472,6 +10478,50 @@ function determinarCohorteDesdeEspecialidad(especialidad, año) {
     'Mecánica': `Mecánica-${año}`
   };
   return mapeo[especialidad] || `${especialidad}-${año}`;
+}
+
+/**
+ * Normaliza un nombre de cohorte para comparación:
+ * elimina paréntesis, guiones, espacios extra → minúsculas
+ */
+function _normalizarCohorte(nombre) {
+  return (nombre || '').toString().toLowerCase()
+    .replace(/[()]/g, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Compara dos nombres de cohorte con fuzzy match.
+ * Ejemplo: "Barismo-2026" coincide con "Barismo 1 (2026)"
+ * Regla: misma primera palabra Y mismo año (última parte numérica de 4 dígitos)
+ */
+function _coincideNombreCohorte(nombre1, nombre2) {
+  if (!nombre1 || !nombre2) return false;
+  if (nombre1.trim() === nombre2.trim()) return true;
+  var n1 = _normalizarCohorte(nombre1);
+  var n2 = _normalizarCohorte(nombre2);
+  if (n1 === n2) return true;
+  var parts1 = n1.split(' ');
+  var parts2 = n2.split(' ');
+  var año1 = parts1.filter(function(p) { return /^\d{4}$/.test(p); })[0];
+  var año2 = parts2.filter(function(p) { return /^\d{4}$/.test(p); })[0];
+  return parts1[0] === parts2[0] && año1 && año1 === año2;
+}
+
+/**
+ * Busca el nombre REAL de la cohorte en el sistema (col A de Cohortes)
+ * usando fuzzy match. Retorna el nombre real si encuentra, null si no.
+ */
+function _buscarNombreCohorteReal(nombreKobo, nombresCohortes) {
+  if (!nombreKobo || !nombresCohortes || nombresCohortes.length === 0) return null;
+  // Búsqueda exacta primero
+  for (var i = 0; i < nombresCohortes.length; i++) {
+    if (nombresCohortes[i] === nombreKobo) return nombreKobo;
+  }
+  // Fuzzy match
+  for (var i = 0; i < nombresCohortes.length; i++) {
+    if (_coincideNombreCohorte(nombreKobo, nombresCohortes[i])) return nombresCohortes[i];
+  }
+  return null; // No encontrado — usar el nombre original
 }
 
 // =====================================================================
@@ -10533,32 +10583,33 @@ function actualizarDashboardEstipendios() {
     // Actualizar resumen por cohorte
     // Columnas en Cohortes (0-based): A=0 Nombre, O=14 PresCurso, P=15 PresPrac,
     // Q=16 Total, R=17 Gastado, S=18 Disponible, T=19 %Ejec
+    // Filtrar solo filas con datos reales en Estipendios (col A no vacía)
+    const estipendiosReales = estipendios.filter(function(e) { return e[0] && e[0] !== ''; });
+
     if (sheetCohortes) {
       const cohortes = sheetCohortes.getDataRange().getValues().slice(1);
       const resumenCohorte = [];
 
-      cohortes.forEach(c => {
-        const nombreCohorte = c[0];
+      cohortes.forEach(function(c) {
+        const nombreCohorte = (c[0] || '').toString().trim();
         if (!nombreCohorte) return;
 
-        const presupuestoTotal = parseFloat(c[16]) || 0;  // Col Q
+        const presupuestoTotal = parseFloat(c[16]) || 0;  // Col Q = Presupuesto Total
         if (presupuestoTotal <= 0) return;                 // Solo cohortes con presupuesto
 
-        const gastado    = parseFloat(c[17]) || 0;        // Col R
-        const disponible = parseFloat(c[18]) || 0;        // Col S
-        const pctEjec    = parseFloat(c[19]) || 0;        // Col T
-        const numPagos   = estipendios.filter(e => e[4] === nombreCohorte).length;
+        // Calcular gastado DIRECTAMENTE desde Estipendios (no depende del SUMIF de Cohortes)
+        // Usa fuzzy match para manejar variaciones de nombre (ej: "Barismo-2026" ↔ "Barismo 1 (2026)")
+        const estipCohorte = estipendiosReales.filter(function(e) {
+          return _coincideNombreCohorte((e[4] || '').toString(), nombreCohorte);
+        });
+
+        const gastado    = estipCohorte.reduce(function(s, e) { return s + (parseFloat(e[7]) || 0); }, 0);
+        const numPagos   = estipCohorte.length;
+        const disponible = presupuestoTotal - gastado;
+        const pctEjec    = presupuestoTotal > 0 ? gastado / presupuestoTotal : 0;
         const estado     = pctEjec > 0.95 ? '🔴 Crítico' : pctEjec > 0.80 ? '🟡 Alerta' : '🟢 OK';
 
-        resumenCohorte.push([
-          nombreCohorte,
-          presupuestoTotal,
-          gastado,
-          disponible,
-          pctEjec,
-          numPagos,
-          estado
-        ]);
+        resumenCohorte.push([nombreCohorte, presupuestoTotal, gastado, disponible, pctEjec, numPagos, estado]);
       });
 
       sheetDashboard.getRange(18, 1, 10, 7).clear();
@@ -10571,7 +10622,10 @@ function actualizarDashboardEstipendios() {
       }
     }
 
-    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Dashboard actualizado', 'Éxito', 3);
+    // Limpiar filas viejas de auditoría (eliminada en nueva versión)
+    sheetDashboard.getRange('A25:H50').clearContent().setBackground(null);
+
+    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Dashboard actualizado', 'Estipendios', 3);
 
   } catch (error) {
     Logger.log('❌ Error actualizando dashboard: ' + error.message);
@@ -10696,53 +10750,88 @@ function enviarAlertasEstipendios(alertas) {
  */
 function exportarParaPowerBI() {
   try {
-    SpreadsheetApp.getActiveSpreadsheet().toast('Exportando para Power BI...', '💰 Estipendios', 3);
-
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheetExport = ss.getSheetByName('EXPORT_PowerBI');
+    ss.toast('Exportando para Power BI...', '💰 Estipendios', 3);
 
-    if (sheetExport) {
-      ss.deleteSheet(sheetExport);
-    }
+    let sheetExport = ss.getSheetByName('EXPORT_PowerBI');
+    if (sheetExport) ss.deleteSheet(sheetExport);
     sheetExport = ss.insertSheet('EXPORT_PowerBI');
 
+    // Estructura de 18 cols: A-R (ver crearHojaEstipendios)
+    // e[0]=IDPago, e[2]=CreamosID, e[3]=Nombre, e[4]=Cohorte, e[5]=Programa,
+    // e[6]=Tipo, e[7]=Monto, e[8]=FechaProg, e[9]=FechaPagoReal,
+    // e[10]=Estado, e[11]=MétodoPago, e[12]=Recibo, e[13]=Responsable, e[16]=Notas
     const headers = [
-      'ID Pago', 'Fecha Pago', 'Año', 'Mes', 'ID Participante', 'Nombre',
-      'Cohorte', 'Programa', 'Tipo', 'Monto', 'Estado', 'Responsable',
-      'Presupuesto Cohorte', 'Donador'
+      'ID Pago', 'Fecha Pago', 'Año', 'Mes', 'Creamos ID', 'Nombre Completo',
+      'Cohorte', 'Programa', 'Tipo Estipendio', 'Monto (Q)',
+      'Estado', 'Método Pago', '# Recibo', 'Responsable', 'Notas',
+      'Presupuesto Cohorte (Q)', 'Estado Cohorte'
     ];
 
-    const estipendios = ss.getSheetByName('Estipendios').getDataRange().getValues().slice(1);
-    const cohortes = ss.getSheetByName('Cohortes').getDataRange().getValues().slice(1);
+    const estipendios = ss.getSheetByName('Estipendios').getDataRange().getValues().slice(1)
+      .filter(function(e) { return e[0] && e[0] !== ''; }); // Solo filas con datos reales
 
+    const shCoh = ss.getSheetByName('Cohortes');
     const dictCohortes = {};
-    cohortes.forEach(c => {
-      dictCohortes[c[1]] = { presupuesto: c[10], donador: c[14] || '' };
-    });
+    if (shCoh) {
+      shCoh.getDataRange().getValues().slice(1).forEach(function(c) {
+        if (c[0]) dictCohortes[c[0].toString().trim()] = {
+          presupuesto: parseFloat(c[16]) || 0, // Col Q = Presupuesto Total
+          estado: (c[13] || '').toString()      // Col N = Estado Cohorte
+        };
+      });
+    }
 
+    const tz = Session.getScriptTimeZone();
     const datosConsolidados = [headers];
 
-    estipendios.forEach(e => {
-      const fechaPago = e[9] ? new Date(e[9]) : new Date();
-      const cohorte = e[4];
-      const presupuesto = dictCohortes[cohorte] || {};
+    estipendios.forEach(function(e) {
+      // Usar Fecha Pago Real si existe, sino Fecha Programada
+      const fechaRef = e[9] ? new Date(e[9]) : (e[8] ? new Date(e[8]) : new Date());
+      const cohorteNombre = (e[4] || '').toString().trim();
+
+      // Buscar cohorte en diccionario (con fuzzy match por nombre)
+      let cohInfo = dictCohortes[cohorteNombre];
+      if (!cohInfo) {
+        // Intentar fuzzy match
+        Object.keys(dictCohortes).forEach(function(k) {
+          if (!cohInfo && _coincideNombreCohorte(cohorteNombre, k)) cohInfo = dictCohortes[k];
+        });
+      }
+      cohInfo = cohInfo || { presupuesto: 0, estado: '' };
 
       datosConsolidados.push([
-        e[0], fechaPago, fechaPago.getFullYear(),
-        obtenerNombreMes(fechaPago.getMonth()),
-        e[2], e[3], e[4], e[5], e[6], e[7], e[10], e[13],
-        presupuesto.presupuesto || 0, presupuesto.donador || ''
+        e[0],                                                          // ID Pago
+        Utilities.formatDate(fechaRef, tz, 'yyyy-MM-dd'),             // Fecha Pago
+        fechaRef.getFullYear(),                                        // Año
+        obtenerNombreMes(fechaRef.getMonth()),                        // Mes
+        e[2],                                                          // Creamos ID
+        e[3],                                                          // Nombre Completo
+        cohorteNombre,                                                 // Cohorte
+        e[5],                                                          // Programa
+        e[6],                                                          // Tipo Estipendio
+        parseFloat(e[7]) || 0,                                        // Monto (Q)
+        e[10],                                                         // Estado
+        e[11],                                                         // Método Pago
+        e[12],                                                         // # Recibo
+        e[13],                                                         // Responsable
+        e[16],                                                         // Notas
+        cohInfo.presupuesto,                                           // Presupuesto Cohorte
+        cohInfo.estado                                                  // Estado Cohorte
       ]);
     });
 
     sheetExport.getRange(1, 1, datosConsolidados.length, headers.length).setValues(datosConsolidados);
-    sheetExport.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#4285f4').setFontColor('#ffffff');
+    sheetExport.getRange(1, 1, 1, headers.length)
+      .setFontWeight('bold').setBackground('#4285f4').setFontColor('#ffffff');
+    sheetExport.getRange(2, 10, datosConsolidados.length - 1, 1).setNumberFormat('"Q"#,##0.00');
+    sheetExport.getRange(2, 16, datosConsolidados.length - 1, 1).setNumberFormat('"Q"#,##0.00');
 
-    sheetExport.activate();
-    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Datos exportados', 'Éxito', 5);
+    ss.toast('✅ ' + (datosConsolidados.length - 1) + ' registros exportados a hoja EXPORT_PowerBI', '💰 Power BI', 5);
 
   } catch (error) {
-    Logger.log('❌ Error: ' + error.message);
+    Logger.log('❌ exportarParaPowerBI: ' + error.message);
+    SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Power BI', 8);
   }
 }
 
@@ -11313,8 +11402,13 @@ function repararDashboardEstipendios() {
   ];
   nombres.forEach(function(n) { dash.getRange('A' + n[0]).setValue(n[1]); });
 
+  // Limpiar sección Auditoría (filas 25-50) — eliminada de diseño nuevo
+  dash.getRange('A25:H50').clearContent().setBackground(null);
+  // Limpiar col C (contenía textos de fórmulas que se evaluaban como valores)
+  dash.getRange('C4:C13').clearContent();
+
   SpreadsheetApp.flush();
-  ss.toast('✅ Dashboard reparado. Los KPIs ahora muestran datos reales.', 'Estipendios', 5);
+  ss.toast('✅ Dashboard reparado correctamente.', 'Estipendios', 5);
 }
 
 // =====================================================================
