@@ -161,7 +161,7 @@ const CONFIG_TECH = {
 
   // ========== ESTIPENDIOS ==========
   // URL de KoboToolbox para importar Estipendios
-  KOBO_ESTIPENDIOS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aNpJWVRoxxQ5a8pwBQVJac/export-settings/esqLSo9A8oFvxVwZKUXwADx/data.csv',
+  KOBO_ESTIPENDIOS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/ay7MxyzvXBGGakXG7jkAE3/export-settings/esS6RKmzxXxn3qK87Jwxgrt/data.csv',
 
   // Token de Kobo para autenticación
   KOBO_TOKEN: '64cc018b88067397addd36b09288be8b6539cf39',
@@ -9843,7 +9843,7 @@ function obtenerPrimeraFilaVaciaRef(sheet, colLetra) {
 // INSTRUCCIÓN: Agregar estas líneas dentro del CONFIG_AB o CONFIG_TECH existente:
 /*
   // === ESTIPENDIOS ===
-  KOBO_ESTIPENDIOS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/aNpJWVRoxxQ5a8pwBQVJac/export-settings/esqLSo9A8oFvxVwZKUXwADx/data.csv',
+  KOBO_ESTIPENDIOS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/ay7MxyzvXBGGakXG7jkAE3/export-settings/esS6RKmzxXxn3qK87Jwxgrt/data.csv',
   KOBO_TOKEN: '64cc018b88067397addd36b09288be8b6539cf39',
   EMAIL_ALERTAS_ESTIPENDIOS: 'adrian@example.com', // Cambiar por tu email
 */
@@ -10483,24 +10483,28 @@ function actualizarDashboardEstipendios() {
     }
 
     // Actualizar resumen por cohorte
+    // Columnas en Cohortes (0-based): A=0 Nombre, O=14 PresCurso, P=15 PresPrac,
+    // Q=16 Total, R=17 Gastado, S=18 Disponible, T=19 %Ejec
     if (sheetCohortes) {
       const cohortes = sheetCohortes.getDataRange().getValues().slice(1);
       const resumenCohorte = [];
 
       cohortes.forEach(c => {
-        const idCohorte = c[0];
-        if (!idCohorte) return;
+        const nombreCohorte = c[0];
+        if (!nombreCohorte) return;
 
-        const presupuesto = c[10] || 0;  // Columna K
-        const gastado = c[11] || 0;      // Columna L
-        const disponible = c[12] || 0;   // Columna M
-        const pctEjec = c[13] || 0;      // Columna N
-        const numPagos = estipendios.filter(e => e[4] === c[1]).length;
-        const estado = pctEjec > 0.95 ? '🔴' : pctEjec > 0.80 ? '🟡' : '🟢';
+        const presupuestoTotal = parseFloat(c[16]) || 0;  // Col Q
+        if (presupuestoTotal <= 0) return;                 // Solo cohortes con presupuesto
+
+        const gastado    = parseFloat(c[17]) || 0;        // Col R
+        const disponible = parseFloat(c[18]) || 0;        // Col S
+        const pctEjec    = parseFloat(c[19]) || 0;        // Col T
+        const numPagos   = estipendios.filter(e => e[4] === nombreCohorte).length;
+        const estado     = pctEjec > 0.95 ? '🔴 Crítico' : pctEjec > 0.80 ? '🟡 Alerta' : '🟢 OK';
 
         resumenCohorte.push([
-          c[1],  // Nombre cohorte
-          presupuesto,
+          nombreCohorte,
+          presupuestoTotal,
           gastado,
           disponible,
           pctEjec,
@@ -10509,11 +10513,13 @@ function actualizarDashboardEstipendios() {
         ]);
       });
 
+      sheetDashboard.getRange(18, 1, 10, 7).clear();
       if (resumenCohorte.length > 0) {
-        sheetDashboard.getRange(18, 1, 10, 7).clear();
         sheetDashboard.getRange(18, 1, resumenCohorte.length, 7).setValues(resumenCohorte);
         sheetDashboard.getRange(18, 2, resumenCohorte.length, 4).setNumberFormat('"Q"#,##0.00');
         sheetDashboard.getRange(18, 5, resumenCohorte.length, 1).setNumberFormat('0.00%');
+      } else {
+        sheetDashboard.getRange(18, 1).setValue('Sin cohortes con presupuesto de estipendios aún');
       }
     }
 
