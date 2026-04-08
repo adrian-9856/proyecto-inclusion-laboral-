@@ -10237,161 +10237,174 @@ function crearHojaDashboardEstipendios() {
  * Importa datos de estipendios desde Kobo
  */
 function importarEstipendiosDesdeKobo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   try {
-    SpreadsheetApp.getActiveSpreadsheet().toast('Importando desde Kobo...', '💰 Estipendios', 5);
+    ss.toast('Importando desde Kobo...', '💰 Estipendios', 5);
 
     const config = typeof CONFIG_AB !== 'undefined' ? CONFIG_AB : CONFIG_TECH;
-    const koboUrl = config.KOBO_ESTIPENDIOS_URL || config.KOBO_URL;
-    const token = config.KOBO_TOKEN || '';
+    const koboUrl = config.KOBO_ESTIPENDIOS_URL;
+    const token   = config.KOBO_TOKEN || '';
 
-    if (!koboUrl) {
-      throw new Error('No se ha configurado KOBO_ESTIPENDIOS_URL');
-    }
+    if (!koboUrl) throw new Error('No se ha configurado KOBO_ESTIPENDIOS_URL en CONFIG_AB');
 
-    // Fetch datos
-    const options = token ? { headers: { 'Authorization': `Token ${token}` } } : {};
+    // Fetch
+    const options  = token ? { headers: { 'Authorization': 'Token ' + token } } : {};
     const response = UrlFetchApp.fetch(koboUrl, options);
-    const csv = response.getContentText();
+    const csv      = response.getContentText('UTF-8');
 
-    if (!csv || csv.trim().length === 0) {
-      throw new Error('No se obtuvieron datos de Kobo');
+    if (!csv || csv.trim().length === 0) throw new Error('No se obtuvieron datos de Kobo');
+    Logger.log('CSV recibido, primeros 200 chars: ' + csv.substring(0, 200));
+
+    // Intentar parsear con coma, luego con punto y coma
+    let data;
+    try {
+      data = Utilities.parseCsv(csv);
+      if (data[0].length < 3) throw new Error('pocas columnas con coma');
+    } catch(e) {
+      Logger.log('Intentando con punto y coma: ' + e.message);
+      data = Utilities.parseCsv(csv, ';');
     }
 
-    // Parsear CSV
-    const data = Utilities.parseCsv(csv);
-    if (data.length <= 1) {
-      throw new Error('El CSV no contiene datos');
-    }
+    if (!data || data.length <= 1) throw new Error('El CSV no contiene filas de datos');
 
     const headers = data[0];
-    const filas = data.slice(1);
+    const filas   = data.slice(1);
+    Logger.log('Columnas detectadas: ' + headers.join(' | '));
+    Logger.log('Filas de datos: ' + filas.length);
 
-    Logger.log(`✅ ${filas.length} registros obtenidos desde Kobo`);
-
-    // Obtener índices
-    const indices = {
-      'Creamos_ID': headers.indexOf('Creamos_ID'),
-      'Nombre_s': headers.indexOf('Nombre_s'),
-      'Apellido_s': headers.indexOf('Apellido_s'),
-      'Fecha': headers.indexOf('Fecha'),
-      'Proyecto': headers.indexOf('Proyecto'),
-      'Especialidad': headers.indexOf('Especialidad'),
-      'Fase': headers.indexOf('Fase'),
-      'Monto_total': headers.indexOf('Monto_total'),
-      'Comentarios': headers.indexOf('Comentarios'),
-      'Firma': headers.indexOf('Firma'),
-      'Foto_Comprobante': headers.indexOf('Foto_Comprobante'),
-      'Numero_Comprobante': headers.indexOf('Numero_Comprobante'),
-      'Metodo_Pago': headers.indexOf('Metodo_Pago'),
-      'Responsable': headers.indexOf('Responsable'),
-      'GPS': headers.indexOf('_geolocation') || headers.indexOf('GPS') || headers.indexOf('Ubicacion'),
-      '_submission_time': headers.indexOf('_submission_time')
+    // Búsqueda flexible de columnas
+    const findCol = function(posibles) {
+      for (var p = 0; p < posibles.length; p++) {
+        var norm = posibles[p].toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (var h = 0; h < headers.length; h++) {
+          if (headers[h].trim().toLowerCase().replace(/[^a-z0-9]/g, '') === norm) return h;
+        }
+      }
+      return -1;
     };
 
-    // Procesar datos
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheetEstipendios = ss.getSheetByName('Estipendios');
+    const idx = {
+      uuid:        findCol(['_uuid']),
+      creamosId:   findCol(['Creamos_ID','CreamosID','Creamos ID']),
+      nombre:      findCol(['Nombre_s','Nombre','Nombres']),
+      apellido:    findCol(['Apellido_s','Apellido','Apellidos']),
+      fecha:       findCol(['Fecha','Fecha_de_pago','FechaPago']),
+      proyecto:    findCol(['Proyecto']),
+      cohorte:     findCol(['Cohorte','Nombre_de_Cohorte','NombreCohorte']),
+      especialidad:findCol(['Especialidad']),
+      fase:        findCol(['Fase']),
+      horas:       findCol(['Total_de_horas','TotalHoras','Horas']),
+      tasa:        findCol(['Tasa_por_hora','TasaHora','Tasa']),
+      monto:       findCol(['Monto_total','Monto_final','Monto calculado','MontoCal']),
+      descuento:   findCol(['Monto_descuento','MontoDescuento']),
+      metodoPago:  findCol(['Metodo_Pago','MetodoPago','Metodo']),
+      recibo:      findCol(['Numero_Comprobante','NumeroComprobante','Recibo']),
+      responsable: findCol(['Responsable']),
+      firma:       findCol(['Firma']),
+      comentarios: findCol(['Comentarios']),
+      submTime:    findCol(['_submission_time'])
+    };
 
-    if (!sheetEstipendios) {
-      throw new Error('La hoja "Estipendios" no existe. Ejecuta primero: Estipendios → Instalar Sistema');
-    }
+    Logger.log('Índices: ' + JSON.stringify(idx));
 
-    let nuevosRegistros = 0;
-    const dataExistente = sheetEstipendios.getDataRange().getValues();
+    const sheetEst = ss.getSheetByName('Estipendios');
+    if (!sheetEst) throw new Error('Hoja "Estipendios" no existe. Ejecuta: Estipendios → Instalar Sistema');
 
-    filas.forEach((fila, index) => {
+    const dataExistente = sheetEst.getDataRange().getValues();
+    const uuids = new Set(dataExistente.slice(1).map(r => (r[17] || '').toString().trim()).filter(Boolean));
+
+    let nuevos = 0, omitidos = 0;
+
+    filas.forEach(function(fila, i) {
       try {
-        const creamosID = indices['Creamos_ID'] >= 0 ? fila[indices['Creamos_ID']] : '';
-        const nombre = indices['Nombre_s'] >= 0 ? fila[indices['Nombre_s']] : '';
-        const apellido = indices['Apellido_s'] >= 0 ? fila[indices['Apellido_s']] : '';
-        const fecha = indices['Fecha'] >= 0 ? fila[indices['Fecha']] : '';
-        const proyecto = indices['Proyecto'] >= 0 ? fila[indices['Proyecto']] : '';
-        const especialidad = indices['Especialidad'] >= 0 ? fila[indices['Especialidad']] : '';
-        const fase = indices['Fase'] >= 0 ? fila[indices['Fase']] : '';
-        const monto = indices['Monto_total'] >= 0 ? fila[indices['Monto_total']] : '';
-        const comentarios = indices['Comentarios'] >= 0 ? fila[indices['Comentarios']] : '';
-        const firma = indices['Firma'] >= 0 ? fila[indices['Firma']] : '';
-        const fotoComprobante = indices['Foto_Comprobante'] >= 0 ? fila[indices['Foto_Comprobante']] : '';
-        const numeroComprobante = indices['Numero_Comprobante'] >= 0 ? fila[indices['Numero_Comprobante']] : '';
-        const metodoPago = indices['Metodo_Pago'] >= 0 ? fila[indices['Metodo_Pago']] : 'Efectivo';
-        const responsable = indices['Responsable'] >= 0 ? fila[indices['Responsable']] : '';
-        const gps = indices['GPS'] >= 0 ? fila[indices['GPS']] : '';
-        const submissionTime = indices['_submission_time'] >= 0 ? fila[indices['_submission_time']] : '';
+        var get = function(k) { return idx[k] >= 0 ? (fila[idx[k]] || '').toString().trim() : ''; };
 
-        if (!creamosID) return;
+        var uuid      = get('uuid');
+        var creamosId = get('creamosId');
+        var nombre    = get('nombre');
+        var apellido  = get('apellido');
+        var fecha     = get('fecha');
+        var proyecto  = get('proyecto');
+        var fase      = get('fase');
+        var comentarios = get('comentarios');
+        var firma     = get('firma');
+        var submTime  = get('submTime');
+        var metodoPago = get('metodoPago') || 'Efectivo';
+        var recibo    = get('recibo');
+        var responsable = get('responsable');
 
-        // Mapear Fase → Tipo
-        let tipoEstipendio = '';
-        if (fase === 'Teórica') tipoEstipendio = 'Curso';
-        else if (fase === 'Práctica' || fase === 'Formación Dual') tipoEstipendio = 'Prácticas';
+        if (!creamosId) { omitidos++; return; }
 
-        // Determinar cohorte desde especialidad
-        const año = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
-        const cohorte = determinarCohorteDesdeEspecialidad(especialidad, año);
+        // Dedup por UUID
+        if (uuid && uuids.has(uuid)) { omitidos++; return; }
+        if (!uuid) {
+          var existe = dataExistente.some(function(row, ri) {
+            return ri > 0 && row[2] === creamosId && row[8] === fecha;
+          });
+          if (existe) { omitidos++; return; }
+        }
 
-        // Verificar si ya existe
-        const existe = dataExistente.some((row, i) =>
-          i > 0 && row[2] === creamosID && row[9] && new Date(row[9]).getTime() === new Date(fecha).getTime()
-        );
+        // Cohorte
+        var año = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
+        var cohorte = get('cohorte') || determinarCohorteDesdeEspecialidad(get('especialidad'), año);
 
-        if (existe) return;
+        // Monto
+        var monto = parseFloat(get('monto').replace(/,/g,'')) || 0;
+        if (!monto) {
+          var horas = parseFloat(get('horas').replace(/,/g,'')) || 0;
+          var tasa  = parseFloat(get('tasa').replace(/,/g,''))  || 0;
+          monto = horas * tasa;
+        }
+        var descuento = parseFloat(get('descuento').replace(/,/g,'')) || 0;
+        var montoFinal = monto - descuento;
 
-        // Generar ID
-        const ultimaFila = sheetEstipendios.getLastRow();
-        const idPago = `EST-${año}-${String(ultimaFila).padStart(4, '0')}`;
-        const nombreCompleto = `${nombre} ${apellido}`.trim();
+        // Tipo estipendio
+        var tipo = '';
+        if (fase === 'Teórica') tipo = 'Curso';
+        else if (fase === 'Práctica' || fase === 'Formación Dual') tipo = 'Prácticas';
 
-        // Agregar registro
-        const nuevoRegistro = [
-          idPago,                     // A - ID Pago
-          submissionTime || new Date(), // B - Fecha Registro
-          creamosID,                  // C - ID Participante
-          nombreCompleto,             // D - Nombre Completo
-          cohorte,                    // E - Cohorte
-          proyecto,                   // F - Programa
-          tipoEstipendio,             // G - Tipo Estipendio
-          parseFloat(monto) || 0,     // H - Monto
-          fecha,                      // I - Fecha Programada
-          fecha,                      // J - Fecha Pago Real
-          '',                         // K - Estado (fórmula)
-          metodoPago,                 // L - Método Pago
-          numeroComprobante,          // M - # Recibo
-          responsable,                // N - Responsable
-          gps,                        // O - Ubicación GPS
-          firma,                      // P - URL Firma
-          fotoComprobante,            // Q - URL Foto Comprobante
-          '',                         // R - Días atraso (fórmula)
-          '',                         // S - Mes (fórmula)
-          '',                         // T - Año (fórmula)
-          '',                         // U - Semana (fórmula)
-          comentarios                 // V - Notas
-        ];
+        var idPago = 'EST-' + año + '-' + String(sheetEst.getLastRow()).padStart(4,'0');
+        var nombreCompleto = (nombre + ' ' + apellido).trim();
 
-        sheetEstipendios.appendRow(nuevoRegistro);
-        nuevosRegistros++;
+        // 17 columnas: A-Q (coincide con la estructura de crearHojaEstipendios)
+        sheetEst.appendRow([
+          idPago,                      // A ID Pago
+          submTime || new Date(),      // B Fecha Registro
+          creamosId,                   // C ID Participante
+          nombreCompleto,              // D Nombre Completo
+          cohorte,                     // E Cohorte
+          proyecto,                    // F Programa
+          tipo,                        // G Tipo Estipendio
+          montoFinal,                  // H Monto (Q)
+          fecha,                       // I Fecha Programada
+          '',                          // J Fecha Pago Real (vacía al importar)
+          '',                          // K Estado (ARRAYFORMULA en K2)
+          metodoPago,                  // L Método Pago
+          recibo,                      // M # Recibo
+          responsable,                 // N Responsable
+          firma,                       // O URL Firma
+          '',                          // P Días Atraso (ARRAYFORMULA en P2)
+          comentarios,                 // Q Notas ... col 17
+          uuid                         // R UUID (col 18, para dedup)
+        ]);
 
-        // Registrar en auditoría
+        if (uuid) uuids.add(uuid);
+        nuevos++;
         registrarAuditoriaEstipendios('Importación Kobo', idPago, nombreCompleto);
 
-      } catch (error) {
-        Logger.log(`⚠️ Error procesando fila ${index}: ${error.message}`);
+      } catch(e) {
+        Logger.log('⚠️ Fila ' + i + ': ' + e.message);
       }
     });
 
-    Logger.log(`✅ ${nuevosRegistros} nuevos registros importados`);
-
-    // Actualizar dashboard
     actualizarDashboardEstipendios();
 
-    SpreadsheetApp.getActiveSpreadsheet().toast(
-      `✅ ${nuevosRegistros} nuevos registros importados`,
-      'Éxito',
-      5
-    );
+    ss.toast('✅ Importados: ' + nuevos + ' | Omitidos: ' + omitidos, '💰 Estipendios', 6);
+    Logger.log('✅ Importados: ' + nuevos + ' | Omitidos: ' + omitidos);
 
-  } catch (error) {
-    Logger.log('❌ Error: ' + error.message);
-    SpreadsheetApp.getActiveSpreadsheet().toast('❌ Error: ' + error.message, 'Error', 10);
+  } catch(e) {
+    Logger.log('❌ importarEstipendiosDesdeKobo: ' + e.message);
+    ss.toast('❌ Error: ' + e.message, 'Estipendios', 10);
   }
 }
 
