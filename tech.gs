@@ -10063,30 +10063,26 @@ function crearHojaEstipendios() {
 
   sheet = ss.insertSheet('Estipendios');
 
-  // Headers
+  // Headers — 18 columnas alineadas con import y dashboard
   const headers = [
-    'ID Pago',              // A
-    'Fecha Registro',       // B (Timestamp Kobo)
-    'ID Participante',      // C
-    'Nombre Completo',      // D
-    'Cohorte',              // E
-    'Programa',             // F
-    'Tipo Estipendio',      // G (Curso/Prácticas)
-    'Monto (Q)',            // H
-    'Fecha Programada',     // I
-    'Fecha Pago Real',      // J
-    'Estado',               // K (fórmula)
-    'Método Pago',          // L
-    '# Recibo',             // M
-    'Responsable',          // N
-    'Ubicación GPS',        // O
-    'URL Firma',            // P
-    'URL Foto Comprobante', // Q
-    'Días Atraso',          // R (fórmula)
-    'Mes',                  // S (fórmula)
-    'Año',                  // T (fórmula)
-    'Semana',               // U (fórmula)
-    'Notas'                 // V
+    'ID Pago',          // A
+    'Fecha Registro',   // B
+    'ID Participante',  // C (Creamos ID)
+    'Nombre Completo',  // D
+    'Cohorte',          // E
+    'Programa',         // F
+    'Tipo Estipendio',  // G (Curso/Prácticas)
+    'Monto (Q)',        // H
+    'Fecha Programada', // I
+    'Fecha Pago Real',  // J
+    'Estado',           // K (ARRAYFORMULA — no editar)
+    'Método Pago',      // L
+    '# Recibo',         // M
+    'Responsable',      // N
+    'URL Firma',        // O
+    'Días Atraso',      // P (ARRAYFORMULA — no editar)
+    'Notas',            // Q
+    'UUID'              // R (dedup Kobo)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -10098,26 +10094,20 @@ function crearHojaEstipendios() {
     .setFontColor('#ffffff')
     .setHorizontalAlignment('center');
 
-  // Fórmulas en fila 2
-  sheet.getRange('K2').setFormula('=IF(J2<>"","Pagado",IF(I2<TODAY(),"🔴 Atrasado","Programado"))');
-  sheet.getRange('R2').setFormula('=IF(AND(K2<>"Pagado",I2<TODAY()),TODAY()-I2,0)');
-  sheet.getRange('S2').setFormula('=IF(I2<>"",TEXT(I2,"MMMM"),"")');
-  sheet.getRange('T2').setFormula('=IF(I2<>"",YEAR(I2),"")');
-  sheet.getRange('U2').setFormula('=IF(I2<>"",WEEKNUM(I2),"")');
-
-  // Copiar fórmulas hacia abajo
-  sheet.getRange('K2:U2').copyTo(sheet.getRange('K3:U1000'), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+  // ARRAYFORMULA en K2 — Estado con guardia: vacío si no hay ID Pago en col A
+  sheet.getRange('K2').setFormula(
+    '=ARRAYFORMULA(IF(A2:A="","",IF(J2:J<>"","Pagado",IF(I2:I="","Programado",IF(I2:I<TODAY(),"🔴 Atrasado","Programado")))))'
+  );
+  // ARRAYFORMULA en P2 — Días de atraso con guardia
+  sheet.getRange('P2').setFormula(
+    '=ARRAYFORMULA(IF(A2:A="","",IF(AND(K2:K<>"Pagado",I2:I<>"",I2:I<TODAY()),TODAY()-I2:I,0)))'
+  );
 
   // Anchos de columna
   sheet.setColumnWidth(1, 120);  // ID Pago
   sheet.setColumnWidth(4, 180);  // Nombre
   sheet.setColumnWidth(5, 150);  // Cohorte
-  sheet.setColumnWidth(15, 150); // Ubicación GPS
-  sheet.setColumnWidth(16, 150); // URL Firma
-  sheet.setColumnWidth(17, 150); // URL Foto
-  sheet.setColumnWidth(19, 100); // Mes
-  sheet.setColumnWidth(20, 80);  // Año
-  sheet.setColumnWidth(21, 80);  // Semana
+  sheet.setColumnWidth(15, 200); // URL Firma
 
   // Formato números
   sheet.getRange('H:H').setNumberFormat('"Q"#,##0.00');
@@ -10301,21 +10291,21 @@ function importarEstipendiosDesdeKobo() {
 
     // Obtener índices
     const indices = {
-      'Creamos_ID': headers.indexOf('Creamos_ID'),
-      'Nombre_s': headers.indexOf('Nombre_s'),
-      'Apellido_s': headers.indexOf('Apellido_s'),
-      'Fecha': headers.indexOf('Fecha'),
-      'Proyecto': headers.indexOf('Proyecto'),
-      'Especialidad': headers.indexOf('Especialidad'),
-      'Fase': headers.indexOf('Fase'),
-      'Monto_total': headers.indexOf('Monto_total'),
-      'Comentarios': headers.indexOf('Comentarios'),
-      'Firma': headers.indexOf('Firma'),
-      'Foto_Comprobante': headers.indexOf('Foto_Comprobante'),
-      'Numero_Comprobante': headers.indexOf('Numero_Comprobante'),
-      'Metodo_Pago': headers.indexOf('Metodo_Pago'),
-      'Responsable': headers.indexOf('Responsable'),
-      'GPS': headers.indexOf('_geolocation') || headers.indexOf('GPS') || headers.indexOf('Ubicacion'),
+      '_uuid':           headers.indexOf('_uuid'),
+      'Creamos_ID':      headers.indexOf('Creamos_ID'),
+      'Nombre_s':        headers.indexOf('Nombre_s'),
+      'Apellido_s':      headers.indexOf('Apellido_s'),
+      'Fecha':           headers.indexOf('Fecha'),
+      'Proyecto':        headers.indexOf('Proyecto'),
+      'Especialidad':    headers.indexOf('Especialidad'),
+      'Fase':            headers.indexOf('Fase'),
+      'Monto_total':     headers.indexOf('Monto_total'),
+      'Comentarios':     headers.indexOf('Comentarios'),
+      'Firma':           headers.indexOf('Firma'),
+      'Foto_Comprobante':    headers.indexOf('Foto_Comprobante'),
+      'Numero_Comprobante':  headers.indexOf('Numero_Comprobante'),
+      'Metodo_Pago':     headers.indexOf('Metodo_Pago'),
+      'Responsable':     headers.indexOf('Responsable'),
       '_submission_time': headers.indexOf('_submission_time')
     };
 
@@ -10336,8 +10326,28 @@ function importarEstipendiosDesdeKobo() {
       if (dataExistente[r][0] !== '') { nextWriteRow = r + 2; break; }
     }
 
+    // Dedup por UUID (col R = índice 17)
+    const uuidsExistentes = new Set(
+      dataExistente.slice(1).map(r => (r[17] || '').toString().trim()).filter(Boolean)
+    );
+
+    // Validar Creamos IDs contra Lista Definitiva e Inscritx (una sola lectura)
+    const idsValidosTech = new Set();
+    let hayValidacionTech = false;
+    ['Lista Definitiva', 'Inscritx'].forEach(function(nombre) {
+      const h = ss.getSheetByName(nombre);
+      if (!h || h.getLastRow() <= 1) return;
+      hayValidacionTech = true;
+      h.getDataRange().getValues().slice(1).forEach(function(row) {
+        row.forEach(function(cell) { if (cell) idsValidosTech.add(cell.toString().trim()); });
+      });
+    });
+
+    const noEncontradosTech = [];
+
     filas.forEach((fila, index) => {
       try {
+        const uuid = indices['_uuid'] >= 0 ? (fila[indices['_uuid']] || '').toString().trim() : '';
         const creamosID = indices['Creamos_ID'] >= 0 ? fila[indices['Creamos_ID']] : '';
         const nombre = indices['Nombre_s'] >= 0 ? fila[indices['Nombre_s']] : '';
         const apellido = indices['Apellido_s'] >= 0 ? fila[indices['Apellido_s']] : '';
@@ -10352,10 +10362,12 @@ function importarEstipendiosDesdeKobo() {
         const numeroComprobante = indices['Numero_Comprobante'] >= 0 ? fila[indices['Numero_Comprobante']] : '';
         const metodoPago = indices['Metodo_Pago'] >= 0 ? fila[indices['Metodo_Pago']] : 'Efectivo';
         const responsable = indices['Responsable'] >= 0 ? fila[indices['Responsable']] : '';
-        const gps = indices['GPS'] >= 0 ? fila[indices['GPS']] : '';
         const submissionTime = indices['_submission_time'] >= 0 ? fila[indices['_submission_time']] : '';
 
         if (!creamosID) return;
+
+        // Dedup por UUID
+        if (uuid && uuidsExistentes.has(uuid)) return;
 
         // Mapear Fase → Tipo
         let tipoEstipendio = '';
@@ -10366,9 +10378,15 @@ function importarEstipendiosDesdeKobo() {
         const año = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
         const cohorte = determinarCohorteDesdeEspecialidad(especialidad, año);
 
-        // Verificar si ya existe
-        const existe = dataExistente.some((row, i) =>
-          i > 0 && row[2] === creamosID && row[9] && new Date(row[9]).getTime() === new Date(fecha).getTime()
+        // Validar Creamos ID en sistema
+        if (hayValidacionTech && !idsValidosTech.has(creamosID)) {
+          noEncontradosTech.push({ id: creamosID, nombre: `${nombre} ${apellido}`.trim(), cohorte: cohorte });
+          return; // omitir — protege el presupuesto
+        }
+
+        // Dedup sin UUID: por CreamosID + Fecha Programada
+        const existe = !uuid && dataExistente.some((row, i) =>
+          i > 0 && row[2] === creamosID && row[8] && row[8].toString() === fecha.toString()
         );
 
         if (existe) return;
@@ -10396,8 +10414,9 @@ function importarEstipendiosDesdeKobo() {
           firma,                      // O - URL Firma
           '',                         // P - Días atraso (ARRAYFORMULA en P2)
           comentarios,                // Q - Notas
-          ''                          // R - UUID (para dedup)
+          uuid                        // R - UUID (para dedup)
         ]]);
+        if (uuid) uuidsExistentes.add(uuid);
         nextWriteRow++;
         nuevosRegistros++;
 
@@ -10409,15 +10428,32 @@ function importarEstipendiosDesdeKobo() {
       }
     });
 
-    Logger.log(`✅ ${nuevosRegistros} nuevos registros importados`);
+    // Notificar por correo si hay Creamos IDs no encontrados en sistema
+    if (noEncontradosTech.length > 0) {
+      try {
+        const emailUser = Session.getActiveUser().getEmail();
+        if (emailUser) {
+          let cuerpo = `⚠️ Se detectaron ${noEncontradosTech.length} registro(s) en Kobo cuyo Creamos ID NO está en Inscritx ni Lista Definitiva:\n\n`;
+          noEncontradosTech.forEach(function(r) {
+            cuerpo += `• ${r.id} — ${r.nombre} (Cohorte: ${r.cohorte})\n`;
+          });
+          cuerpo += '\nEstos registros fueron OMITIDOS para proteger el presupuesto.\n';
+          cuerpo += 'Verifica: ¿El Creamos ID es correcto en el formulario Kobo? ¿La persona está en Inscritx o Lista Definitiva?';
+          MailApp.sendEmail(emailUser, '⚠️ Tech/SAC Estipendios: IDs no encontrados en sistema', cuerpo);
+          Logger.log('📧 Email enviado con ' + noEncontradosTech.length + ' IDs no encontrados');
+        }
+      } catch(mailErr) { Logger.log('No se pudo enviar email: ' + mailErr.message); }
+    }
+
+    Logger.log(`✅ ${nuevosRegistros} nuevos registros importados, ${noEncontradosTech.length} omitidos por validación`);
 
     // Actualizar dashboard
     actualizarDashboardEstipendios();
 
     SpreadsheetApp.getActiveSpreadsheet().toast(
-      `✅ ${nuevosRegistros} nuevos registros importados`,
-      'Éxito',
-      5
+      `✅ ${nuevosRegistros} importados${noEncontradosTech.length > 0 ? ' | ⚠️ ' + noEncontradosTech.length + ' IDs no encontrados (revisa tu correo)' : ''}`,
+      'Estipendios',
+      8
     );
 
   } catch (error) {

@@ -10050,28 +10050,24 @@ function crearHojaEstipendios() {
 
   // Headers
   const headers = [
-    'ID Pago',              // A
-    'Fecha Registro',       // B (Timestamp Kobo)
-    'ID Participante',      // C
-    'Nombre Completo',      // D
-    'Cohorte',              // E
-    'Programa',             // F
-    'Tipo Estipendio',      // G (Curso/Prácticas)
-    'Monto (Q)',            // H
-    'Fecha Programada',     // I
-    'Fecha Pago Real',      // J
-    'Estado',               // K (fórmula)
-    'Método Pago',          // L
-    '# Recibo',             // M
-    'Responsable',          // N
-    'Ubicación GPS',        // O
-    'URL Firma',            // P
-    'URL Foto Comprobante', // Q
-    'Días Atraso',          // R (fórmula)
-    'Mes',                  // S (fórmula)
-    'Año',                  // T (fórmula)
-    'Semana',               // U (fórmula)
-    'Notas'                 // V
+    'ID Pago',          // A
+    'Fecha Registro',   // B
+    'ID Participante',  // C (Creamos ID)
+    'Nombre Completo',  // D
+    'Cohorte',          // E
+    'Programa',         // F
+    'Tipo Estipendio',  // G (Curso/Prácticas)
+    'Monto (Q)',        // H
+    'Fecha Programada', // I
+    'Fecha Pago Real',  // J
+    'Estado',           // K (ARRAYFORMULA — no editar)
+    'Método Pago',      // L
+    '# Recibo',         // M
+    'Responsable',      // N
+    'URL Firma',        // O
+    'Días Atraso',      // P (ARRAYFORMULA — no editar)
+    'Notas',            // Q
+    'UUID'              // R (dedup Kobo)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -10083,26 +10079,20 @@ function crearHojaEstipendios() {
     .setFontColor('#ffffff')
     .setHorizontalAlignment('center');
 
-  // Fórmulas en fila 2
-  sheet.getRange('K2').setFormula('=IF(J2<>"","Pagado",IF(I2<TODAY(),"🔴 Atrasado","Programado"))');
-  sheet.getRange('R2').setFormula('=IF(AND(K2<>"Pagado",I2<TODAY()),TODAY()-I2,0)');
-  sheet.getRange('S2').setFormula('=IF(I2<>"",TEXT(I2,"MMMM"),"")');
-  sheet.getRange('T2').setFormula('=IF(I2<>"",YEAR(I2),"")');
-  sheet.getRange('U2').setFormula('=IF(I2<>"",WEEKNUM(I2),"")');
-
-  // Copiar fórmulas hacia abajo
-  sheet.getRange('K2:U2').copyTo(sheet.getRange('K3:U1000'), SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+  // ARRAYFORMULA en K2 — Estado con guardia: vacío si no hay ID Pago en col A
+  sheet.getRange('K2').setFormula(
+    '=ARRAYFORMULA(IF(A2:A="","",IF(J2:J<>"","Pagado",IF(I2:I="","Programado",IF(I2:I<TODAY(),"🔴 Atrasado","Programado")))))'
+  );
+  // ARRAYFORMULA en P2 — Días de atraso con guardia
+  sheet.getRange('P2').setFormula(
+    '=ARRAYFORMULA(IF(A2:A="","",IF(AND(K2:K<>"Pagado",I2:I<>"",I2:I<TODAY()),TODAY()-I2:I,0)))'
+  );
 
   // Anchos de columna
   sheet.setColumnWidth(1, 120);  // ID Pago
   sheet.setColumnWidth(4, 180);  // Nombre
   sheet.setColumnWidth(5, 150);  // Cohorte
-  sheet.setColumnWidth(15, 150); // Ubicación GPS
-  sheet.setColumnWidth(16, 150); // URL Firma
-  sheet.setColumnWidth(17, 150); // URL Foto
-  sheet.setColumnWidth(19, 100); // Mes
-  sheet.setColumnWidth(20, 80);  // Año
-  sheet.setColumnWidth(21, 80);  // Semana
+  sheet.setColumnWidth(15, 200); // URL Firma
 
   // Formato números
   sheet.getRange('H:H').setNumberFormat('"Q"#,##0.00');
@@ -10332,6 +10322,19 @@ function importarEstipendiosDesdeKobo() {
       if (dataExistente[r][0] !== '') { nextWriteRow = r + 2; break; }
     }
 
+    // Validar Creamos IDs contra Lista Definitiva e Inscritx (una sola lectura)
+    var idsValidosAB = new Set();
+    var hayValidacionAB = false;
+    ['Lista Definitiva', 'Inscritx'].forEach(function(nombre) {
+      var h = ss.getSheetByName(nombre);
+      if (!h || h.getLastRow() <= 1) return;
+      hayValidacionAB = true;
+      h.getDataRange().getValues().slice(1).forEach(function(row) {
+        row.forEach(function(cell) { if (cell) idsValidosAB.add(cell.toString().trim()); });
+      });
+    });
+
+    var noEncontradosAB = [];
     let nuevos = 0, omitidos = 0;
 
     filas.forEach(function(fila, i) {
@@ -10366,6 +10369,13 @@ function importarEstipendiosDesdeKobo() {
         // Cohorte
         var año = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
         var cohorte = get('cohorte') || determinarCohorteDesdeEspecialidad(get('especialidad'), año);
+
+        // Validar Creamos ID en sistema (protege presupuesto)
+        if (hayValidacionAB && !idsValidosAB.has(creamosId)) {
+          noEncontradosAB.push({ id: creamosId, nombre: (nombre + ' ' + apellido).trim(), cohorte: cohorte });
+          omitidos++;
+          return;
+        }
 
         // Monto
         var monto = parseFloat(get('monto').replace(/,/g,'')) || 0;
@@ -10418,10 +10428,29 @@ function importarEstipendiosDesdeKobo() {
       }
     });
 
+    // Notificar por correo si hay Creamos IDs no encontrados en sistema
+    if (noEncontradosAB.length > 0) {
+      try {
+        var emailUser = Session.getActiveUser().getEmail();
+        if (emailUser) {
+          var cuerpo = '⚠️ Se detectaron ' + noEncontradosAB.length + ' registro(s) en Kobo cuyo Creamos ID NO está en Inscritx ni Lista Definitiva:\n\n';
+          noEncontradosAB.forEach(function(r) {
+            cuerpo += '• ' + r.id + ' — ' + r.nombre + ' (Cohorte: ' + r.cohorte + ')\n';
+          });
+          cuerpo += '\nEstos registros fueron OMITIDOS para proteger el presupuesto.\n';
+          cuerpo += 'Verifica: ¿El Creamos ID es correcto en el formulario Kobo? ¿La persona está en Inscritx o Lista Definitiva?';
+          MailApp.sendEmail(emailUser, '⚠️ A&B Estipendios: IDs no encontrados en sistema', cuerpo);
+          Logger.log('📧 Email enviado con ' + noEncontradosAB.length + ' IDs no encontrados');
+        }
+      } catch(mailErr) { Logger.log('No se pudo enviar email: ' + mailErr.message); }
+    }
+
     actualizarDashboardEstipendios();
 
-    ss.toast('✅ Importados: ' + nuevos + ' | Omitidos: ' + omitidos, '💰 Estipendios', 6);
-    Logger.log('✅ Importados: ' + nuevos + ' | Omitidos: ' + omitidos);
+    var msgToast = '✅ Importados: ' + nuevos + ' | Omitidos: ' + omitidos;
+    if (noEncontradosAB.length > 0) msgToast += ' | ⚠️ ' + noEncontradosAB.length + ' IDs no encontrados (revisa tu correo)';
+    ss.toast(msgToast, '💰 Estipendios', 8);
+    Logger.log('✅ Importados: ' + nuevos + ' | Omitidos: ' + omitidos + ' | IDs no encontrados: ' + noEncontradosAB.length);
 
   } catch(e) {
     Logger.log('❌ importarEstipendiosDesdeKobo: ' + e.message);
