@@ -10204,8 +10204,14 @@ function crearHojaDashboardEstipendios() {
 
   // Formato
   sheet.getRange('A4:C4').setFontWeight('bold').setBackground('#d9d9d9');
-  sheet.getRange('B5:B14').setNumberFormat('"Q"#,##0.00');
+  // Moneda solo en filas de monto: Presupuestado(5), Gastado(6), Disponible(7), Monto Pagado(12)
+  [5,6,7,12].forEach(function(r) { sheet.getRange('B'+r).setNumberFormat('"Q"#,##0.00'); });
+  // Porcentaje
   sheet.getRange('B8').setNumberFormat('0.00%');
+  // Número entero para conteos: # Cohortes con Est(9), # Cohortes Activas(10), Pagos Imp(11), Atrasados(13)
+  [9,10,11,13].forEach(function(r) { sheet.getRange('B'+r).setNumberFormat('0'); });
+  // Limpiar fila 14 por si quedaron datos de versiones anteriores
+  sheet.getRange('A14:C14').clearContent();
 
   // === SECCIÓN 2: CALENDARIO PRÓXIMOS PAGOS ===
   sheet.getRange('E3').setValue('📅 PRÓXIMOS PAGOS (7 DÍAS)').setFontWeight('bold')
@@ -11479,8 +11485,12 @@ function repararDashboardEstipendios() {
 
   // Formato: porcentaje en fila 8
   dash.getRange('B8').setNumberFormat('0.0%');
-  // Formato: moneda en filas 5,6,7,12
+  // Formato: moneda solo en filas de monto
   [5,6,7,12].forEach(function(r) { dash.getRange('B' + r).setNumberFormat('"Q"#,##0.00'); });
+  // Formato: número entero para conteos (sin símbolo Q)
+  [9,10,11,13].forEach(function(r) { dash.getRange('B' + r).setNumberFormat('0'); });
+  // Limpiar fila 14 (datos residuales de versiones anteriores)
+  dash.getRange('A14:C14').clearContent();
 
   // Nombres de KPIs (col A)
   const nombres = [
