@@ -1714,6 +1714,10 @@ function alEditarTech(e) {
   // Estado está en columna P (16) - solo "Entrevista agendada" o "No interesado"
   // ¿Tiene Hoja de Interés? está en columna Q (17) - Sí/No con marcado de color
   if (hoja === 'Hoja de Interés') {
+    // Autocompletar cuando editan DPI (col D=4) o Nombre (col E=5)
+    if (columna === 4 || columna === 5) {
+      autocompletarDesdeCreamosID(true);
+    }
     if (columna === 16) {
       procesarCambioEstadoInteres(sheet, fila, val);
     }
@@ -7130,6 +7134,14 @@ function configurarHojaCreamosID() {
  * silencioso=false → muestra ui.alert con el resumen (llamada manual desde menú)
  * silencioso=true  → solo hace Logger.log, sin alertas (llamada automática)
  */
+
+function _normalizarNombreBusqueda(nombre) {
+  if (!nombre) return '';
+  return nombre.toString().trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
 function autocompletarDesdeCreamosID(silencioso) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = silencioso ? null : SpreadsheetApp.getUi();
@@ -7173,7 +7185,7 @@ function autocompletarDesdeCreamosID(silencioso) {
 
     if (creamosId) mapPorCreamosId.set(creamosId.toUpperCase(), fila);
     if (dpi) mapPorDpi.set(dpi, fila);
-    if (nombre) mapPorNombre.set(nombre.toLowerCase(), fila);
+    if (nombre) mapPorNombre.set(_normalizarNombreBusqueda(nombre), fila);
   }
 
   let completados = 0;
@@ -7189,31 +7201,39 @@ function autocompletarDesdeCreamosID(silencioso) {
     const nivelEducativoActual = fila[8] ? fila[8].toString().trim() : '';
     const zonaActual = fila[9] ? fila[9].toString().trim() : '';
 
-    // Fila vacía: no hay nombre ni Creamos ID ni DPI
+    // Fila vacía
     if (!nombreActual && !creamosIdActual && !dpiActual) continue;
 
-    // ⚠️ CORRECCIÓN CRÍTICA: Evitar sobrescritura de datos existentes
-    // Si la fila ya tiene CreamosID, SOLO buscar por CreamosID (no por nombre/DPI)
-    // Esto evita que una persona con ID completo sea sobrescrita por otra persona con el mismo nombre
     let filaDirectorio = null;
 
     if (creamosIdActual) {
-      // Si tiene CreamosID → buscar SOLO por CreamosID
       filaDirectorio = mapPorCreamosId.get(creamosIdActual.toUpperCase()) || null;
-      // NO buscar por otros criterios si hay CreamosID
     } else {
-      // Si NO tiene CreamosID → buscar por DPI o Nombre
       if (dpiActual) {
         filaDirectorio = mapPorDpi.get(dpiActual) || null;
       }
       if (!filaDirectorio && nombreActual) {
-        filaDirectorio = mapPorNombre.get(nombreActual.toLowerCase()) || null;
+        // Búsqueda fuzzy: sin tildes, sin importar mayúsculas
+        filaDirectorio = mapPorNombre.get(_normalizarNombreBusqueda(nombreActual)) || null;
       }
     }
 
+    const filaNum = i + 1;
+    const celdaCreamosID = hojaInteres.getRange(filaNum, 3);
+
     if (!filaDirectorio) {
       sinCoincidencia++;
+      // Solo marcar en naranja si hay nombre pero no hay Creamos ID
+      if (nombreActual && !creamosIdActual) {
+        celdaCreamosID.setBackground('#FFE0B2').setValue('⚠️ Crear en Salesforce');
+      }
       continue;
+    }
+
+    // Si tenía la alerta, limpiarla antes de autocompletar
+    const valorActualC = celdaCreamosID.getValue().toString();
+    if (valorActualC === '⚠️ Crear en Salesforce') {
+      celdaCreamosID.clearContent().setBackground(null);
     }
 
     const nombreDirectorio = filaDirectorio[0] ? filaDirectorio[0].toString().trim() : '';
@@ -7224,7 +7244,6 @@ function autocompletarDesdeCreamosID(silencioso) {
     const zonaDirectorio = filaDirectorio[6] ? filaDirectorio[6].toString().trim() : '';
 
     let actualizado = false;
-    const filaNum = i + 1;
 
     // ⚠️ NUNCA SOBRESCRIBIR - Solo rellenar campos VACÍOS
     // Rellenar Nombre Completo si está vacío
