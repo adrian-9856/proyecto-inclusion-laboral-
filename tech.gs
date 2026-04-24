@@ -6637,7 +6637,6 @@ function desinstalarTriggersReportesMensuales() {
     SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
-/**
 function crearHojaPowerBIExport() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
