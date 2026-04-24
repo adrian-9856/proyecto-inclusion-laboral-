@@ -273,6 +273,7 @@ function setupMenuAB() {
         .addSeparator()
         .addItem('🧹 Limpiar Filas Vacías', 'limpiarFilasVaciasHojaInteres')
         .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
+        .addItem('🧹 Limpiar Cohortes Mal Nombradas', 'limpiarCohortesMalNombradasAB')
         .addItem('🗑️ Eliminar Todos los Datos', 'limpiarTodosLosDatos')
         .addSeparator()
         .addItem('⛔ Desinstalar Sistema Completo', 'desinstalarSistema')
@@ -540,6 +541,89 @@ function limpiarCohortesEliminadas(silencioso) {
       ui.ButtonSet.OK);
   }
   return filasAEliminar.length;
+}
+
+/**
+ * Limpia cohortes mal nombradas (Barismo I I, Cocina 1, etc)
+ * Permite elegir cuáles eliminar y después recrearlas bien.
+ */
+function limpiarCohortesMalNombradasAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const cohortesSheet = ss.getSheetByName('Cohortes');
+
+  if (!cohortesSheet) {
+    ui.alert('❌ Error', 'No se encontró la hoja Cohortes', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Detectar cohortes con nombres confusos
+  const datos = cohortesSheet.getDataRange().getValues();
+  const cohortesMalNombradas = [];
+
+  for (let i = 1; i < datos.length; i++) {
+    const nombre = datos[i][0] ? datos[i][0].toString().trim() : '';
+    if (!nombre) continue;
+
+    // Detectar patrones de error
+    const tieneNumeroDuplicado = /\s[IVX]+\s[IVX]+(\s|$)/.test(nombre); // "I I", "II II"
+    const tieneNumeroArabigo = /\s[0-9]+(\s|$)/.test(nombre); // número al final
+    const tieneAnoIncluido = /\(\s*20\d{2}\s*\)/.test(nombre); // (2026)
+    const soloNombreYAno = /^[A-Za-z\s]+\s\(\d{4}\)$/.test(nombre); // "Barismo (2026)"
+
+    if (tieneNumeroDuplicado || tieneNumeroArabigo || (tieneAnoIncluido && soloNombreYAno)) {
+      cohortesMalNombradas.push({
+        fila: i + 1,
+        nombre: nombre,
+        razon: tieneNumeroDuplicado ? 'Números duplicados' :
+               tieneNumeroArabigo ? 'Número suelto' :
+               'Faltan número de cohorte'
+      });
+    }
+  }
+
+  if (cohortesMalNombradas.length === 0) {
+    ui.alert('✅ Todas bien', 'No hay cohortes mal nombradas.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Mostrar lista
+  let mensaje = '⚠️ Se encontraron ' + cohortesMalNombradas.length + ' cohorte(s) mal nombrada(s):\n\n';
+  cohortesMalNombradas.forEach((c, idx) => {
+    mensaje += (idx + 1) + '. ' + c.nombre + ' (' + c.razon + ')\n';
+  });
+  mensaje += '\n¿Deseas ELIMINAR estas cohortes?';
+
+  const respuesta = ui.alert('Limpiar Cohortes', mensaje, ui.ButtonSet.YES_NO);
+
+  if (respuesta !== ui.Button.YES) {
+    ui.alert('Cancelado', 'Nada fue eliminado.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Eliminar de abajo hacia arriba
+  for (let i = cohortesMalNombradas.length - 1; i >= 0; i--) {
+    const fila = cohortesMalNombradas[i].fila;
+    const nombreCohorte = cohortesMalNombradas[i].nombre;
+
+    // Eliminar la hoja si existe
+    const hojaCohorte = ss.getSheetByName(nombreCohorte);
+    if (hojaCohorte) {
+      ss.deleteSheet(hojaCohorte);
+    }
+
+    // Eliminar fila de Cohortes
+    cohortesSheet.deleteRow(fila);
+  }
+
+  ui.alert('✅ Cohortes eliminadas',
+    'Se eliminaron ' + cohortesMalNombradas.length + ' cohorte(s).\n\n' +
+    'Ahora puedes crear nuevas cohortes bien nombradas con:\n' +
+    'Menu > Crear Nueva Cohorte',
+    ui.ButtonSet.OK);
+
+  limpiarCohortesEliminadas(true);
+  configurarValidaciones();
 }
 
 function verificarInstalacion() {
