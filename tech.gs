@@ -212,8 +212,11 @@ function setupMenuTech() {
       // ========== REPORTES ==========
       .addSubMenu(ui.createMenu('📊 Reportes')
         .addItem('✨ Mejorar Reportes', 'mejorarYRepararReportes')
-        .addItem('📊 Guardar Mensual', 'guardarReporteMensualAutomatico')
-        .addItem('💾 PowerBI Export', 'crearHojaPowerBIExport'))
+        .addItem('📊 Guardar Mensual (Manual)', 'guardarReporteMensualAutomatico')
+        .addItem('💾 PowerBI Export', 'crearHojaPowerBIExport')
+        .addSeparator()
+        .addItem('⏰ Activar Reportes Automáticos', 'instalarTriggersReportesMensuales')
+        .addItem('🛑 Desactivar Reportes Automáticos', 'desinstalarTriggersReportesMensuales'))
       .addSeparator()
 
       // ========== HERRAMIENTAS ==========
@@ -6555,9 +6558,86 @@ function mejorarYRepararReportes() {
 }
 
 /**
- * Crea hoja de exportación para Power BI con estructura tabla limpia
- * Una fila por cohorte con todos los datos de forma organizada
+ * Instala triggers automáticos para reportes mensuales
+ * Se ejecuta el primer día de cada mes a las 8 AM
  */
+function instalarTriggersReportesMensuales() {
+  const ui = SpreadsheetApp.getUi();
+
+  // Eliminar triggers anteriores
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'guardarReporteMensualAutomatico' ||
+        trigger.getHandlerFunction() === 'regenerarPowerBIExport') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  // Instalar nuevo trigger para reporte mensual (primer día del mes)
+  ScriptApp.newTrigger('guardarReporteMensualAutomatico')
+    .timeBased()
+    .onMonthDay(1)
+    .atHour(8)
+    .create();
+
+  // Instalar trigger para regenerar PowerBI (primer día, 8:05 AM)
+  ScriptApp.newTrigger('regenerarPowerBIExport')
+    .timeBased()
+    .onMonthDay(1)
+    .atHour(8)
+    .create();
+
+  ui.alert('✅ Triggers instalados',
+    'Los reportes mensuales se guardarán automáticamente:\n\n' +
+    '📅 Primer día de cada mes a las 8:00 AM\n' +
+    '💾 PowerBI Export se regenera a las 8:05 AM\n\n' +
+    'Ya no necesitas hacer nada manualmente.',
+    ui.ButtonSet.OK);
+}
+
+/**
+ * Regenera la hoja PowerBI Export (para mantener datos actualizados)
+ */
+function regenerarPowerBIExport() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const hojaExistente = ss.getSheetByName('PowerBI Export');
+
+    if (hojaExistente) {
+      ss.deleteSheet(hojaExistente);
+    }
+
+    crearHojaPowerBIExport();
+    SpreadsheetApp.getActiveSpreadsheet()
+      .toast('✅ PowerBI Export regenerado automáticamente', 'Reporte Mensual', 3);
+
+  } catch (e) {
+    Logger.log('Error en regenerarPowerBIExport: ' + e.message);
+  }
+}
+
+/**
+ * Desinstala triggers de reportes mensuales
+ */
+function desinstalarTriggersReportesMensuales() {
+  const triggers = ScriptApp.getProjectTriggers();
+  let eliminados = 0;
+
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'guardarReporteMensualAutomatico' ||
+        trigger.getHandlerFunction() === 'regenerarPowerBIExport') {
+      ScriptApp.deleteTrigger(trigger);
+      eliminados++;
+    }
+  });
+
+  SpreadsheetApp.getUi().alert('✅ Triggers desinstalados',
+    'Se desinstalaron ' + eliminados + ' trigger(s).\n\n' +
+    'Los reportes mensuales ya NO se guardarán automáticamente.',
+    SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+/**
 function crearHojaPowerBIExport() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
