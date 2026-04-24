@@ -217,8 +217,7 @@ function setupMenuAB() {
         .addItem('📝 Ver/Editar Cohortes', 'verCohortes')
         .addItem('👥 Enviar Participantes a Cohorte', 'enviarParticipantesACohorteAB')
         .addSeparator()
-        .addItem('📊 Estadísticas por Cohorte', 'estadisticasCohorte')
-        .addItem('🔄 Reenviar Graduadx al Seguimiento', 'reenviarDesdeMenuCohorte'))
+        .addItem('📊 Estadísticas por Cohorte', 'estadisticasCohorte'))
       .addSeparator()
       .addItem('🎨 Resaltar Registros 2026', 'resaltarTodos2026')
       .addSeparator()
@@ -2551,28 +2550,8 @@ function procesarFinalizacionCohorte(sheet, fila) {
   }
 
   if (participantesActivas === 0) {
-    // Todas ya fueron graduadas individualmente — ofrecer reenviar al seguimiento externo
-    const totalGraduadx = datosCohorte.slice(1).filter(f => f[4] && f[10] === 'Graduadx').length;
-    if (totalGraduadx > 0) {
-      const reenviar = ui.alert(
-        '✅ Cohorte ya graduada',
-        'Todos los participantes ya tienen estado "Graduadx".\n\n' +
-        totalGraduadx + ' participante(s) registradas en la cohorte.\n\n' +
-        '¿Reenviar al archivo externo de seguimiento las que falten?\n' +
-        '(Seguro hacerlo — no duplica si ya están registradas)',
-        ui.ButtonSet.YES_NO
-      );
-      if (reenviar === ui.Button.YES) {
-        reenviarCohorteAlSeguimiento(nombreCohorte, hojaCohorte);
-      }
-      // OCULTAR la hoja de cohorte cuando todo esté completo
-      hojaCohorte.hideSheet();
-      ss.toast('✅ Cohorte finalizada y archivada', 'Completado', 3);
-    } else {
-      // OCULTAR la hoja de cohorte cuando no tiene participantes
-      hojaCohorte.hideSheet();
-      ss.toast('✅ Cohorte finalizada (sin participantes) y archivada', 'Completado', 3);
-    }
+    hojaCohorte.hideSheet();
+    ss.toast('✅ Cohorte finalizada y archivada', 'Completado', 3);
     return;
   }
 
@@ -2673,18 +2652,6 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
     enviarEmailListaGraduadx(nombreCohorte, listaParaEmail);
   }
 
-  // Preguntar antes de enviar al archivo externo de seguimiento
-  if (graduadasCount > 0) {
-    const respuestaExterno = ui.alert(
-      '📤 Archivo de Seguimiento Externo',
-      '¿Deseas enviar los ' + graduadasCount + ' graduado(s) de "' + nombreCohorte + '" al archivo de seguimiento externo ahora?',
-      ui.ButtonSet.YES_NO
-    );
-    if (respuestaExterno === ui.Button.YES) {
-      reenviarCohorteAlSeguimiento(nombreCohorte, hojaCohorte, false);
-    }
-  }
-
   // Recordatorio Salesforce para toda la cohorte
   if (graduadasCount > 0) {
     ui.alert(
@@ -2744,16 +2711,6 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
 
   ss.toast('🎓 ' + datos[4] + ' graduada exitosamente', 'Completado', 3);
 
-  // Preguntar antes de enviar al archivo externo de seguimiento
-  const respuestaExterno = ui.alert(
-    '📤 Archivo de Seguimiento Externo',
-    '¿Deseas enviar a ' + datos[4] + ' al archivo de seguimiento externo ahora?',
-    ui.ButtonSet.YES_NO
-  );
-  if (respuestaExterno === ui.Button.YES) {
-    enviarAArchivoSeguimiento(datos[2], datos[4], datos[7], datos[8], nombreCohorte);
-  }
-
   // Recordatorio Salesforce
   ui.alert(
     '⚠️ Recordatorio Salesforce',
@@ -2789,160 +2746,7 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
   }
 }
 
-/**
- * Reenvía al archivo externo de seguimiento todos los participantes marcados como "Graduada"
- * en una hoja de cohorte. Evita duplicados consultando el archivo externo.
- * Llamable desde menú (reenviarDesdeMenuCohorte) o internamente.
- */
-/**
- * Reenvía al archivo externo todos los participantes "Graduada" de una cohorte.
- * Hace UNA SOLA apertura del archivo externo y UNA SOLA escritura en batch
- * para evitar fallos por cuotas o caché de getLastRow().
- *
- * @param {string}  nombreCohorte  - Nombre de la cohorte
- * @param {Sheet}   hojaCohorte    - Hoja de la cohorte (o usa activeSheet si es null)
- * @param {boolean} silencioso     - Si true, muestra sólo toast (no alerta modal)
- * @returns {number} - Cantidad de participantes enviadas
- */
-function reenviarCohorteAlSeguimiento(nombreCohorte, hojaCohorte, silencioso) {
-  const ss  = SpreadsheetApp.getActiveSpreadsheet();
-  const ui  = SpreadsheetApp.getUi();
-  silencioso = silencioso === true;
 
-  if (!hojaCohorte) {
-    hojaCohorte   = ss.getActiveSheet();
-    nombreCohorte = hojaCohorte.getName();
-  }
-
-  const ID_SEGUIMIENTO = '1_596FX6yr8tX93UyIks4emSeE2_vxLJMDyw9Zncsnzs';
-  let hojaSeg;
-  try {
-    const archivoExterno = SpreadsheetApp.openById(ID_SEGUIMIENTO);
-    hojaSeg = archivoExterno.getSheetByName('Graduados');
-    if (!hojaSeg) {
-      for (const s of archivoExterno.getSheets()) {
-        if (s.getSheetId() === 676353499) { hojaSeg = s; break; }
-      }
-    }
-  } catch (e) {
-    if (!silencioso) ui.alert('❌ Error', 'No se pudo abrir el archivo externo:\n' + e.message, ui.ButtonSet.OK);
-    else ss.toast('❌ Error al conectar con archivo externo: ' + e.message, 'Seguimiento', 8);
-    return 0;
-  }
-  if (!hojaSeg) {
-    if (!silencioso) ui.alert('❌ Error', 'No se encontró la hoja "Graduados" en el archivo externo.', ui.ButtonSet.OK);
-    return 0;
-  }
-
-  // ── Deduplicación: leer UNA VEZ los registros existentes ──────────────────
-  const ultimaFilaExterna = hojaSeg.getLastRow();
-  const datosSeg = ultimaFilaExterna > 1
-    ? hojaSeg.getRange(2, 1, ultimaFilaExterna - 1, 7).getValues()
-    : [];
-  const yaRegistrados = new Set();
-  datosSeg.forEach(r => {
-    if (r[2]) yaRegistrados.add(r[2].toString().trim()); // Creamos ID (col C)
-    if (r[3]) yaRegistrados.add(r[3].toString().trim()); // Nombre    (col D)
-  });
-
-  // ── Entrevistas locales (para incluir fecha y entrevistador) ───────────────
-  const hEnt     = ss.getSheetByName('Entrevistas');
-  const datosEnt = (hEnt && hEnt.getLastRow() > 1) ? hEnt.getDataRange().getValues() : [];
-  const buscarEntrevista = (creamosId) => {
-    if (!creamosId) return { fecha: '', entrevistador: '' };
-    for (let i = 1; i < datosEnt.length; i++) {
-      if (datosEnt[i][2] && datosEnt[i][2].toString().trim() === creamosId.toString().trim()) {
-        return { fecha: datosEnt[i][0] || '', entrevistador: datosEnt[i][5] || '' };
-      }
-    }
-    return { fecha: '', entrevistador: '' };
-  };
-
-  // ── Construir filas a agregar ──────────────────────────────────────────────
-  const datosCohorte  = hojaCohorte.getDataRange().getValues();
-  const fechaEnvio    = new Date();
-  let   sigNo         = ultimaFilaExterna; // No. secuencial (fila 2 = No.1 → No = filaExterna - 1)
-  const nuevasFilas   = [];
-  let   omitidas      = 0;
-
-  for (let i = 1; i < datosCohorte.length; i++) {
-    const fila = datosCohorte[i];
-    if (!fila[4] || fila[8] !== 'Graduadx') continue; // sólo filas con nombre y estado Graduada
-
-    const creamosId = fila[2] ? fila[2].toString().trim() : '';
-    const nombre    = fila[4].toString().trim();
-
-    // Saltar si ya existe en el archivo externo
-    if ((creamosId && yaRegistrados.has(creamosId)) || yaRegistrados.has(nombre)) {
-      omitidas++;
-      continue;
-    }
-
-    const entrev = buscarEntrevista(creamosId);
-    sigNo++;
-
-    nuevasFilas.push([
-      sigNo - 1,           //  1: No. (= filaAbsoluta - 1 para que empiece en 1)
-      fechaEnvio,          //  2: Fecha de envío
-      creamosId || '',     //  3: Creamos ID
-      nombre,              //  4: Nombre completo
-      fila[6] || '',       //  5: Número de teléfono
-      fila[7] || '',       //  6: Formación (Nivel Educativo)
-      nombreCohorte,       //  7: Cohorte
-      entrev.fecha,        //  8: Fecha de entrevista
-      entrev.entrevistador,//  9: Entrevistador
-      'Aprobada',          // 10: Resultado entrevista
-      '', '', '', '', '',  // 11-15: Siguiente paso, Clasificación, Empleado, Próxima llamada, Notas
-      'Graduadx'           // 16: Etapa
-    ]);
-
-    // Registrar en el Set para no duplicar dentro del mismo batch
-    yaRegistrados.add(nombre);
-    if (creamosId) yaRegistrados.add(creamosId);
-  }
-
-  // ── Escritura en UN SOLO bloque ────────────────────────────────────────────
-  if (nuevasFilas.length > 0) {
-    const filaInicio = ultimaFilaExterna + 1;
-    hojaSeg.getRange(filaInicio, 1, nuevasFilas.length, nuevasFilas[0].length)
-           .setValues(nuevasFilas);
-    SpreadsheetApp.flush(); // Forzar escritura antes de retornar
-  }
-
-  const enviadas = nuevasFilas.length;
-  const msg = enviadas + ' participante(s) enviadas al seguimiento'
-            + (omitidas > 0 ? ' (' + omitidas + ' ya existían)' : '');
-
-  if (silencioso) {
-    ss.toast(msg, 'Seguimiento', 5);
-  } else {
-    ui.alert('✅ Reenvío completado',
-      'Cohorte: ' + nombreCohorte + '\n\n' +
-      '• ' + enviadas + ' participante(s) enviadas al archivo de seguimiento\n' +
-      '• ' + omitidas + ' ya estaban registradas (omitidas)',
-      ui.ButtonSet.OK);
-  }
-  return enviadas;
-}
-
-/**
- * Versión del menú — usa la hoja activa como cohorte
- */
-function reenviarDesdeMenuCohorte() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hojaActiva = ss.getActiveSheet();
-  const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
-                            'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte',
-                            'Reportes Mensuales', 'Lista Definitiva', 'Detalle Entrevistas'];
-  if (hojasPrincipales.includes(hojaActiva.getName())) {
-    SpreadsheetApp.getUi().alert('⚠️ Aviso',
-      'Esta función debe usarse estando en la hoja de la cohorte (ej. "Barismo Cohorte 1").\n\n' +
-      'Ve a la hoja de la cohorte y vuelve a ejecutar.',
-      SpreadsheetApp.getUi().ButtonSet.OK);
-    return;
-  }
-  reenviarCohorteAlSeguimiento(hojaActiva.getName(), hojaActiva);
-}
 
 /**
  * Aplica formato condicional a una hoja de cohorte:
@@ -3056,87 +2860,6 @@ function eliminarPorCreamosID(sheet, creamosId) {
   return false;
 }
 
-/**
- * Envía una graduada al archivo externo de seguimiento.
- * Se llama automáticamente al graduarse — no requiere acción manual.
- * Columnas destino (hoja "Graduados"):
- *   ID Kobo | Nombre | Teléfono | Email | Formación | Cohorte |
- *   Fecha entrevista | Entrevistador | Resultado entrevista |
- *   Siguiente paso | Clasificación | Fecha clasificación |
- *   Empleado | Próxima llamada | Notas
- */
-function enviarAArchivoSeguimiento(creamosId, nombre, telefono, formacion, cohorte) {
-  const ID_SEGUIMIENTO = '1_596FX6yr8tX93UyIks4emSeE2_vxLJMDyw9Zncsnzs';
-  const GID_GRADUADOS  = 676353499;
-
-  try {
-    const archivoExterno = SpreadsheetApp.openById(ID_SEGUIMIENTO);
-
-    // Buscar hoja por nombre primero, luego por GID
-    let hoja = archivoExterno.getSheetByName('Graduados');
-    if (!hoja) {
-      for (const s of archivoExterno.getSheets()) {
-        if (s.getSheetId() === GID_GRADUADOS) { hoja = s; break; }
-      }
-    }
-    if (!hoja) {
-      Logger.log('❌ No se encontró la hoja "Graduados" en el archivo externo');
-      return;
-    }
-
-    // Intentar obtener datos de entrevista desde hoja local "Entrevistas"
-    // (puede estar vacío si el registro ya fue eliminado al aprobar)
-    let fechaEntrevista = '';
-    let entrevistador   = '';
-    if (creamosId) {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const hEnt = ss.getSheetByName('Entrevistas');
-      if (hEnt && hEnt.getLastRow() > 1) {
-        const datosEnt = hEnt.getDataRange().getValues();
-        for (let i = 1; i < datosEnt.length; i++) {
-          if (datosEnt[i][2] && datosEnt[i][2].toString().trim() === creamosId.toString().trim()) {
-            fechaEntrevista = datosEnt[i][0] || '';   // Columna A: Fecha Entrevista
-            entrevistador   = datosEnt[i][5] || '';   // Columna F: Entrevistador
-            break;
-          }
-        }
-      }
-    }
-
-    const nuevaFila = hoja.getLastRow() + 1;
-
-    // Columnas destino (16 columnas):
-    // No. | Fecha de envío | Creamos ID | Nombre completo | Número de teléfono |
-    // Formación | Cohorte | Fecha de entrevista | Entrevistador | Resultado entrevista |
-    // Siguiente paso | Clasificación | Empleado | Próxima llamada | Notas | Etapa
-    const registro = [
-      nuevaFila - 1,            //  1: No. (auto)
-      new Date(),               //  2: Fecha de envío
-      creamosId   || '',        //  3: Creamos ID
-      nombre      || '',        //  4: Nombre completo
-      telefono    || '',        //  5: Número de teléfono
-      formacion   || '',        //  6: Formación
-      cohorte     || '',        //  7: Cohorte
-      fechaEntrevista,          //  8: Fecha de entrevista
-      entrevistador,            //  9: Entrevistador
-      'Aprobada',               // 10: Resultado entrevista
-      '',                       // 11: Siguiente paso
-      '',                       // 12: Clasificación
-      '',                       // 13: Empleado
-      '',                       // 14: Próxima llamada
-      '',                       // 15: Notas
-      'Graduada'                // 16: Etapa
-    ];
-
-    hoja.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
-    SpreadsheetApp.getActiveSpreadsheet()
-      .toast('✅ ' + (nombre || 'Graduada') + ' enviada al archivo de seguimiento', 'Seguimiento', 4);
-
-  } catch (e) {
-    Logger.log('❌ Error al enviar a archivo externo: ' + e.message);
-    // Error silencioso — no bloquea el flujo de graduación
-  }
-}
 
 function mostrarDialogoMotivoDesercion(nombre) {
   const ui = SpreadsheetApp.getUi();
