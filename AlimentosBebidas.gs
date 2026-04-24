@@ -5660,6 +5660,37 @@ function desactivarSincronizacionAutomaticaEntrevistas() {
  * @param {number} anio - El año de la cohorte
  * @returns {number} El siguiente número disponible
  */
+/**
+ * Limpia y valida nombres de cohorte escritos por el usuario.
+ * Quita años, números duplicados, paréntesis, y espacios extras.
+ * Ejemplos:
+ *   "Barismo I (2026)" → "Barismo"
+ *   "Barismo 1" → "Barismo"
+ *   "Barismo I I" → "Barismo"
+ *   "  Barismo  " → "Barismo"
+ */
+function _limpiarNombreCohorte(texto) {
+  if (!texto) return '';
+
+  // 1. Quitar paréntesis con años (2024, 2025, etc)
+  texto = texto.replace(/\s*\(\s*20\d{2}\s*\)/g, '');
+
+  // 2. Quitar números romanos duplicados al final (I I, II II, etc)
+  texto = texto.replace(/\s+([IVX]+)\s+\1(\s|$)/g, ' $1$2');
+
+  // 3. Quitar números arábigos simples si están solos (I, II, 1, 2, etc)
+  // pero SOLO si están al final y separados por espacio
+  texto = texto.replace(/\s+([IVX]+|[0-9]+)\s*$/g, '');
+
+  // 4. Quitar espacios extras (múltiples espacios → un espacio)
+  texto = texto.replace(/\s+/g, ' ').trim();
+
+  // 5. Capitalizar correctamente (primera letra mayúscula, resto minúscula)
+  texto = texto.charAt(0).toUpperCase() + texto.slice(1);
+
+  return texto;
+}
+
 function obtenerSiguienteNumeroCohorte(nombreBase, anio) {
   const cohortesExistentes = obtenerCohortesActuales();
   const patron = new RegExp('^' + nombreBase + ' (\\d+) \\(' + anio + '\\)$', 'i');
@@ -5694,49 +5725,77 @@ function crearNuevaCohorteAB() {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // ⚠️ TODO: AQUÍ PUEDES CAMBIAR LOS NOMBRES DE LOS PROGRAMAS
-  // Modifica esta lista con los nombres EXACTOS de tus programas
   const programasDisponibles = [
-    'Barismo',                // ← Cambiar aquí
-    'Gastronomía',            // ← Cambiar aquí
-    'Cocina',                 // ← Cambiar aquí
-    'Repostería',             // ← Cambiar aquí
-    'Panadería',              // ← Cambiar aquí
-    'Servicio al Cliente',    // ← Cambiar aquí
-    'Otro (escribir manual)'  // ← Opción para programas no listados
+    'Barismo',
+    'Gastronomía',
+    'Cocina',
+    'Repostería',
+    'Panadería',
+    'Servicio al Cliente',
+    'Otro (escribir manual)'
   ];
 
-  // Mostrar opciones numeradas
-  let mensajeOpciones = '➕ Crear Nueva Cohorte - Paso 1/5\n\nSelecciona el PROGRAMA escribiendo el número:\n\n';
+  let mensajeOpciones = '➕ Crear Nueva Cohorte - PASO 1/5\n\n🎯 Selecciona el PROGRAMA (escribe el número):\n\n';
   programasDisponibles.forEach((prog, index) => {
-    mensajeOpciones += (index + 1) + '. ' + prog + '\n';
+    const simbolo = prog.includes('Otro') ? '➕' : '✓';
+    mensajeOpciones += (index + 1) + '. ' + simbolo + ' ' + prog + '\n';
   });
+  mensajeOpciones += '\n💡 TIP: El sistema agregará número y año automáticamente';
 
-  const respOpcion = ui.prompt(
-    '➕ Seleccionar Programa',
-    mensajeOpciones,
-    ui.ButtonSet.OK_CANCEL
-  );
+  const respOpcion = ui.prompt('Seleccionar Programa', mensajeOpciones, ui.ButtonSet.OK_CANCEL);
   if (respOpcion.getSelectedButton() !== ui.Button.OK) return;
 
   const opcionSeleccionada = parseInt(respOpcion.getResponseText().trim());
   let nombreBase;
 
-  // Si seleccionó "Otro" o número inválido, pedir nombre manual
   if (opcionSeleccionada === programasDisponibles.length || !opcionSeleccionada || opcionSeleccionada < 1 || opcionSeleccionada > programasDisponibles.length) {
-    const respNombreManual = ui.prompt(
-      '➕ Nombre Manual',
-      'Ingresa el NOMBRE del programa:\n\nEjemplos: "Barismo", "Gastronomía"\n\n(Se agregará automáticamente un número y el año)',
-      ui.ButtonSet.OK_CANCEL
-    );
-    if (respNombreManual.getSelectedButton() !== ui.Button.OK) return;
-    nombreBase = respNombreManual.getResponseText().trim();
+    // OPCIÓN "OTRO" — Con validación y limpieza
+    let nombreValido = false;
+    let intentos = 0;
+    while (!nombreValido && intentos < 3) {
+      const respNombreManual = ui.prompt(
+        '➕ Nombre del Programa',
+        'Ingresa SOLO el nombre (sin año ni número):\n\n' +
+        '❌ NO: "Barismo I (2026)"\n' +
+        '❌ NO: "Barismo 1"\n' +
+        '❌ NO: "Barismo I I"\n' +
+        '✅ SÍ: "Barismo"\n' +
+        '✅ SÍ: "Gastronomía Avanzada"\n\n' +
+        'El sistema agregará automáticamente el número y año.',
+        ui.ButtonSet.OK_CANCEL
+      );
+      if (respNombreManual.getSelectedButton() !== ui.Button.OK) return;
+
+      nombreBase = _limpiarNombreCohorte(respNombreManual.getResponseText().trim());
+
+      if (!nombreBase) {
+        ui.alert('⚠️ Nombre vacío', 'Por favor ingresa un nombre válido.', ui.ButtonSet.OK);
+        intentos++;
+        continue;
+      }
+
+      // Verificar si ya existe una cohorte con este nombre
+      const cohortesExistentes = obtenerCohortesActuales();
+      const yaExiste = cohortesExistentes.some(c =>
+        c.toLowerCase().startsWith(nombreBase.toLowerCase() + ' ')
+      );
+
+      if (yaExiste) {
+        ui.alert('⚠️ Cohorte ya existe', 'Ya existe una cohorte de "' + nombreBase + '".\n\nSelecciona otro nombre.', ui.ButtonSet.OK);
+        intentos++;
+        continue;
+      }
+
+      nombreValido = true;
+    }
+
+    if (!nombreValido) {
+      ui.alert('❌ Error', 'Se alcanzó el límite de intentos. Intenta de nuevo.', ui.ButtonSet.OK);
+      return;
+    }
   } else {
-    // Usar el nombre del programa seleccionado
     nombreBase = programasDisponibles[opcionSeleccionada - 1];
   }
-
-  if (!nombreBase) { ui.alert('Nombre vacío'); return; }
 
   // Agregar año actual automáticamente entre paréntesis
   const anioActual = new Date().getFullYear();
