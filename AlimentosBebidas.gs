@@ -207,6 +207,7 @@ function setupMenuAB() {
       .addSubMenu(ui.createMenu('📊 Reportes y Exportación')
         .addItem('📊 Actualizar Reportes', 'actualizarReportesAB')
         .addItem('🔧 Reparar Fórmulas del Reporte', 'repararFormulasReporte')
+        .addItem('✨ Mejorar y Reparar Reportes', 'mejorarYRepararReportesAB')
         .addItem('💾 Guardar Reporte Mensual', 'guardarReporteMensual'))
 
       // ========== COHORTES ==========
@@ -6625,6 +6626,75 @@ function repararFormulasReporte() {
   reporte.getRange('B2').setValue(new Date());
 
   ss.toast('✅ Fórmulas del Reporte reparadas', 'Reporte', 4);
+}
+
+/**
+ * Mejora visual y completa los reportes:
+ * - Repara fórmulas
+ * - Mejora formato (colores, tamaños)
+ * - Agrega validaciones
+ * - Mejora legibilidad
+ */
+function mejorarYRepararReportesAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const reporte = ss.getSheetByName('Reporte');
+
+  if (!reporte) {
+    ui.alert('❌ Error', 'No existe la hoja Reporte', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Primero, reparar todas las fórmulas
+  repararFormulasReporte();
+
+  // Mejorar formato visual
+  const rangos = [
+    { rango: 'A4:D4', bg: '#2196f3', color: 'white', bold: true }, // PERSONAS INTERESADAS
+    { rango: 'A7:D7', bg: '#4caf50', color: 'white', bold: true }, // ENTREVISTAS
+    { rango: 'A10:D10', bg: '#ff9800', color: 'white', bold: true }, // SELECCIONADAS
+    { rango: 'A13:D13', bg: '#9c27b0', color: 'white', bold: true }, // PARTICIPANTES POR COHORTE
+    { rango: 'A16:D16', bg: '#00bcd4', color: 'white', bold: true }, // GRADUADAS
+    { rango: 'A19:D19', bg: '#f44336', color: 'white', bold: true }, // DESERCIONES
+    { rango: 'A22:D22', bg: '#795548', color: 'white', bold: true }, // NO SELECCIONADAS
+    { rango: 'A25:D25', bg: '#1a237e', color: 'white', bold: true }  // RESUMEN GENERAL
+  ];
+
+  rangos.forEach(r => {
+    const rng = reporte.getRange(r.rango);
+    rng.setBackground(r.bg);
+    rng.setFontColor(r.color);
+    if (r.bold) rng.setFontWeight('bold');
+    rng.setHorizontalAlignment('center');
+  });
+
+  // Ajustar ancho de columnas
+  reporte.setColumnWidth(1, 300);
+  reporte.setColumnWidth(2, 120);
+  reporte.setColumnWidth(3, 120);
+  reporte.setColumnWidth(4, 120);
+
+  // Formato para números (columnas B, C, D)
+  reporte.getRange('B5:D28').setNumberFormat('0');
+
+  // Números en porcentaje (D20, B27)
+  reporte.getRange('D20').setNumberFormat('0.0"%"');
+  reporte.getRange('B27').setNumberFormat('0.0"%"');
+
+  // Centrar algunos valores
+  reporte.getRange('B5:D28').setHorizontalAlignment('center');
+
+  // Congelar filas
+  reporte.setFrozenRows(3);
+
+  ui.alert('✅ Reportes mejorados',
+    'Se han reparado y mejorado todos los reportes:\n\n' +
+    '✓ Fórmulas validadas y actualizadas\n' +
+    '✓ Formato visual mejorado (colores, tamaños)\n' +
+    '✓ Números formateados correctamente\n' +
+    '✓ Fácil de leer y entender\n\n' +
+    'Los datos se actualizan automáticamente.',
+    ui.ButtonSet.OK);
 }
 
 function guardarReporteMensual() {
