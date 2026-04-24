@@ -215,6 +215,7 @@ function setupMenuAB() {
         .addItem('🗑️ Eliminar Cohorte', 'eliminarCohorteAB')
         .addSeparator()
         .addItem('📝 Ver/Editar Cohortes', 'verCohortes')
+        .addItem('✏️ Editar Cohorte', 'editarCohorteAB')
         .addItem('👥 Enviar Participantes a Cohorte', 'enviarParticipantesACohorteAB')
         .addSeparator()
         .addItem('📊 Estadísticas por Cohorte', 'estadisticasCohorte'))
@@ -5999,6 +6000,129 @@ function crearNuevaCohorteAB() {
     ? '\n💰 Presupuesto: Q' + (presupuestoCurso + presupuestoPracticas).toLocaleString()
     : '';
   ss.toast('✅ Cohorte "' + nombre + '" creada con su hoja individual' + msgEstipendio, 'Nueva Cohorte', 7);
+}
+
+/**
+ * Permite editar una cohorte existente (Fecha Fin, Cupo Máximo, Responsable)
+ * Sin afectar los datos de participantes ni las fórmulas
+ */
+function editarCohorteAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const cohortesSheet = ss.getSheetByName('Cohortes');
+
+  if (!cohortesSheet) {
+    ui.alert('❌ Error', 'No se encontró la hoja Cohortes', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Obtener cohortes actuales
+  const cohortes = obtenerCohortesActuales();
+  if (cohortes.length === 0) {
+    ui.alert('⚠️ Sin cohortes', 'No hay cohortes para editar.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Seleccionar cohorte
+  let mensajeSeleccionar = '📋 Selecciona la COHORTE a editar (escribe el número):\n\n';
+  cohortes.forEach((c, idx) => {
+    mensajeSeleccionar += (idx + 1) + '. ' + c + '\n';
+  });
+
+  const respSeleccionar = ui.prompt('Editar Cohorte', mensajeSeleccionar, ui.ButtonSet.OK_CANCEL);
+  if (respSeleccionar.getSelectedButton() !== ui.Button.OK) return;
+
+  const idxCohorte = parseInt(respSeleccionar.getResponseText().trim()) - 1;
+  if (idxCohorte < 0 || idxCohorte >= cohortes.length) {
+    ui.alert('❌ Número inválido', 'Selecciona un número válido.', ui.ButtonSet.OK);
+    return;
+  }
+
+  const nombreCohorte = cohortes[idxCohorte];
+
+  // Buscar fila de la cohorte
+  const datos = cohortesSheet.getDataRange().getValues();
+  let filaCohorte = -1;
+  for (let i = 1; i < datos.length; i++) {
+    if (datos[i][0] && datos[i][0].toString().trim() === nombreCohorte) {
+      filaCohorte = i + 1;
+      break;
+    }
+  }
+
+  if (filaCohorte === -1) {
+    ui.alert('❌ No encontrada', 'No se encontró la cohorte en el registro.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Obtener datos actuales (Columnas: Nombre, Proyecto, Año, Inicio, Fin, Responsable, Cupo, ...)
+  const datosActuales = datos[filaCohorte - 1];
+  const fechaFinActual = datosActuales[4] ? (datosActuales[4] instanceof Date ? Utilities.formatDate(datosActuales[4], Session.getScriptTimeZone(), 'dd/MM/yyyy') : datosActuales[4]) : '';
+  const cupoActual = datosActuales[6] || 20;
+  const responsableActual = datosActuales[5] || 'Eva';
+
+  // Menú de qué editar
+  const respQueEditar = ui.alert(
+    '✏️ ¿Qué deseas editar?',
+    '1️⃣ Fecha de Fin: ' + fechaFinActual + '\n' +
+    '2️⃣ Cupo Máximo: ' + cupoActual + '\n' +
+    '3️⃣ Responsable: ' + responsableActual + '\n\n' +
+    '(Elige una opción)',
+    ui.ButtonSet.YES_NO_CANCEL
+  );
+
+  let queEditar = '';
+  if (respQueEditar === ui.Button.YES) queEditar = 'Fecha Fin';
+  else if (respQueEditar === ui.Button.NO) queEditar = 'Cupo';
+  else {
+    queEditar = 'Responsable';
+  }
+
+  if (queEditar === 'Fecha Fin') {
+    const respFecha = ui.prompt(
+      '📅 Editar Fecha de Fin',
+      'Ingresa la nueva FECHA DE FIN (dd/mm/aaaa):\n\nActual: ' + fechaFinActual,
+      ui.ButtonSet.OK_CANCEL
+    );
+    if (respFecha.getSelectedButton() !== ui.Button.OK) return;
+
+    const fechaTexto = respFecha.getResponseText().trim();
+    let fechaNueva = '';
+    if (fechaTexto) {
+      const partes = fechaTexto.split('/');
+      if (partes.length === 3) {
+        fechaNueva = new Date(partes[2], partes[1] - 1, partes[0]);
+      } else {
+        ui.alert('❌ Formato inválido', 'Usa formato dd/mm/aaaa', ui.ButtonSet.OK);
+        return;
+      }
+    }
+
+    cohortesSheet.getRange(filaCohorte, 5).setValue(fechaNueva);
+    ui.alert('✅ Actualizado', 'Fecha de fin de "' + nombreCohorte + '" actualizada.', ui.ButtonSet.OK);
+  } else if (queEditar === 'Cupo') {
+    const respCupo = ui.prompt(
+      '📊 Editar Cupo Máximo',
+      'Ingresa el nuevo CUPO MÁXIMO:\n\nActual: ' + cupoActual,
+      ui.ButtonSet.OK_CANCEL
+    );
+    if (respCupo.getSelectedButton() !== ui.Button.OK) return;
+
+    const cupoNuevo = parseInt(respCupo.getResponseText().trim()) || cupoActual;
+    cohortesSheet.getRange(filaCohorte, 7).setValue(cupoNuevo);
+    ui.alert('✅ Actualizado', 'Cupo de "' + nombreCohorte + '" actualizado a ' + cupoNuevo + '.', ui.ButtonSet.OK);
+  } else {
+    const respResponsable = ui.prompt(
+      '👤 Editar Responsable',
+      'Ingresa el nuevo RESPONSABLE:\n\nActual: ' + responsableActual,
+      ui.ButtonSet.OK_CANCEL
+    );
+    if (respResponsable.getSelectedButton() !== ui.Button.OK) return;
+
+    const responsableNuevo = respResponsable.getResponseText().trim() || responsableActual;
+    cohortesSheet.getRange(filaCohorte, 6).setValue(responsableNuevo);
+    ui.alert('✅ Actualizado', 'Responsable de "' + nombreCohorte + '" actualizado a ' + responsableNuevo + '.', ui.ButtonSet.OK);
+  }
 }
 
 /**
