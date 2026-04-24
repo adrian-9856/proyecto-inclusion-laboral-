@@ -221,6 +221,9 @@ function setupMenuTech() {
         .addSeparator()
         .addItem('📊 Estadísticas por Cohorte', 'estadisticasCohorte'))
       .addSeparator()
+      .addItem('📊 Guardar Reporte Mensual', 'guardarReporteMensualAutomatico')
+      .addItem('💾 Crear PowerBI Export', 'crearHojaPowerBIExport')
+      .addSeparator()
       .addItem('🎨 Resaltar Registros 2026', 'resaltarTodos2026')
       .addSeparator()
 
@@ -6634,6 +6637,217 @@ function mejorarYRepararReportes() {
     '✓ Fácil de leer y entender\n\n' +
     'Los datos se actualizan automáticamente.',
     ui.ButtonSet.OK);
+}
+
+/**
+ * Crea hoja de exportación para Power BI con estructura tabla limpia
+ * Una fila por cohorte con todos los datos de forma organizada
+ */
+function crearHojaPowerBIExport() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Eliminar si ya existe
+  const hojaExistente = ss.getSheetByName('PowerBI Export');
+  if (hojaExistente) ss.deleteSheet(hojaExistente);
+
+  const sheet = ss.insertSheet('PowerBI Export');
+
+  // Encabezados en formato tabla para Power BI
+  const headers = [
+    'Fecha Actualización',
+    'Mes',
+    'Año',
+    'Nombre Cohorte',
+    'Proyecto',
+    'Responsable',
+    'Cupo Máximo',
+    'Inscritas',
+    'Graduadas',
+    'Retiradas',
+    'Tasa Éxito %',
+    'Inicio',
+    'Fin',
+    'Estado'
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#0d47a1')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  // Ancho de columnas
+  const anchos = [140, 80, 80, 180, 150, 120, 120, 100, 100, 100, 120, 100, 100, 100];
+  anchos.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+
+  // Agregar datos de todas las cohortes
+  const cohortesSheet = ss.getSheetByName('Cohortes');
+  if (!cohortesSheet) return;
+
+  const datos = cohortesSheet.getDataRange().getValues();
+  const hoy = new Date();
+  const mesActual = hoy.getMonth() + 1;
+  const anioActual = hoy.getFullYear();
+
+  let filaDestino = 2;
+  for (let i = 1; i < datos.length; i++) {
+    const fila = datos[i];
+    if (!fila[0]) continue; // Saltar vacías
+
+    const nombreCohorte = fila[0].toString().trim();
+    const proyecto = fila[1] || '';
+    const anio = fila[2] || '';
+    const fechaInicio = fila[3] || '';
+    const fechaFin = fila[4] || '';
+    const responsable = fila[5] || '';
+    const cupo = fila[6] || '';
+    const inscritas = fila[7] || '';
+    const graduadas = fila[8] || '';
+    const retiradas = fila[9] || '';
+    const estado = fila[13] || 'Activa';
+
+    // Calcular tasa de éxito
+    let tasaExito = 0;
+    if (graduadas && retiradas) {
+      const totalTerminadas = parseInt(graduadas) + parseInt(retiradas);
+      if (totalTerminadas > 0) {
+        tasaExito = (parseInt(graduadas) / totalTerminadas * 100).toFixed(1);
+      }
+    }
+
+    const filaExportar = [
+      hoy,
+      mesActual,
+      anioActual,
+      nombreCohorte,
+      proyecto,
+      responsable,
+      cupo,
+      inscritas,
+      graduadas,
+      retiradas,
+      tasaExito,
+      fechaInicio,
+      fechaFin,
+      estado
+    ];
+
+    sheet.getRange(filaDestino, 1, 1, headers.length).setValues([filaExportar]);
+    filaDestino++;
+  }
+
+  // Aplicar formato de tabla
+  if (filaDestino > 2) {
+    sheet.getRange(2, 1, filaDestino - 2, headers.length)
+      .setBackground('#f5f5f5')
+      .setFontSize(10);
+
+    // Alternar colores de filas
+    for (let i = 2; i < filaDestino; i++) {
+      if (i % 2 === 0) {
+        sheet.getRange(i, 1, 1, headers.length).setBackground('#ffffff');
+      } else {
+        sheet.getRange(i, 1, 1, headers.length).setBackground('#f9f9f9');
+      }
+    }
+  }
+
+  sheet.setFrozenRows(1);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Hoja PowerBI Export creada', 'Power BI', 5);
+}
+
+/**
+ * Guarda un reporte mensual automáticamente (una línea por mes)
+ * Se ejecuta automáticamente vía trigger
+ */
+function guardarReporteMensualAutomatico() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const reporte = ss.getSheetByName('Reporte');
+    const mensuales = ss.getSheetByName('Reportes Mensuales');
+
+    if (!reporte || !mensuales) return;
+
+    // Obtener datos del reporte actual
+    const hoy = new Date();
+    const mesActual = hoy.getMonth() + 1;
+    const anioActual = hoy.getFullYear();
+    const mesTexto = Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'MMMM YYYY');
+
+    // Verificar si ya existe un reporte para este mes
+    const datosExistentes = mensuales.getDataRange().getValues();
+    for (let i = 1; i < datosExistentes.length; i++) {
+      const celda = datosExistentes[i][0] ? datosExistentes[i][0].toString() : '';
+      if (celda.includes(Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'MMMM')) &&
+          celda.includes(anioActual.toString())) {
+        return; // Ya existe reporte para este mes
+      }
+    }
+
+    // Leer datos del Reporte
+    const interesadas = reporte.getRange('B5').getValue();
+    const entrevistas = reporte.getRange('B8').getValue();
+    const inscritx = reporte.getRange('B11').getValue();
+    const activasCohorte = reporte.getRange('B28').getValue();
+    const graduadas = reporte.getRange('B17').getValue();
+    const retiradas = reporte.getRange('B20').getValue();
+    const noInscritas = reporte.getRange('B23').getValue();
+    const tasaExito = reporte.getRange('B27').getValue();
+
+    // Obtener cohortes activas para agregar columas
+    const cohortesSheet = ss.getSheetByName('Cohortes');
+    const cohortesDatos = cohortesSheet ? cohortesSheet.getDataRange().getValues() : [];
+    const datosCohortes = {};
+
+    for (let i = 1; i < cohortesDatos.length; i++) {
+      if (cohortesDatos[i][0]) {
+        const nombreCohorte = cohortesDatos[i][0].toString().trim();
+        // Obtener conteo de inscritas por cohorte
+        const hoja = ss.getSheetByName(nombreCohorte);
+        if (hoja && hoja.getLastRow() > 1) {
+          const rango = hoja.getRange(2, 5, hoja.getLastRow() - 1, 1).getValues();
+          let contador = 0;
+          for (let j = 0; j < rango.length; j++) {
+            if (rango[j][0]) contador++;
+          }
+          datosCohortes[nombreCohorte] = contador;
+        } else {
+          datosCohortes[nombreCohorte] = 0;
+        }
+      }
+    }
+
+    // Armamos los datos del mes
+    const nuevaFila = [
+      mesTexto,
+      interesadas,
+      entrevistas,
+      inscritx,
+      activasCohorte,
+      graduadas,
+      retiradas,
+      noInscritas,
+      tasaExito
+    ];
+
+    // Agregar datos por cohorte (si existen)
+    const headerCohortes = ['SAC I', 'SAC II', 'Computación I'];
+    headerCohortes.forEach(cohorte => {
+      nuevaFila.push(datosCohortes[cohorte] || 0);
+    });
+
+    // Fecha de guardado
+    nuevaFila.push(new Date());
+
+    // Agregar fila a Reportes Mensuales
+    const ultimaFila = mensuales.getLastRow() + 1;
+    mensuales.getRange(ultimaFila, 1, 1, nuevaFila.length).setValues([nuevaFila]);
+
+    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Reporte mensual guardado: ' + mesTexto, 'Reportes Mensuales', 5);
+
+  } catch (e) {
+    Logger.log('Error en guardarReporteMensualAutomatico: ' + e.message);
+  }
 }
 
 function guardarReporteMensual() {
