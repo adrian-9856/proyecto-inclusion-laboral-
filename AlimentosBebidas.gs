@@ -4890,19 +4890,34 @@ function importarEntrevistasDesdeKobo() {
     const idx_sac_e13 = buscarIndiceColumna(headers, ['🤝 SECCIÓN 2: SERVICIO AL CLIENTE/13. ¿En qué temporalidad', 'SERVICIO AL CLIENTE/13. ¿En qué temporalidad']);
 
     // === SECCIÓN 3: GÉNERO ===
-    const idx_genero_previo = buscarIndiceColumna(headers, ['GÉNERO/']);
-    const idx_genero_gruposMixtos = buscarIndiceColumnaAND(headers, ['GÉNERO', 'grupos mixtos']);
+    const idx_genero_previo = buscarIndiceColumna(headers, ['GÉNERO/', 'genero/', 'SECCIÓN 3', 'seccion 3', '🚺']);
+    const idx_genero_gruposMixtos = buscarIndiceColumnaAND(headers, ['genero', 'mixtos'])
+      || buscarIndiceColumnaAND(headers, ['sección 3', 'mixtos'])
+      || buscarIndiceColumnaAND(headers, ['GÉNERO', 'mixtos']);
     const idx_genero_comentarioMixtos = sigCol(idx_genero_gruposMixtos);
-    const idx_genero_gruposDiversos = buscarIndiceColumnaAND(headers, ['GÉNERO', 'grupos diversos']);
+    const idx_genero_gruposDiversos = buscarIndiceColumnaAND(headers, ['genero', 'diversos'])
+      || buscarIndiceColumnaAND(headers, ['sección 3', 'diversos'])
+      || buscarIndiceColumnaAND(headers, ['GÉNERO', 'diversos']);
     const idx_genero_comentarioDiversos = sigCol(idx_genero_gruposDiversos);
-    const idx_genero_conflictoGrupos = buscarIndiceColumnaAND(headers, ['GÉNERO', 'causaría conflicto en casa']);
+    const idx_genero_conflictoGrupos = buscarIndiceColumnaAND(headers, ['genero', 'conflicto'])
+      || buscarIndiceColumnaAND(headers, ['genero', 'casa'])
+      || buscarIndiceColumnaAND(headers, ['sección 3', 'casa'])
+      || buscarIndiceColumnaAND(headers, ['GÉNERO', 'casa']);
     const idx_genero_comentarioConflictoGrupos = sigCol(idx_genero_conflictoGrupos);
-    const idx_genero_conflictoHorarios = buscarIndiceColumnaAND(headers, ['GÉNERO', 'horarios variados']);
+    const idx_genero_conflictoHorarios = buscarIndiceColumnaAND(headers, ['genero', 'horarios'])
+      || buscarIndiceColumnaAND(headers, ['sección 3', 'horarios'])
+      || buscarIndiceColumnaAND(headers, ['GÉNERO', 'horarios']);
     const idx_genero_comentarioConflictoHorarios = sigCol(idx_genero_conflictoHorarios);
-    const idx_genero_grupoMujeres = buscarIndiceColumnaAND(headers, ['GÉNERO', 'mayoritariamente por mujeres']);
-    const idx_genero_igualdadHM = buscarIndiceColumnaAND(headers, ['GÉNERO', 'tratados por igual']);
-    const idx_genero_familiaresCreamos = buscarIndiceColumnaAND(headers, ['GÉNERO', 'participantes de Creamos']);
-    const idx_genero_nombresFamiliares = buscarIndiceColumnaAND(headers, ['GÉNERO', 'compartirnos sus nombres']);
+    const idx_genero_grupoMujeres = buscarIndiceColumnaAND(headers, ['genero', 'mujeres'])
+      || buscarIndiceColumnaAND(headers, ['sección 3', 'mujeres'])
+      || buscarIndiceColumnaAND(headers, ['GÉNERO', 'mujeres']);
+    const idx_genero_igualdadHM = buscarIndiceColumnaAND(headers, ['genero', 'igual'])
+      || buscarIndiceColumnaAND(headers, ['sección 3', 'igual'])
+      || buscarIndiceColumnaAND(headers, ['GÉNERO', 'igual']);
+    const idx_genero_familiaresCreamos = buscarIndiceColumnaAND(headers, ['genero', 'creamos'])
+      || buscarIndiceColumnaAND(headers, ['sección 3', 'creamos']);
+    const idx_genero_nombresFamiliares = buscarIndiceColumnaAND(headers, ['genero', 'nombres'])
+      || buscarIndiceColumnaAND(headers, ['sección 3', 'nombres']);
 
     const colMap = {
       // === SECCIÓN 1: DATOS PERSONALES ===
