@@ -196,7 +196,10 @@ function setupMenuTech() {
       // ========== DATOS (IMPORTAR/ACTUALIZAR) ==========
       .addSubMenu(ui.createMenu('📥 Datos')
         .addItem('🔄 Actualizar Todas las Notas', 'actualizarNotasDesdeKoboTech')
-        .addItem('📝 Importar Entrevistas', 'importarEntrevistasDesdeKobo'))
+        .addItem('📝 Importar Entrevistas', 'importarEntrevistasDesdeKobo')
+        .addSeparator()
+        .addItem('⏰ Activar Auto-Importación (c/10 min)', 'instalarTriggersImportacionAuto')
+        .addItem('🛑 Desactivar Auto-Importación', 'desinstalarTriggersImportacionAuto'))
       .addSeparator()
 
       // ========== COHORTES ==========
@@ -5100,8 +5103,8 @@ function importarEntrevistasDesdeKobo() {
       // Detectar sector desde el campo cursoInteres
       const cursoParsona = colMap.cursoInteres >= 0 ? getVal(colMap.cursoInteres) : '';
       const cursoNorm = normalizarTextoColumna(cursoParsona);
-      let esAB    = cursoNorm.includes('alimento') || cursoNorm.includes('bebida');
-      let esTech  = cursoNorm.includes('tecnolog');
+      let esAB    = cursoNorm.includes('alimento') || cursoNorm.includes('bebida') || cursoNorm.includes('cocina') || cursoNorm.includes('reposteria') || cursoNorm.includes('barismo') || cursoNorm.includes('gastronomia');
+      let esTech  = cursoNorm.includes('tecnolog') || cursoNorm.includes('computacion') || cursoNorm.includes('marketing') || cursoNorm.includes('programacion') || cursoNorm.includes('alfabetizacion') || cursoNorm.includes('microsoft') || cursoNorm.includes('sac');
       let esSAC   = cursoNorm.includes('servicio') || cursoNorm.includes('cliente');
 
       // Fallback: si cursoInteres no encontró el sector, detectar por qué columnas del CSV tienen datos
@@ -6634,6 +6637,44 @@ function desinstalarTriggersReportesMensuales() {
   SpreadsheetApp.getUi().alert('✅ Triggers desinstalados',
     'Se desinstalaron ' + eliminados + ' trigger(s).\n\n' +
     'Los reportes mensuales ya NO se guardarán automáticamente.',
+    SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function instalarTriggersImportacionAuto() {
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'importarDesdeKoboTech') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  ScriptApp.newTrigger('importarDesdeKoboTech')
+    .timeBased()
+    .everyMinutes(10)
+    .create();
+
+  SpreadsheetApp.getUi().alert('✅ Auto-importación activada',
+    'El sistema descargará datos nuevos automáticamente:\n\n' +
+    '📥 Cada 10 minutos: Hoja de Interés (datos de Kobo)\n\n' +
+    'Ya no necesitas importar manualmente los registros nuevos.\n' +
+    'Las entrevistas aún deben importarse manualmente.',
+    SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function desinstalarTriggersImportacionAuto() {
+  const triggers = ScriptApp.getProjectTriggers();
+  let eliminados = 0;
+
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'importarDesdeKoboTech') {
+      ScriptApp.deleteTrigger(trigger);
+      eliminados++;
+    }
+  });
+
+  SpreadsheetApp.getUi().alert('✅ Auto-importación desactivada',
+    'Se desactivaron ' + eliminados + ' trigger(s).\n\n' +
+    'Ya no se importarán datos automáticamente.',
     SpreadsheetApp.getUi().ButtonSet.OK);
 }
 

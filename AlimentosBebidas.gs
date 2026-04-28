@@ -197,7 +197,10 @@ function setupMenuAB() {
       .addSubMenu(ui.createMenu('📥 Datos')
         .addItem('🔄 Actualizar Todas las Notas', 'actualizarNotasDesdeKoboAB')
         .addItem('📝 Importar Entrevistas', 'importarEntrevistasDesdeKobo')
-        .addItem('💰 Importar Estipendios', 'importarEstipendiosDesdeKobo'))
+        .addItem('💰 Importar Estipendios', 'importarEstipendiosDesdeKobo')
+        .addSeparator()
+        .addItem('⏰ Activar Auto-Importación (c/10 min)', 'instalarTriggersImportacionAutoAB')
+        .addItem('🛑 Desactivar Auto-Importación', 'desinstalarTriggersImportacionAutoAB'))
       .addSeparator()
 
       // ========== COHORTES ==========
@@ -6700,6 +6703,44 @@ function desinstalarTriggersReportesMensualesAB() {
   SpreadsheetApp.getUi().alert('✅ Triggers desinstalados',
     'Se desinstalaron ' + eliminados + ' trigger(s).\n\n' +
     'Los reportes mensuales ya NO se guardarán automáticamente.',
+    SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function instalarTriggersImportacionAutoAB() {
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'importarDesdeKoboAB') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  ScriptApp.newTrigger('importarDesdeKoboAB')
+    .timeBased()
+    .everyMinutes(10)
+    .create();
+
+  SpreadsheetApp.getUi().alert('✅ Auto-importación activada',
+    'El sistema descargará datos nuevos automáticamente:\n\n' +
+    '📥 Cada 10 minutos: Hoja de Interés (datos de Kobo)\n\n' +
+    'Ya no necesitas importar manualmente los registros nuevos.\n' +
+    'Las entrevistas aún deben importarse manualmente.',
+    SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function desinstalarTriggersImportacionAutoAB() {
+  const triggers = ScriptApp.getProjectTriggers();
+  let eliminados = 0;
+
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === 'importarDesdeKoboAB') {
+      ScriptApp.deleteTrigger(trigger);
+      eliminados++;
+    }
+  });
+
+  SpreadsheetApp.getUi().alert('✅ Auto-importación desactivada',
+    'Se desactivaron ' + eliminados + ' trigger(s).\n\n' +
+    'Ya no se importarán datos automáticamente.',
     SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
