@@ -776,6 +776,7 @@ function crearTodasLasHojas() {
 
   crearHojaInteres();
   crearHojaEntrevistas();
+  crearHojaPasoAPaso();
   crearHojaDetalleEntrevistas();
   crearHojaInscritx();
   crearHojaCohortes();
@@ -864,18 +865,19 @@ function crearHojaEntrevistas() {
   const headers = [
     'Fecha Entrevista',   // A
     'Hora',               // B
-    'Creamos ID',         // C
-    'DPI',                // D
-    'Nombre Completo',    // E
-    'Género',             // F
-    'Edad',               // G
-    'Teléfono',           // H
-    'Nivel Educativo',    // I
-    'Zona',               // J
-    'Entrevistador',      // K - Desplegable (responsables)
-    'Calificación',       // L
-    'Observaciones',      // M
-    'Estado'              // N - Desplegable (última columna - trigger)
+    '🔗 Abrir Kobo',      // C - NUEVO: Link al formulario
+    'Creamos ID',         // D
+    'DPI',                // E
+    'Nombre Completo',    // F
+    'Género',             // G
+    'Edad',               // H
+    'Teléfono',           // I
+    'Nivel Educativo',    // J
+    'Zona',               // K
+    'Entrevistador',      // L - Desplegable (responsables)
+    'Calificación',       // M
+    'Observaciones',      // N
+    'Estado'              // O - Desplegable (última columna - trigger)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -885,12 +887,57 @@ function crearHojaEntrevistas() {
     .setHorizontalAlignment('center');
 
   // Anchos de columna
-  [120, 80, 100, 130, 200, 120, 60, 120, 150, 120, 120, 120, 300, 150].forEach((w, i) => {
+  [120, 80, 120, 100, 130, 200, 120, 60, 120, 150, 120, 120, 120, 300, 150].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
   // Destacar columna "Estado"
-  sheet.getRange('N1').setBackground('#4caf50');
+  sheet.getRange('O1').setBackground('#4caf50');
+
+  // Destacar columna "Abrir Kobo"
+  sheet.getRange('C1').setBackground('#2196f3').setFontColor('white');
+}
+
+/**
+ * Crea la hoja "Paso a Paso" - copia de Entrevistas para derivar a otras personas
+ */
+function crearHojaPasoAPaso() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName('Paso a Paso')) return;
+  const sheet = ss.insertSheet('Paso a Paso');
+
+  const headers = [
+    'Fecha Entrevista',   // A
+    'Hora',               // B
+    '🔗 Abrir Kobo',      // C - Link al formulario
+    'Creamos ID',         // D
+    'DPI',                // E
+    'Nombre Completo',    // F
+    'Género',             // G
+    'Edad',               // H
+    'Teléfono',           // I
+    'Nivel Educativo',    // J
+    'Zona',               // K
+    'Entrevistador',      // L
+    'Calificación',       // M
+    'Observaciones',      // N
+    'Estado'              // O
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#1976d2')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  // Anchos de columna (iguales a Entrevistas)
+  [120, 80, 120, 100, 130, 200, 120, 60, 120, 150, 120, 120, 120, 300, 150].forEach((w, i) => {
+    sheet.setColumnWidth(i + 1, w);
+  });
+
+  // Destacar columnas especiales
+  sheet.getRange('O1').setBackground('#4caf50').setFontColor('white');
+  sheet.getRange('C1').setBackground('#2196f3').setFontColor('white');
 }
 
 /**
@@ -1457,28 +1504,32 @@ function configurarValidaciones() {
   }
 
   // === HOJA DE ENTREVISTAS ===
-  // Columnas: A-Fecha, B-Hora, C-CreamosID, D-DPI, E-Nombre, F-Género, G-Edad, H-Tel, I-NivelEdu, J-Zona, K-Entrevistador, L-Calificación, M-Observaciones, N-Estado
+  // Columnas: A-Fecha, B-Hora, C-AbrirKobo, D-CreamosID, E-DPI, F-Nombre, G-Género, H-Edad, I-Tel, J-NivelEdu, K-Zona, L-Entrevistador, M-Calificación, N-Observaciones, O-Estado
   const entrevistas = ss.getSheetByName('Entrevistas');
   if (entrevistas) {
-    // Género (F)
-    entrevistas.getRange('F2:F500').setDataValidation(
+    // Género (G)
+    entrevistas.getRange('G2:G500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.GENEROS).setAllowInvalid(true).build()
     );
-    // Nivel Educativo (I)
-    entrevistas.getRange('I2:I500').setDataValidation(
+    // Nivel Educativo (J)
+    entrevistas.getRange('J2:J500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.NIVELES_EDUCATIVOS).setAllowInvalid(true).build()
     );
-    // Zona (J)
-    entrevistas.getRange('J2:J500').setDataValidation(
+    // Zona (K)
+    entrevistas.getRange('K2:K500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.ZONAS).setAllowInvalid(true).build()
     );
-    // Entrevistador (K)
-    entrevistas.getRange('K2:K500').setDataValidation(
+    // Entrevistador (L)
+    entrevistas.getRange('L2:L500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
     );
-    // Estado (N) - Resultado de entrevista (última columna)
-    entrevistas.getRange('N2:N500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.RESULTADO_FINAL).setAllowInvalid(false).build()
+    // Estado (O) - Resultado de entrevista (última columna)
+    // Opciones: Aprobada, No aprobada, No asistió, Reprogramada, Derivar a Paso a Paso
+    entrevistas.getRange('O2:O500').setDataValidation(
+      SpreadsheetApp.newDataValidation()
+        .requireValueInList(CONFIG_TECH.RESULTADO_FINAL.concat(['Derivar a Paso a Paso']))
+        .setAllowInvalid(false)
+        .build()
     );
   }
 
@@ -1736,10 +1787,14 @@ function alEditarTech(e) {
   }
 
   // === ENTREVISTAS ===
-  // Estado está en columna N (14) - triggers automáticos según resultado
+  // Estado está en columna O (15) - triggers automáticos según resultado
   if (hoja === 'Entrevistas') {
-    if (columna === 14) {
+    if (columna === 15) {
       procesarResultadoEntrevista(sheet, fila, val);
+      // Si es "Derivar a Paso a Paso", copiar a esa hoja
+      if (val === 'Derivar a Paso a Paso') {
+        derivarApasoAPaso(sheet, fila);
+      }
     }
   }
 
@@ -2078,6 +2133,40 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     sheet.getRange(fila, 1, 1, colMapEntrevistas ? sheet.getLastColumn() : 1).setBackground('#ffe0b2');
     ss.toast('📋 Copiado a "No Inscritx" (registro conservado - Mapeo Dinámico)', 'Entrevista', 3);
   }
+}
+
+/**
+ * Copia una fila de Entrevistas a la hoja "Paso a Paso" con color azul claro
+ * Se ejecuta cuando el Estado cambia a "Derivar a Paso a Paso"
+ */
+function derivarApasoAPaso(entrevistasSheet, fila) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let pasoAPasoSheet = ss.getSheetByName('Paso a Paso');
+
+  if (!pasoAPasoSheet) {
+    crearHojaPasoAPaso();
+    pasoAPasoSheet = ss.getSheetByName('Paso a Paso');
+  }
+
+  // Obtener la fila completa de Entrevistas
+  const maxCol = entrevistasSheet.getLastColumn();
+  const datosCompletos = entrevistasSheet.getRange(fila, 1, 1, maxCol).getValues()[0];
+
+  // Buscar primera fila vacía en Paso a Paso
+  const pasoData = pasoAPasoSheet.getDataRange().getValues();
+  let filaDestino = pasoData.length + 1;
+
+  // Copiar la fila
+  pasoAPasoSheet.getRange(filaDestino, 1, 1, datosCompletos.length).setValues([datosCompletos]);
+
+  // Colorear la fila con azul claro
+  pasoAPasoSheet.getRange(filaDestino, 1, 1, maxCol).setBackground('#bbdefb');
+  pasoAPasoSheet.getRange(filaDestino, 1, 1, maxCol).setFontColor('#000000');
+
+  // Cambiar el Estado a "Derivada" en la fila copiada
+  pasoAPasoSheet.getRange(filaDestino, 15).setValue('Derivada');
+
+  ss.toast('✅ Derivada a Paso a Paso', 'Fila copiada', 3);
 }
 
 /**
