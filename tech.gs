@@ -236,6 +236,7 @@ function setupMenuTech() {
       // ========== CONFIGURACIÓN ==========
       .addSubMenu(ui.createMenu('⚙️ Configuración')
         .addItem('✅ Instalar Sistema', 'instalarSistemaCompletoTech')
+        .addItem('🆕 Activar Mejoras Entrevistas', 'activarMejorasEntrevistasTech')
         .addSeparator()
         .addItem('🔗 URL Kobo Registros', 'configurarKoboURL')
         .addItem('🔗 URL Kobo Entrevistas', 'configurarKoboEntrevistasURL')
@@ -8188,6 +8189,73 @@ function repararFormulasCohortes() {
  */
 function instalarSistemaCompletoTech() {
   instalarTodo(); // Llama a la función principal de instalación
+}
+
+/**
+ * Activa las mejoras de Entrevistas SIN reinstalar todo el sistema
+ * - Crea hoja "Paso a Paso"
+ * - Pone link de Kobo en columna C de Entrevistas
+ * - Agrega "Derivar a Paso a Paso" al desplegable Estado
+ */
+function activarMejorasEntrevistasTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const KOBO_LINK = 'https://ee.kobotoolbox.org/x/LHmyWvLj';
+
+  ss.toast('🔧 Activando mejoras de Entrevistas...', 'Instalando', 3);
+
+  // 1. Crear hoja "Paso a Paso" si no existe
+  crearHojaPasoAPaso();
+
+  // 2. Agregar link de Kobo en columna C de Entrevistas
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (entrevistas) {
+    const lastRow = Math.max(entrevistas.getLastRow(), 2);
+
+    // Verificar si la columna C ya tiene el header correcto
+    const headerC = entrevistas.getRange('C1').getValue();
+    if (headerC !== '🔗 Abrir Kobo') {
+      // Insertar columna C si aún tiene la estructura vieja (sin columna Kobo)
+      entrevistas.insertColumnBefore(3);
+      entrevistas.getRange('C1')
+        .setValue('🔗 Abrir Kobo')
+        .setBackground('#2196f3')
+        .setFontColor('white')
+        .setFontWeight('bold')
+        .setHorizontalAlignment('center');
+      entrevistas.setColumnWidth(3, 120);
+    }
+
+    // Poner fórmula HYPERLINK en C2:C500 — link clickeable en cada fila
+    entrevistas.getRange('C2:C500').setFormula(
+      '=HYPERLINK("' + KOBO_LINK + '","🔗 Abrir Kobo")'
+    );
+    entrevistas.getRange('C2:C500').setFontColor('#1565c0');
+
+    // 3. Actualizar desplegable Estado (columna O = 15)
+    const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Derivar a Paso a Paso'];
+    entrevistas.getRange('O2:O500').setDataValidation(
+      SpreadsheetApp.newDataValidation()
+        .requireValueInList(estadoOpciones)
+        .setAllowInvalid(false)
+        .build()
+    );
+
+    // Header Estado en verde
+    entrevistas.getRange('O1')
+      .setBackground('#4caf50')
+      .setFontColor('white');
+  }
+
+  ss.toast('✅ Mejoras activadas correctamente', 'Listo', 4);
+  SpreadsheetApp.getUi().alert(
+    '✅ Mejoras de Entrevistas activadas',
+    '✓ Hoja "Paso a Paso" creada\n' +
+    '✓ Columna "🔗 Abrir Kobo" configurada\n' +
+    '✓ Desplegable Estado actualizado con "Derivar a Paso a Paso"\n\n' +
+    'Ahora cuando cambies Estado a "Derivar a Paso a Paso",\n' +
+    'la fila se copiará automáticamente a la hoja "Paso a Paso".',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
 }
 
 /**
