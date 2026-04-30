@@ -6740,6 +6740,8 @@ function redisenarReporteAB() {
   const monthEnd = '"<="&EOMONTH(TODAY(),0)';
   const f = {
     interesTotal : '=IFERROR(COUNTA(\'Hoja de Interés\'!E:E)-1,0)',
+    interesAnioActual : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,">="&DATE(YEAR(TODAY()),1,1),\'Hoja de Interés\'!A:A,"<"&DATE(YEAR(TODAY())+1,1,1)),0)',
+    interesAniosAnteriores : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,"<"&DATE(YEAR(TODAY()),1,1)),0)',
     interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + monthStart + ',\'Hoja de Interés\'!A:A,' + monthEnd + '),0)',
     entrevTotal  : '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)',
     entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!A:A,"<>"),0)',
@@ -6756,7 +6758,7 @@ function redisenarReporteAB() {
     reprogMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"Reprogramada")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"Reprogramada"),0)',
     cohActivas   : '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)',
     tasaExito    : '=IFERROR(IF((B22+B25)>0,ROUND(B22/(B22+B25)*100,1)&"%","0%"),"0%")',
-    totalAtend   : '=IFERROR(B7+B22+B25+B28,0)'
+    totalAtend   : '=IFERROR(COUNTA(UNIQUE(FILTER({\'Hoja de Interés\'!B2:B;Entrevistas!D2:D;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B},{\'Hoja de Interés\'!B2:B;Entrevistas!D2:D;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B}<>""))),0)'
   };
 
   // ── FILA 1: Título ────────────────────────────────────────────────────────
@@ -6881,8 +6883,8 @@ function redisenarReporteAB() {
   // Datos resumen
   const resumen = [
     ['Total personas atendidas (acum.):', f.totalAtend, 'Tasa de éxito (grad/total):', f.tasaExito, '', ''],
-    ['Inscritx en formación:', f.inscTotal, 'No Seleccionadas Total:', f.noInscTotal, '', ''],
-    ['Graduadx Total:', f.gradTotal, 'Deserciones Total:', f.desTotal, '', '']
+    ['Interesadas este año:', f.interesAnioActual, 'No Seleccionadas Total:', f.noInscTotal, '', ''],
+    ['Interesadas años anteriores:', f.interesAniosAnteriores, 'Deserciones Total:', f.desTotal, '', '']
   ];
   resumen.forEach((row, i) => {
     const r = 19 + i;
