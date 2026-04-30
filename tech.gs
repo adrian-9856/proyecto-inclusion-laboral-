@@ -1391,7 +1391,7 @@ function crearHojaReporte() {
     ['RESUMEN GENERAL', 'Valor', '', ''],                                                       // 25
     ['Total personas atendidas', '=B5+B17+B20+B23', '', ''],                                   // 26
     ['Tasa de éxito (graduadas/total)', '=IFERROR(IF((B17+B20)>0,ROUND(B17/(B17+B20)*100,1)&"%","0%"),"0%")', '', ''], // 27
-    ['Participantes activas en cohortes', '=B11', '', '']                                       // 28
+    ['Participantes activas en cohortes', '=IFERROR(SUM(IFERROR(VALUE(Cohortes!G2:G),0))-SUM(IFERROR(VALUE(Cohortes!H2:H),0))-SUM(IFERROR(VALUE(Cohortes!I2:I),0)),0)', '', '']                                       // 28
   ];
 
   sheet.getRange(1, 1, data.length, 4).setValues(data);
@@ -6626,7 +6626,7 @@ function repararFormulasReporte() {
   reporte.getRange('C23').setFormula("=IFERROR(COUNTIFS('No Inscritx'!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
   reporte.getRange('B26').setFormula('=B5+B17+B20+B23');
   reporte.getRange('B27').setFormula('=IFERROR(IF((B17+B20)>0,ROUND(B17/(B17+B20)*100,1)&"%","0%"),"0%")');
-  reporte.getRange('B28').setFormula('=B11');
+  reporte.getRange('B28').setFormula('=IFERROR(SUM(IFERROR(VALUE(Cohortes!G2:G),0))-SUM(IFERROR(VALUE(Cohortes!H2:H),0))-SUM(IFERROR(VALUE(Cohortes!I2:I),0)),0)');
   reporte.getRange('B2').setValue(new Date());
 
   ss.toast('✅ Fórmulas del Reporte reparadas', 'Reporte', 4);
@@ -8308,9 +8308,9 @@ function repararFormulasReporte() {
 
   // B28: Participantes activas en cohortes (antes era =B11, que solo mostraba Inscritx)
   reporte.getRange('B28').setFormula(
-    '=IFERROR(SUMIF(Cohortes!A:A,"<>",Cohortes!G:G)' +
-    '-SUMIF(Cohortes!A:A,"<>",Cohortes!H:H)' +
-    '-SUMIF(Cohortes!A:A,"<>",Cohortes!I:I),0)'
+    '=IFERROR(SUM(IFERROR(VALUE(Cohortes!G2:G),0))' +
+    '-SUM(IFERROR(VALUE(Cohortes!H2:H),0))' +
+    '-SUM(IFERROR(VALUE(Cohortes!I2:I),0)),0)'
   );
 
   // B26: Total personas atendidas (incluye todas las etapas activas + históricas)
