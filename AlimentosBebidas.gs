@@ -6698,67 +6698,211 @@ function repararFormulasReporte() {
  * - Agrega validaciones
  * - Mejora legibilidad
  */
+/**
+ * Rediseña completamente la hoja Reporte con dashboard visual.
+ * Llama a esta función desde ✨ Mejorar Reportes.
+ */
+function redisenarReporteAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Reporte');
+  if (!sheet) sheet = ss.insertSheet('Reporte');
+
+  sheet.clearContents();
+  sheet.clearFormats();
+  // Desagrupar merges previos
+  try { sheet.getRange('A1:F100').breakApart(); } catch(e) {}
+
+  // ── Columnas y filas ──────────────────────────────────────────────────────
+  [200, 130, 130, 130, 130, 130].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+
+  // ── Fórmulas base ─────────────────────────────────────────────────────────
+  const S = '>="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),';  // inicio mes
+  const E = ',"<="&EOMONTH(TODAY(),0),';                 // fin mes
+  const f = {
+    interesTotal : '=IFERROR(COUNTA(\'Hoja de Interés\'!E:E)-1,0)',
+    interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + S + '\'Hoja de Interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)',
+    entrevTotal  : '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)',
+    entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!A:A,"<>"),0)',
+    inscTotal    : '=IFERROR(COUNTA(Inscritx!D:D)-1,0)',
+    gradTotal    : '=IFERROR(COUNTA(Graduadx!D:D)-1,0)',
+    gradMes      : '=IFERROR(COUNTIFS(Graduadx!A:A,' + S + 'Graduadx!A:A,"<="&EOMONTH(TODAY(),0)),0)',
+    desTotal     : '=IFERROR(COUNTA(Retiradx!D:D)-1,0)',
+    desMes       : '=IFERROR(COUNTIFS(Retiradx!A:A,' + S + 'Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)',
+    noInscTotal  : '=IFERROR(COUNTA(\'No Inscritx\'!C:C)-1,0)',
+    noInscMes    : '=IFERROR(COUNTIFS(\'No Inscritx\'!A:A,' + S + '\'No Inscritx\'!A:A,"<="&EOMONTH(TODAY(),0)),0)',
+    aprobMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"Aprobada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"Aprobada"),0)',
+    noAprobMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"No aprobada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"No aprobada"),0)',
+    noAsistMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"No asistió")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"No asistió"),0)',
+    reprogMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"Reprogramada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"Reprogramada"),0)',
+    cohActivas   : '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)',
+    tasaExito    : '=IFERROR(IF((B22+B25)>0,ROUND(B22/(B22+B25)*100,1)&"%","0%"),"0%")',
+    totalAtend   : '=IFERROR(B7+B22+B25+B28,0)'
+  };
+
+  // ── FILA 1: Título ────────────────────────────────────────────────────────
+  sheet.getRange('A1:F1').merge()
+    .setValue('🥗  REPORTE — INCLUSIÓN LABORAL  |  ALIMENTOS Y BEBIDAS')
+    .setBackground('#1565c0').setFontColor('white')
+    .setFontWeight('bold').setFontSize(16).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.setRowHeight(1, 52);
+
+  // ── FILA 2: Fecha ─────────────────────────────────────────────────────────
+  sheet.getRange('A2:C2').merge().setValue('Última actualización:').setBackground('#e3f2fd').setFontSize(10).setHorizontalAlignment('right');
+  sheet.getRange('D2').setFormula('=TEXT(NOW(),"DD/MM/YYYY HH:MM")').setBackground('#e3f2fd').setFontSize(10).setHorizontalAlignment('left');
+  sheet.getRange('E2').setValue('Mes actual:').setBackground('#e3f2fd').setFontSize(10).setHorizontalAlignment('right');
+  sheet.getRange('F2').setFormula('=TEXT(TODAY(),"MMMM YYYY")').setBackground('#e3f2fd').setFontSize(10).setFontWeight('bold').setHorizontalAlignment('left');
+  sheet.setRowHeight(2, 28);
+
+  // ── FILA 3: Espacio ───────────────────────────────────────────────────────
+  sheet.setRowHeight(3, 8);
+
+  // ── FILA 4: Encabezado sección Resumen ────────────────────────────────────
+  sheet.getRange('A4:F4').merge().setValue('🎯  RESUMEN GENERAL')
+    .setBackground('#1565c0').setFontColor('white').setFontWeight('bold')
+    .setFontSize(13).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.setRowHeight(4, 36);
+
+  // ── FILAS 5-6: KPIs fila 1 (Interesadas | Entrevistadas | Inscritx) ───────
+  const kpi1 = [
+    { label:'👥 Personas Interesadas', rng:'A5:B5', numRng:'A6:B6', bg:'#1976d2', total: f.interesTotal },
+    { label:'📋 Entrevistadas',         rng:'C5:D5', numRng:'C6:D6', bg:'#388e3c', total: f.entrevTotal },
+    { label:'✅ Inscritx en Formación', rng:'E5:F5', numRng:'E6:F6', bg:'#e65100', total: f.inscTotal }
+  ];
+  kpi1.forEach(k => {
+    sheet.getRange(k.rng).merge().setValue(k.label)
+      .setBackground(k.bg).setFontColor('white').setFontWeight('bold')
+      .setFontSize(10).setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sheet.getRange(k.numRng).merge().setFormula(k.total)
+      .setBackground(k.bg).setFontColor('white').setFontWeight('bold')
+      .setFontSize(36).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  });
+  sheet.setRowHeight(5, 28);
+  sheet.setRowHeight(6, 70);
+
+  // ── FILAS 7-8: KPIs fila 2 (Graduadx | Deserciones | Cohortes) ───────────
+  const kpi2 = [
+    { label:'🎓 Graduadx Total',    rng:'A7:B7', numRng:'A8:B8', bg:'#00796b', total: f.gradTotal },
+    { label:'⚠️ Deserciones Total', rng:'C7:D7', numRng:'C8:D8', bg:'#c62828', total: f.desTotal },
+    { label:'🏫 Cohortes Activas',  rng:'E7:F7', numRng:'E8:F8', bg:'#6a1b9a', total: f.cohActivas }
+  ];
+  kpi2.forEach(k => {
+    sheet.getRange(k.rng).merge().setValue(k.label)
+      .setBackground(k.bg).setFontColor('white').setFontWeight('bold')
+      .setFontSize(10).setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sheet.getRange(k.numRng).merge().setFormula(k.total)
+      .setBackground(k.bg).setFontColor('white').setFontWeight('bold')
+      .setFontSize(36).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  });
+  sheet.setRowHeight(7, 28);
+  sheet.setRowHeight(8, 70);
+
+  // ── FILA 9: espacio ───────────────────────────────────────────────────────
+  sheet.setRowHeight(9, 12);
+
+  // ── FILA 10: encabezado Entrevistas del mes ───────────────────────────────
+  sheet.getRange('A10:F10').merge().setValue('📊  ENTREVISTAS DEL MES — ' + '=TEXT(TODAY(),"MMMM YYYY")')
+    .setBackground('#2e7d32').setFontColor('white').setFontWeight('bold')
+    .setFontSize(12).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.getRange('A10:F10').merge().setValue('📊  ENTREVISTAS DEL MES')
+    .setBackground('#2e7d32').setFontColor('white').setFontWeight('bold')
+    .setFontSize(12).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.setRowHeight(10, 34);
+
+  // Cabeceras de entrevistas
+  const hdrsEnt = ['Total del Mes', 'Aprobadas', 'No Aprobadas', 'No Asistió', 'Reprogramadas', 'Sin Estado'];
+  const valsEnt = [f.entrevMes, f.aprobMes, f.noAprobMes, f.noAsistMes, f.reprogMes,
+    '=IFERROR(' + f.entrevMes.replace('=','') + '-' + f.aprobMes.replace('=','') + '-' + f.noAprobMes.replace('=','') + '-' + f.noAsistMes.replace('=','') + '-' + f.reprogMes.replace('=','') + ',0)'];
+  const bgEnt = ['#1b5e20','#4caf50','#f44336','#ff9800','#9c27b0','#607d8b'];
+  hdrsEnt.forEach((h, i) => {
+    sheet.getRange(11, i+1).setValue(h).setBackground(bgEnt[i]).setFontColor('white')
+      .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sheet.getRange(12, i+1).setFormula(valsEnt[i]).setBackground('#e8f5e9')
+      .setFontWeight('bold').setFontSize(18).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  });
+  sheet.setRowHeight(11, 30);
+  sheet.setRowHeight(12, 50);
+
+  // ── FILA 13: espacio ──────────────────────────────────────────────────────
+  sheet.setRowHeight(13, 12);
+
+  // ── FILA 14: encabezado Este mes vs Total ─────────────────────────────────
+  sheet.getRange('A14:F14').merge().setValue('📅  ACTIVIDAD DEL MES ACTUAL')
+    .setBackground('#37474f').setFontColor('white').setFontWeight('bold')
+    .setFontSize(12).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.setRowHeight(14, 34);
+
+  // Mini-KPIs del mes
+  const miniKpis = [
+    { label:'Nuevos Registros', formula: f.interesMes,  bg:'#bbdefb' },
+    { label:'Entrevistas',      formula: f.entrevMes,   bg:'#c8e6c9' },
+    { label:'Aprobadas',        formula: f.aprobMes,    bg:'#dcedc8' },
+    { label:'Graduadx',         formula: f.gradMes,     bg:'#e0f7fa' },
+    { label:'Deserciones',      formula: f.desMes,      bg:'#ffcdd2' },
+    { label:'No Seleccionadas', formula: f.noInscMes,   bg:'#ffe0b2' }
+  ];
+  miniKpis.forEach((k, i) => {
+    sheet.getRange(15, i+1).setValue(k.label).setBackground('#eceff1')
+      .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('center');
+    sheet.getRange(16, i+1).setFormula(k.formula).setBackground(k.bg)
+      .setFontWeight('bold').setFontSize(16).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  });
+  sheet.setRowHeight(15, 24);
+  sheet.setRowHeight(16, 40);
+
+  // ── FILA 17: espacio ──────────────────────────────────────────────────────
+  sheet.setRowHeight(17, 12);
+
+  // ── FILA 18: encabezado Resumen Ejecutivo ─────────────────────────────────
+  sheet.getRange('A18:F18').merge().setValue('📈  RESUMEN EJECUTIVO')
+    .setBackground('#1a237e').setFontColor('white').setFontWeight('bold')
+    .setFontSize(12).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.setRowHeight(18, 34);
+
+  // Datos resumen
+  const resumen = [
+    ['Total personas atendidas (acum.):', f.totalAtend, 'Tasa de éxito (grad/total):', f.tasaExito, '', ''],
+    ['Inscritx en formación:', f.inscTotal, 'No Seleccionadas Total:', f.noInscTotal, '', ''],
+    ['Graduadx Total:', f.gradTotal, 'Deserciones Total:', f.desTotal, '', '']
+  ];
+  resumen.forEach((row, i) => {
+    const r = 19 + i;
+    sheet.getRange(r, 1).setValue(row[0]).setFontWeight('bold').setFontSize(10);
+    sheet.getRange(r, 2).setFormula(row[1]).setFontWeight('bold').setFontSize(14)
+      .setBackground('#e8eaf6').setHorizontalAlignment('center');
+    sheet.getRange(r, 3).setValue(row[2]).setFontWeight('bold').setFontSize(10);
+    sheet.getRange(r, 4).setFormula(row[3] || '=""').setFontWeight('bold').setFontSize(14)
+      .setBackground('#e8eaf6').setHorizontalAlignment('center');
+    sheet.getRange(r, 5, 1, 2).merge();
+    sheet.setRowHeight(r, 30);
+  });
+
+  // ── FILA 22: pie ──────────────────────────────────────────────────────────
+  sheet.setRowHeight(22, 10);
+  sheet.getRange('A23:F23').merge()
+    .setValue('Generado automáticamente  ·  Sistema Inclusión Laboral Creamos Guatemala')
+    .setFontColor('#9e9e9e').setFontSize(8).setFontStyle('italic').setHorizontalAlignment('center');
+
+  sheet.setFrozenRows(2);
+  ss.toast('✅ Reporte rediseñado', 'Reporte', 4);
+}
+
 function mejorarYRepararReportesAB() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
-  const reporte = ss.getSheetByName('Reporte');
 
-  if (!reporte) {
-    ui.alert('❌ Error', 'No existe la hoja Reporte', ui.ButtonSet.OK);
-    return;
-  }
+  // Rediseño completo del dashboard
+  redisenarReporteAB();
 
-  // Primero, reparar todas las fórmulas
-  repararFormulasReporte();
-
-  // Mejorar formato visual
-  const rangos = [
-    { rango: 'A4:D4', bg: '#2196f3', color: 'white', bold: true }, // PERSONAS INTERESADAS
-    { rango: 'A7:D7', bg: '#4caf50', color: 'white', bold: true }, // ENTREVISTAS
-    { rango: 'A10:D10', bg: '#ff9800', color: 'white', bold: true }, // SELECCIONADAS
-    { rango: 'A13:D13', bg: '#9c27b0', color: 'white', bold: true }, // PARTICIPANTES POR COHORTE
-    { rango: 'A16:D16', bg: '#00bcd4', color: 'white', bold: true }, // GRADUADAS
-    { rango: 'A19:D19', bg: '#f44336', color: 'white', bold: true }, // DESERCIONES
-    { rango: 'A22:D22', bg: '#795548', color: 'white', bold: true }, // NO SELECCIONADAS
-    { rango: 'A25:D25', bg: '#1a237e', color: 'white', bold: true }  // RESUMEN GENERAL
-  ];
-
-  rangos.forEach(r => {
-    const rng = reporte.getRange(r.rango);
-    rng.setBackground(r.bg);
-    rng.setFontColor(r.color);
-    if (r.bold) rng.setFontWeight('bold');
-    rng.setHorizontalAlignment('center');
-  });
-
-  // Ajustar ancho de columnas
-  reporte.setColumnWidth(1, 300);
-  reporte.setColumnWidth(2, 120);
-  reporte.setColumnWidth(3, 120);
-  reporte.setColumnWidth(4, 120);
-
-  // Formato para números (columnas B, C, D)
-  reporte.getRange('B5:D28').setNumberFormat('0');
-
-  // Números en porcentaje (D20, B27)
-  reporte.getRange('D20').setNumberFormat('0.0"%"');
-  reporte.getRange('B27').setNumberFormat('0.0"%"');
-
-  // Centrar algunos valores
-  reporte.getRange('B5:D28').setHorizontalAlignment('center');
-
-  // Congelar filas
-  reporte.setFrozenRows(3);
-
-  ui.alert('✅ Reportes mejorados',
-    'Se han reparado y mejorado todos los reportes:\n\n' +
-    '✓ Fórmulas validadas y actualizadas\n' +
-    '✓ Formato visual mejorado (colores, tamaños)\n' +
-    '✓ Números formateados correctamente\n' +
-    '✓ Fácil de leer y entender\n\n' +
+  ui.alert('✅ Reporte actualizado',
+    'El Reporte fue rediseñado con el nuevo dashboard:\n\n' +
+    '✓ Cajas de color con métricas clave\n' +
+    '✓ Desglose de entrevistas del mes\n' +
+    '✓ Actividad del mes actual\n' +
+    '✓ Resumen ejecutivo\n\n' +
     'Los datos se actualizan automáticamente.',
     ui.ButtonSet.OK);
 }
+
 
 /**
  * Instala triggers automáticos para reportes mensuales
