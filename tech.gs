@@ -7280,6 +7280,40 @@ function guardarReporteMensualTech_(fechaRef) {
   }
 }
 
+function asegurarFilaMesSiguienteEnCeroTech_(baseDate) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let mensuales = ss.getSheetByName('Reportes Mensuales');
+  if (!mensuales) {
+    crearHojaReportesMensuales();
+    mensuales = ss.getSheetByName('Reportes Mensuales');
+  }
+  if (!mensuales) return;
+
+  const ref = baseDate || new Date();
+  const next = new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
+  const mesTexto = Utilities.formatDate(next, Session.getScriptTimeZone(), 'MMMM yyyy');
+
+  const filaCero = [
+    mesTexto, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '0%', 'Mes en inicio — ' + mesTexto, '', new Date()
+  ];
+
+  const existentes = mensuales.getDataRange().getValues();
+  let filaExistente = -1;
+  for (let i = 1; i < existentes.length; i++) {
+    if ((existentes[i][0] || '').toString().trim().toLowerCase() === mesTexto.toLowerCase()) {
+      filaExistente = i + 1; break;
+    }
+  }
+  if (filaExistente > 0) {
+    mensuales.getRange(filaExistente, 1, 1, filaCero.length).setValues([filaCero]);
+    mensuales.setRowHeight(filaExistente, 40);
+  } else {
+    const nueva = mensuales.getLastRow() + 1;
+    mensuales.getRange(nueva, 1, 1, filaCero.length).setValues([filaCero]);
+    mensuales.setRowHeight(nueva, 40);
+  }
+}
+
 function guardarReporteMensualAutomatico() {
   guardarReporteMensualTech_(new Date());
 }
@@ -7309,10 +7343,12 @@ function generarReporteMensualPorMesTech() {
 
 function guardarReporteMensual() {
   // Función manual — llama al mismo motor que el automático
-  guardarReporteMensualAutomatico();
+  const hoy = new Date();
+  guardarReporteMensualTech_(hoy);
+  asegurarFilaMesSiguienteEnCeroTech_(hoy);
   SpreadsheetApp.getUi().alert(
     '✅ Reporte guardado',
-    'Los datos del mes actual fueron guardados en la hoja "Reportes Mensuales".\n\n' +
+    'Se guardó el mes actual y se creó/actualizó el mes siguiente en cero en "Reportes Mensuales".\n\n' +
     'El trigger automático hace esto el día 1 de cada mes a las 8:00 AM.',
     SpreadsheetApp.getUi().ButtonSet.OK
   );
