@@ -6913,16 +6913,21 @@ function redisenarReporteAB() {
     .setBackground('#eceff1').setFontColor('#263238').setFontWeight('bold')
     .setFontSize(10).setHorizontalAlignment('left');
   const traceRows = [
-    ['Métrica', 'Hoja origen', 'Regla de cálculo', '', '', ''],
-    ['Interesadas (Este Año)', 'Hoja de Interés', 'Fecha en año actual (columna A)', '', '', ''],
-    ['Entrevistadas', 'Entrevistas', 'Conteo de registros con nombre', '', '', ''],
-    ['Inscritx en Formación', 'Inscritx', 'Conteo acumulado actual', '', '', ''],
-    ['Total personas atendidas (acum.)', 'Interés/Entrevistas/Inscritx/Graduadx/Retiradx/No Inscritx', 'IDs únicos (Creamos ID) sin duplicados', '', '', '']
+    ['Métrica', 'Valor actual', 'Hoja origen', 'Regla de cálculo', '', ''],
+    ['Interesadas (Este Año)', '', 'Hoja de Interés', 'Fecha en año actual (columna A)', '', ''],
+    ['Entrevistadas', '', 'Entrevistas', 'Conteo de registros con nombre', '', ''],
+    ['Inscritx en Formación', '', 'Inscritx', 'Conteo acumulado actual', '', ''],
+    ['Total personas atendidas (acum.)', '', 'Interés/Entrevistas/Inscritx/Graduadx/Retiradx/No Inscritx', 'IDs únicos (Creamos ID) sin duplicados', '', '']
   ];
   sheet.getRange(25, 1, traceRows.length, 6).setValues(traceRows);
-  sheet.getRange('A25:C25').setFontWeight('bold').setBackground('#f5f5f5');
-  sheet.getRange('A26:C29').setFontSize(9).setBackground('#fafafa');
-  sheet.getRange('A25:C29').setBorder(true, true, true, true, true, true, '#cfd8dc', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange('B26').setFormula(f.interesAnioActual);
+  sheet.getRange('B27').setFormula(f.entrevTotal);
+  sheet.getRange('B28').setFormula(f.inscTotal);
+  sheet.getRange('B29').setFormula(f.totalAtend);
+  sheet.getRange('A25:D25').setFontWeight('bold').setBackground('#f5f5f5');
+  sheet.getRange('A26:D29').setFontSize(9).setBackground('#fafafa');
+  sheet.getRange('A25:D29').setBorder(true, true, true, true, true, true, '#cfd8dc', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange('B26:B29').setNumberFormat('0');
 
   sheet.setFrozenRows(2);
   ss.toast('✅ Reporte rediseñado', 'Reporte', 4);
