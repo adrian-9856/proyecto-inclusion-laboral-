@@ -6705,7 +6705,7 @@ function redisenarReporteTech() {
   sheet.setRowHeight(4, 36);
 
   const kpi1 = [
-    { label:'👥 Personas Interesadas', rng:'A5:B5', numRng:'A6:B6', bg:'#1976d2', total: f.interesTotal },
+    { label:'👥 Interesadas (Este Año)', rng:'A5:B5', numRng:'A6:B6', bg:'#1976d2', total: f.interesAnioActual },
     { label:'📋 Entrevistadas',         rng:'C5:D5', numRng:'C6:D6', bg:'#388e3c', total: f.entrevTotal },
     { label:'✅ Inscritx en Formación', rng:'E5:F5', numRng:'E6:F6', bg:'#e65100', total: f.inscTotal }
   ];
@@ -6801,6 +6801,22 @@ function redisenarReporteTech() {
   sheet.getRange('A23:F23').merge()
     .setValue('Generado automáticamente  ·  Sistema Inclusión Laboral Creamos Guatemala')
     .setFontColor('#9e9e9e').setFontSize(8).setFontStyle('italic').setHorizontalAlignment('center');
+
+  // ── FILAS 24-30: trazabilidad de métricas ────────────────────────────────
+  sheet.getRange('A24:F24').merge().setValue('🧭 TRAZABILIDAD DE MÉTRICAS (ORIGEN DE DATOS)')
+    .setBackground('#eceff1').setFontColor('#263238').setFontWeight('bold')
+    .setFontSize(10).setHorizontalAlignment('left');
+  const traceRows = [
+    ['Métrica', 'Hoja origen', 'Regla de cálculo', '', '', ''],
+    ['Interesadas (Este Año)', 'Hoja de Interés', 'Fecha en año actual (columna A)', '', '', ''],
+    ['Entrevistadas', 'Entrevistas', 'Conteo de registros con nombre', '', '', ''],
+    ['Inscritx en Formación', 'Inscritx', 'Conteo acumulado actual', '', '', ''],
+    ['Total personas atendidas (acum.)', 'Interés/Entrevistas/Inscritx/Graduadx/Retiradx/No Inscritx', 'IDs únicos (Creamos ID) sin duplicados', '', '', '']
+  ];
+  sheet.getRange(25, 1, traceRows.length, 6).setValues(traceRows);
+  sheet.getRange('A25:C25').setFontWeight('bold').setBackground('#f5f5f5');
+  sheet.getRange('A26:C29').setFontSize(9).setBackground('#fafafa');
+  sheet.getRange('A25:C29').setBorder(true, true, true, true, true, true, '#cfd8dc', SpreadsheetApp.BorderStyle.SOLID);
 
   sheet.setFrozenRows(2);
   ss.toast('✅ Reporte rediseñado', 'Reporte', 4);
@@ -8381,8 +8397,8 @@ function repararFormulasReporte() {
   // C8: Entrevistas pendientes (solo filas con nombre Y sin resultado — evita contar celdas vacías)
   reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(Entrevistas!D:D,"<>",Entrevistas!I:I,""),0)');
 
-  // Limpiar residuos de fórmulas viejas fuera del dashboard
-  reporte.getRange('A24:F40').clearContent();
+  // Limpiar residuos de fórmulas viejas fuera del dashboard (sin tocar trazabilidad 24-30)
+  reporte.getRange('A31:F40').clearContent();
 
   Logger.log('✅ Fórmulas del Reporte reparadas');
 }
