@@ -1432,19 +1432,22 @@ function crearHojaReportesMensuales() {
   const sheet = ss.insertSheet('Reportes Mensuales');
 
   const headers = [
-    'Mes/Año',
-    'Interesadas',
-    'Entrevistas',
-    'Inscritx',
-    'Activas',
-    'Graduadx',
-    'Retiradx',
-    'No Inscritx',
-    'Tasa Éxito (%)',
-    'SAC I',
-    'SAC II',
-    'Computación I',
-    'Fecha Guardado'
+    'Mes/Año',            // A
+    'Nuevos Registros',   // B - Hoja de Interés del mes
+    'Entrevistas',        // C - del mes
+    'Aprobadas',          // D
+    'No Aprobadas',       // E
+    'No Asistió',         // F
+    'Reprogramadas',      // G
+    'Derivadas P.Paso',   // H
+    'Total Inscritx',     // I - acumulado
+    'Graduadx Mes',       // J
+    'Deserciones Mes',    // K
+    'Cohortes Activas',   // L
+    'Tasa Conversión %',  // M
+    'Titular de Impacto', // N
+    'Logros del Mes',     // O
+    'Fecha Guardado'      // P
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -1453,9 +1456,12 @@ function crearHojaReportesMensuales() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [100, 90, 90, 100, 80, 80, 90, 120, 100, 80, 80, 100, 120].forEach((w, i) => {
+  [100,110,90,90,95,90,100,110,95,90,100,110,110,300,400,120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
+
+  // Ajustar altura de filas para texto de logros
+  sheet.setRowHeight(1, 40);
 }
 
 // =====================================================================
@@ -6989,145 +6995,145 @@ function crearHojaPowerBIExportAB() {
  * Guarda un reporte mensual automáticamente (una línea por mes)
  * Se ejecuta automáticamente vía trigger
  */
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS REPORTE MENSUAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+function contarFilasPorMes_(sheet, colFecha, mes, anio) {
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  const datos = sheet.getRange(2, colFecha, sheet.getLastRow() - 1, 1).getValues();
+  return datos.filter(r => {
+    if (!r[0]) return false;
+    const d = (r[0] instanceof Date) ? r[0] : new Date(r[0]);
+    return !isNaN(d.getTime()) && d.getMonth() + 1 === mes && d.getFullYear() === anio;
+  }).length;
+}
+
+function contarEntrevistasPorEstado_(sheet, mes, anio) {
+  const res = { total:0, aprobada:0, noAprobada:0, noAsistio:0, reprogramada:0, derivada:0 };
+  if (!sheet || sheet.getLastRow() < 2) return res;
+  const lastRow = sheet.getLastRow() - 1;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const colEstado = headers.indexOf('Estado') + 1;
+  if (colEstado < 1) return res;
+  const fechas  = sheet.getRange(2, 1, lastRow, 1).getValues();
+  const estados = sheet.getRange(2, colEstado, lastRow, 1).getValues();
+  fechas.forEach((row, i) => {
+    if (!row[0]) return;
+    const d = (row[0] instanceof Date) ? row[0] : new Date(row[0]);
+    if (isNaN(d.getTime()) || d.getMonth() + 1 !== mes || d.getFullYear() !== anio) return;
+    res.total++;
+    const est = (estados[i][0] || '').toString().trim();
+    if (est === 'Aprobada')                  res.aprobada++;
+    else if (est === 'No aprobada')          res.noAprobada++;
+    else if (est === 'No asistió')           res.noAsistio++;
+    else if (est === 'Reprogramada')         res.reprogramada++;
+    else if (est === 'Derivar a Paso a Paso') res.derivada++;
+  });
+  return res;
+}
+
+function generarTextoImpactoAB_(datos, mesTexto) {
+  const { nuevos, entrevistasTotales, aprobadas, inscritxTotal, graduadxMes, cohortesActivas } = datos;
+  let titular = '';
+  if (aprobadas > 0)
+    titular = aprobadas + ' personas avanzaron al programa Alimentos y Bebidas en ' + mesTexto;
+  else if (entrevistasTotales > 0)
+    titular = entrevistasTotales + ' personas entrevistadas para Alimentos y Bebidas — ' + mesTexto;
+  else if (nuevos > 0)
+    titular = nuevos + ' personas manifestaron interés en Alimentos y Bebidas — ' + mesTexto;
+  else
+    titular = 'Mes de acompañamiento en Alimentos y Bebidas — ' + mesTexto;
+
+  const logros = [];
+  if (nuevos > 0)              logros.push('• Recibimos ' + nuevos + ' nuevas solicitudes de interés');
+  if (entrevistasTotales > 0)  logros.push('• Realizamos ' + entrevistasTotales + ' entrevistas (' + aprobadas + ' aprobadas)');
+  if (graduadxMes > 0)         logros.push('• Graduamos a ' + graduadxMes + ' participantes del programa');
+  if (cohortesActivas > 0)     logros.push('• Mantuvimos ' + cohortesActivas + ' cohortes activas en formación');
+  if (inscritxTotal > 0)       logros.push('• Total acumulado en formación: ' + inscritxTotal + ' personas inscritx');
+  return { titular, logros: logros.join('\n') };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function guardarReporteMensualAutomaticoAB() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const reporte = ss.getSheetByName('Reporte');
-    const mensuales = ss.getSheetByName('Reportes Mensuales');
+    let mensuales = ss.getSheetByName('Reportes Mensuales');
+    if (!mensuales) { crearHojaReportesMensuales(); mensuales = ss.getSheetByName('Reportes Mensuales'); }
 
-    if (!reporte || !mensuales) return;
+    const hoy      = new Date();
+    const mes      = hoy.getMonth() + 1;
+    const anio     = hoy.getFullYear();
+    const mesTexto = Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'MMMM yyyy');
 
-    // Obtener datos del reporte actual
-    const hoy = new Date();
-    const mesActual = hoy.getMonth() + 1;
-    const anioActual = hoy.getFullYear();
-    const mesTexto = Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'MMMM YYYY');
+    // Recolectar datos directamente de las hojas fuente
+    const hojaInteres     = ss.getSheetByName('Hoja de Interés');
+    const hojaEntrevistas = ss.getSheetByName('Entrevistas');
+    const hojaInscritx    = ss.getSheetByName('Inscritx');
+    const hojaGraduadx    = ss.getSheetByName('Graduadx');
+    const hojaRetiradx    = ss.getSheetByName('Retiradx');
+    const hojaCohortes    = ss.getSheetByName('Cohortes');
 
-    // Verificar si ya existe un reporte para este mes
-    const datosExistentes = mensuales.getDataRange().getValues();
-    for (let i = 1; i < datosExistentes.length; i++) {
-      const celda = datosExistentes[i][0] ? datosExistentes[i][0].toString() : '';
-      if (celda.includes(Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'MMMM')) &&
-          celda.includes(anioActual.toString())) {
-        return; // Ya existe reporte para este mes
+    const nuevosRegistros   = contarFilasPorMes_(hojaInteres, 1, mes, anio);
+    const stats             = contarEntrevistasPorEstado_(hojaEntrevistas, mes, anio);
+    const inscritxTotal     = (hojaInscritx && hojaInscritx.getLastRow() > 1) ? hojaInscritx.getLastRow() - 1 : 0;
+    const graduadxMes       = contarFilasPorMes_(hojaGraduadx, 1, mes, anio);
+    const desercionesMes    = contarFilasPorMes_(hojaRetiradx, 1, mes, anio);
+
+    let cohortesActivas = 0;
+    if (hojaCohortes && hojaCohortes.getLastRow() > 1) {
+      const headersC = hojaCohortes.getRange(1,1,1,hojaCohortes.getLastColumn()).getValues()[0];
+      const colEstC  = headersC.indexOf('Estado') + 1;
+      if (colEstC > 0) {
+        const estCohortes = hojaCohortes.getRange(2, colEstC, hojaCohortes.getLastRow()-1, 1).getValues();
+        cohortesActivas   = estCohortes.filter(r => (r[0]||'').toString().trim() === 'Activa').length;
       }
     }
 
-    // Leer datos del Reporte
-    const interesadas = reporte.getRange('B5').getValue();
-    const entrevistas = reporte.getRange('B8').getValue();
-    const inscritx = reporte.getRange('B11').getValue();
-    const activasCohorte = reporte.getRange('B28').getValue();
-    const graduadas = reporte.getRange('B17').getValue();
-    const retiradas = reporte.getRange('B20').getValue();
-    const noInscritas = reporte.getRange('B23').getValue();
-    const tasaExito = reporte.getRange('B27').getValue();
+    const tasaConversion = stats.total > 0 ? Math.round((stats.aprobada / stats.total) * 100) + '%' : '0%';
+    const texto = generarTextoImpactoAB_({ nuevos: nuevosRegistros, entrevistasTotales: stats.total,
+      aprobadas: stats.aprobada, inscritxTotal, graduadxMes, cohortesActivas }, mesTexto);
 
-    // Obtener cohortes activas para agregar columas
-    const cohortesSheet = ss.getSheetByName('Cohortes');
-    const cohortesDatos = cohortesSheet ? cohortesSheet.getDataRange().getValues() : [];
-    const datosCohortes = {};
-
-    for (let i = 1; i < cohortesDatos.length; i++) {
-      if (cohortesDatos[i][0]) {
-        const nombreCohorte = cohortesDatos[i][0].toString().trim();
-        // Obtener conteo de inscritas por cohorte
-        const hoja = ss.getSheetByName(nombreCohorte);
-        if (hoja && hoja.getLastRow() > 1) {
-          const rango = hoja.getRange(2, 5, hoja.getLastRow() - 1, 1).getValues();
-          let contador = 0;
-          for (let j = 0; j < rango.length; j++) {
-            if (rango[j][0]) contador++;
-          }
-          datosCohortes[nombreCohorte] = contador;
-        } else {
-          datosCohortes[nombreCohorte] = 0;
-        }
-      }
-    }
-
-    // Armarmanos los datos del mes
     const nuevaFila = [
-      mesTexto,
-      interesadas,
-      entrevistas,
-      inscritx,
-      activasCohorte,
-      graduadas,
-      retiradas,
-      noInscritas,
-      tasaExito
+      mesTexto, nuevosRegistros, stats.total, stats.aprobada, stats.noAprobada,
+      stats.noAsistio, stats.reprogramada, stats.derivada,
+      inscritxTotal, graduadxMes, desercionesMes, cohortesActivas,
+      tasaConversion, texto.titular, texto.logros, new Date()
     ];
 
-    // Agregar datos por cohorte (si existen)
-    const headerCohortes = ['SAC I', 'SAC II', 'Computación I'];
-    headerCohortes.forEach(cohorte => {
-      nuevaFila.push(datosCohortes[cohorte] || 0);
-    });
+    // Actualizar fila existente o agregar nueva
+    const existentes = mensuales.getDataRange().getValues();
+    let filaExistente = -1;
+    for (let i = 1; i < existentes.length; i++) {
+      if ((existentes[i][0] || '').toString().trim().toLowerCase() === mesTexto.toLowerCase()) {
+        filaExistente = i + 1; break;
+      }
+    }
+    if (filaExistente > 0) {
+      mensuales.getRange(filaExistente, 1, 1, nuevaFila.length).setValues([nuevaFila]);
+    } else {
+      mensuales.getRange(mensuales.getLastRow() + 1, 1, 1, nuevaFila.length).setValues([nuevaFila]);
+    }
+    // Ajustar altura de fila para texto de logros
+    if (filaExistente > 0) mensuales.setRowHeight(filaExistente, 80);
+    else mensuales.setRowHeight(mensuales.getLastRow(), 80);
 
-    // Fecha de guardado
-    nuevaFila.push(new Date());
-
-    // Agregar fila a Reportes Mensuales
-    const ultimaFila = mensuales.getLastRow() + 1;
-    mensuales.getRange(ultimaFila, 1, 1, nuevaFila.length).setValues([nuevaFila]);
-
-    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Reporte mensual guardado: ' + mesTexto, 'Reportes Mensuales', 5);
-
+    ss.toast('✅ Reporte ' + mesTexto + ' guardado en Reportes Mensuales', 'Reportes Mensuales', 5);
   } catch (e) {
-    Logger.log('Error en guardarReporteMensualAutomatico: ' + e.message);
+    Logger.log('Error en guardarReporteMensualAutomaticoAB: ' + e.message);
   }
 }
 
 function guardarReporteMensual() {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const reporte = ss.getSheetByName('Reporte');
-    const mensuales = ss.getSheetByName('Reportes Mensuales');
-
-    const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
-    const datos = [
-      mesActual,
-      reporte.getRange('B5').getValue(),
-      reporte.getRange('B8').getValue(),
-      reporte.getRange('B11').getValue(),
-      reporte.getRange('C11').getValue(),
-      reporte.getRange('B20').getValue(),
-      reporte.getRange('B23').getValue(),
-      reporte.getRange('B26').getValue(),
-      reporte.getRange('B30').getValue(),
-      reporte.getRange('B14').getValue(),
-      reporte.getRange('B15').getValue(),
-      reporte.getRange('B16').getValue(),
-      new Date()
-    ];
-
-    // ✅ DEDUP: Verificar si el mes ya fue guardado
-    const datosExistentes = mensuales.getDataRange().getValues();
-    let filaExistente = -1;
-    for (let i = 1; i < datosExistentes.length; i++) {
-      if ((datosExistentes[i][0] || '').toString().trim() === mesActual) {
-        filaExistente = i + 1;
-        break;
-      }
-    }
-
-    if (filaExistente > 0) {
-      const ui = SpreadsheetApp.getUi();
-      const resp = ui.alert('⚠️ Mes ya guardado',
-        'El reporte de "' + mesActual + '" ya existe.\n¿Deseas actualizarlo con los datos actuales?',
-        ui.ButtonSet.YES_NO);
-      if (resp === ui.Button.YES) {
-        mensuales.getRange(filaExistente, 1, 1, 13).setValues([datos]);
-        ss.toast('✅ Reporte actualizado: ' + mesActual, 'OK', 4);
-      }
-      return;
-    }
-
-    const nuevaFila = mensuales.getLastRow() + 1;
-    mensuales.getRange(nuevaFila, 1, 1, 13).setValues([datos]);
-    ss.toast('✅ Reporte guardado: ' + mesActual, 'OK', 4);
-  } catch (e) { Logger.log('Error: ' + e.message); }
+  // Función manual — llama al mismo motor que el automático
+  guardarReporteMensualAutomaticoAB();
+  SpreadsheetApp.getUi().alert(
+    '✅ Reporte guardado',
+    'Los datos del mes actual fueron guardados en la hoja "Reportes Mensuales".\n\n' +
+    'El trigger automático hace esto el día 1 de cada mes a las 8:00 AM.',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
 }
 
 // =====================================================================
