@@ -216,6 +216,7 @@ function setupMenuAB() {
 
       // ========== REPORTES ==========
       .addSubMenu(ui.createMenu('📊 Reportes')
+        .addItem('🚀 Instalar Todo Lo Nuevo', 'instalarTodoLoNuevoAB')
         .addItem('✨ Mejorar Reportes', 'mejorarYRepararReportesAB')
         .addItem('📊 Guardar Mensual (Manual)', 'guardarReporteMensualAutomaticoAB')
         .addItem('💾 PowerBI Export', 'crearHojaPowerBIExportAB')
@@ -6724,24 +6725,24 @@ function redisenarReporteAB() {
   [200, 130, 130, 130, 130, 130].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 
   // ── Fórmulas base ─────────────────────────────────────────────────────────
-  const S = '>="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),';  // inicio mes
-  const E = ',"<="&EOMONTH(TODAY(),0),';                 // fin mes
+  const monthStart = '">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)';
+  const monthEnd = '"<="&EOMONTH(TODAY(),0)';
   const f = {
     interesTotal : '=IFERROR(COUNTA(\'Hoja de Interés\'!E:E)-1,0)',
-    interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + S + '\'Hoja de Interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)',
+    interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + monthStart + ',\'Hoja de Interés\'!A:A,' + monthEnd + '),0)',
     entrevTotal  : '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)',
-    entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!A:A,"<>"),0)',
+    entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!A:A,"<>"),0)',
     inscTotal    : '=IFERROR(COUNTA(Inscritx!D:D)-1,0)',
     gradTotal    : '=IFERROR(COUNTA(Graduadx!D:D)-1,0)',
-    gradMes      : '=IFERROR(COUNTIFS(Graduadx!A:A,' + S + 'Graduadx!A:A,"<="&EOMONTH(TODAY(),0)),0)',
+    gradMes      : '=IFERROR(COUNTIFS(Graduadx!A:A,' + monthStart + ',Graduadx!A:A,' + monthEnd + '),0)',
     desTotal     : '=IFERROR(COUNTA(Retiradx!D:D)-1,0)',
-    desMes       : '=IFERROR(COUNTIFS(Retiradx!A:A,' + S + 'Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)',
+    desMes       : '=IFERROR(COUNTIFS(Retiradx!A:A,' + monthStart + ',Retiradx!A:A,' + monthEnd + '),0)',
     noInscTotal  : '=IFERROR(COUNTA(\'No Inscritx\'!C:C)-1,0)',
-    noInscMes    : '=IFERROR(COUNTIFS(\'No Inscritx\'!A:A,' + S + '\'No Inscritx\'!A:A,"<="&EOMONTH(TODAY(),0)),0)',
-    aprobMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!O:O,"Aprobada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!N:N,"Aprobada"),0)',
-    noAprobMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!O:O,"No aprobada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!N:N,"No aprobada"),0)',
-    noAsistMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!O:O,"No asistió")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!N:N,"No asistió"),0)',
-    reprogMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!O:O,"Reprogramada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!N:N,"Reprogramada"),0)',
+    noInscMes    : '=IFERROR(COUNTIFS(\'No Inscritx\'!A:A,' + monthStart + ',\'No Inscritx\'!A:A,' + monthEnd + '),0)',
+    aprobMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"Aprobada")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"Aprobada"),0)',
+    noAprobMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"No aprobada")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"No aprobada"),0)',
+    noAsistMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"No asistió")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"No asistió"),0)',
+    reprogMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"Reprogramada")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"Reprogramada"),0)',
     cohActivas   : '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)',
     tasaExito    : '=IFERROR(IF((B22+B25)>0,ROUND(B22/(B22+B25)*100,1)&"%","0%"),"0%")',
     totalAtend   : '=IFERROR(B7+B22+B25+B28,0)'
@@ -6909,6 +6910,38 @@ function mejorarYRepararReportesAB() {
     '✓ Resumen ejecutivo\n\n' +
     'Los datos se actualizan automáticamente.',
     ui.ButtonSet.OK);
+}
+
+function asegurarColumnaFechaEnvioInscritxAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Inscritx');
+  if (!sheet) return;
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const yaExiste = headers.some(h => (h || '').toString().toLowerCase().trim() === 'fecha envío a inscritx');
+  if (yaExiste) return;
+
+  const newCol = sheet.getLastColumn() + 1;
+  sheet.getRange(1, newCol).setValue('Fecha envío a Inscritx')
+    .setFontWeight('bold')
+    .setBackground('#90caf9');
+  sheet.getRange(2, newCol, Math.max(1, sheet.getMaxRows() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
+}
+
+function instalarTodoLoNuevoAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  try {
+    asegurarColumnaFechaEnvioInscritxAB();
+    redisenarReporteAB();
+    repararFormulasReporte();
+    configurarValidaciones();
+    SpreadsheetApp.flush();
+    ss.toast('✅ Instalación completa aplicada', 'Sistema actualizado', 6);
+    ui.alert('✅ Listo', 'Se instaló todo lo nuevo y se repararon fórmulas del reporte.', ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('❌ Error', 'No se pudo completar la instalación: ' + e.message, ui.ButtonSet.OK);
+  }
 }
 
 
