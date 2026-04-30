@@ -6681,6 +6681,7 @@ function redisenarReporteTech() {
     noAprobMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"No aprobada")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"No aprobada"),0)',
     noAsistMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"No asistió")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"No asistió"),0)',
     reprogMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"Reprogramada")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"Reprogramada"),0)',
+    derivMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"Derivar a Paso a Paso")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"Derivar a Paso a Paso"),0)',
     cohActivas   : '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)',
     tasaExito    : '=IFERROR(IF((B22+B25)>0,ROUND(B22/(B22+B25)*100,1)&"%","0%"),"0%")',
     totalAtend   : '=IFERROR(COUNTA(UNIQUE(FILTER({\'Hoja de Interés\'!B2:B;Entrevistas!D2:D;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B},{\'Hoja de Interés\'!B2:B;Entrevistas!D2:D;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B}<>""))),0)'
@@ -6783,7 +6784,7 @@ function redisenarReporteTech() {
   const resumen = [
     ['Total personas atendidas (acum.):', f.totalAtend, 'Tasa de éxito (grad/total):', f.tasaExito, '', ''],
     ['Interesadas este año:', f.interesAnioActual, 'No Seleccionadas Total:', f.noInscTotal, '', ''],
-    ['Interesadas años anteriores:', f.interesAniosAnteriores, 'Deserciones Total:', f.desTotal, '', '']
+    ['Interesadas años anteriores:', f.interesAniosAnteriores, 'Derivadas P. Paso (mes):', f.derivMes, '', '']
   ];
   resumen.forEach((row, i) => {
     const r = 19 + i;
@@ -6796,6 +6797,9 @@ function redisenarReporteTech() {
     sheet.getRange(r, 5, 1, 2).merge();
     sheet.setRowHeight(r, 30);
   });
+  sheet.getRange('B19:B21').setNumberFormat('0');
+  sheet.getRange('D19').setNumberFormat('0.0%');
+  sheet.getRange('D20:D21').setNumberFormat('0');
 
   sheet.setRowHeight(22, 10);
   sheet.getRange('A23:F23').merge()
