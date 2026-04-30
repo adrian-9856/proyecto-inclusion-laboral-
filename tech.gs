@@ -6858,6 +6858,7 @@ function instalarTodoLoNuevoTech() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
   try {
+    reinstalarHojaCohortesTech();
     asegurarColumnaFechaEnvioInscritxTech();
     redisenarReporteTech();
     repararFormulasReporte();
@@ -6866,7 +6867,7 @@ function instalarTodoLoNuevoTech() {
     repararDesplegableEntrevistasTech();
     SpreadsheetApp.flush();
     ss.toast('✅ Instalación completa aplicada', 'Sistema actualizado', 6);
-    ui.alert('✅ Listo', 'Se instaló todo lo nuevo y se repararon fórmulas del reporte.', ui.ButtonSet.OK);
+    ui.alert('✅ Listo', 'Se reinstaló Cohortes y se reparó todo: reporte, fórmulas, validaciones y desplegables.', ui.ButtonSet.OK);
   } catch (e) {
     ui.alert('❌ Error', 'No se pudo completar la instalación: ' + e.message, ui.ButtonSet.OK);
   }
