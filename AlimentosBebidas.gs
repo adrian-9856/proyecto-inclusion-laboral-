@@ -6759,8 +6759,11 @@ function redisenarReporteAB() {
   [200, 130, 130, 130, 130, 130].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 
   // ── Fórmulas base ─────────────────────────────────────────────────────────
-  const monthStart = '">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1)';
-  const monthEnd = '"<="&EOMONTH(TODAY(),0)';
+  if (!sheet.getRange('Z1').getValue()) sheet.getRange('Z1').setValue(new Date());
+  sheet.getRange('Z1').setNumberFormat('dd/mm/yyyy');
+  sheet.hideColumns(26);
+  const monthStart = '">="&DATE(YEAR($Z$1),MONTH($Z$1),1)';
+  const monthEnd = '"<="&EOMONTH($Z$1,0)';
   const f = {
     interesTotal : '=IFERROR(COUNTA(\'Hoja de Interés\'!E:E)-1,0)',
     interesAnioActual : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,">="&DATE(YEAR(TODAY()),1,1),\'Hoja de Interés\'!A:A,"<"&DATE(YEAR(TODAY())+1,1,1)),0)',
@@ -6796,7 +6799,7 @@ function redisenarReporteAB() {
   sheet.getRange('A2:C2').merge().setValue('Última actualización:').setBackground('#e3f2fd').setFontSize(10).setHorizontalAlignment('right');
   sheet.getRange('D2').setFormula('=TEXT(NOW(),"DD/MM/YYYY HH:MM")').setBackground('#e3f2fd').setFontSize(10).setHorizontalAlignment('left');
   sheet.getRange('E2').setValue('Mes actual:').setBackground('#e3f2fd').setFontSize(10).setHorizontalAlignment('right');
-  sheet.getRange('F2').setFormula('=TEXT(TODAY(),"MMMM YYYY")').setBackground('#e3f2fd').setFontSize(10).setFontWeight('bold').setHorizontalAlignment('left');
+  sheet.getRange('F2').setFormula('=TEXT($Z$1,"MMMM YYYY")').setBackground('#e3f2fd').setFontSize(10).setFontWeight('bold').setHorizontalAlignment('left');
   sheet.setRowHeight(2, 28);
 
   // ── FILA 3: Espacio ───────────────────────────────────────────────────────
@@ -7430,6 +7433,15 @@ function asegurarFilaMesSiguienteEnCeroAB_(baseDate) {
   }
 }
 
+function moverReporteAMesSiguienteAB_(baseDate) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const reporte = ss.getSheetByName('Reporte');
+  if (!reporte) return;
+  const ref = baseDate || new Date();
+  const next = new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
+  reporte.getRange('Z1').setValue(next).setNumberFormat('dd/mm/yyyy');
+}
+
 function guardarReporteMensualAutomaticoAB() {
   guardarReporteMensualAB_(new Date());
 }
@@ -7462,6 +7474,7 @@ function guardarReporteMensual() {
   const hoy = new Date();
   guardarReporteMensualAB_(hoy);
   asegurarFilaMesSiguienteEnCeroAB_(hoy);
+  moverReporteAMesSiguienteAB_(hoy);
   SpreadsheetApp.getUi().alert(
     '✅ Reporte guardado',
     'Se guardó el mes actual y se creó/actualizó el mes siguiente en cero en "Reportes Mensuales".\n\n' +
