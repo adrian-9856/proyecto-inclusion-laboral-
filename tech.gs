@@ -6635,7 +6635,7 @@ function repararFormulasReporte() {
   reporte.getRange('D20').setFormula('=IFERROR(IF((B17+B20)>0,ROUND(B20/(B17+B20)*100,1)&"%","0%"),"0%")');
   reporte.getRange('B23').setFormula("=IFERROR(COUNTA('No Inscritx'!C:C)-1,0)");
   reporte.getRange('C23').setFormula("=IFERROR(COUNTIFS('No Inscritx'!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
-  reporte.getRange('B26').setFormula('=B5+B17+B20+B23');
+  reporte.getRange('B26').setFormula('=IFERROR(SUM(IFERROR(VALUE(B5),0),IFERROR(VALUE(B17),0),IFERROR(VALUE(B20),0),IFERROR(VALUE(B23),0)),0)');
   reporte.getRange('B27').setFormula('=IFERROR(IF((B17+B20)>0,ROUND(B17/(B17+B20)*100,1)&"%","0%"),"0%")');
   reporte.getRange('B28').setFormula('=IFERROR(SUM(IFERROR(VALUE(Cohortes!G2:G),0))-SUM(IFERROR(VALUE(Cohortes!H2:H),0))-SUM(IFERROR(VALUE(Cohortes!I2:I),0)),0)');
   reporte.getRange('B2').setValue(new Date());
@@ -8374,10 +8374,13 @@ function repararFormulasReporte() {
   );
 
   // B26: Total personas atendidas (incluye todas las etapas activas + históricas)
-  reporte.getRange('B26').setFormula('=B5+B8+B11+B28+B17+B20+B23');
+  reporte.getRange('B26').setFormula('=IFERROR(SUM(IFERROR(VALUE(B5),0),IFERROR(VALUE(B8),0),IFERROR(VALUE(B11),0),IFERROR(VALUE(B28),0),IFERROR(VALUE(B17),0),IFERROR(VALUE(B20),0),IFERROR(VALUE(B23),0)),0)');
 
   // C8: Entrevistas pendientes (solo filas con nombre Y sin resultado — evita contar celdas vacías)
   reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(Entrevistas!D:D,"<>",Entrevistas!I:I,""),0)');
+
+  // Limpiar residuos de fórmulas viejas fuera del dashboard
+  reporte.getRange('A24:F40').clearContent();
 
   Logger.log('✅ Fórmulas del Reporte reparadas');
 }
