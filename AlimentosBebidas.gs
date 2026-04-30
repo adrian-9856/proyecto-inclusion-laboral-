@@ -219,6 +219,7 @@ function setupMenuAB() {
         .addItem('🚀 Instalar Todo Lo Nuevo', 'instalarTodoLoNuevoAB')
         .addItem('✨ Mejorar Reportes', 'mejorarYRepararReportesAB')
         .addItem('📊 Guardar Mensual (Manual)', 'guardarReporteMensualAutomaticoAB')
+        .addItem('📅 Generar Mes Anterior...', 'generarReporteMensualPorMesAB')
         .addItem('💾 PowerBI Export', 'crearHojaPowerBIExportAB')
         .addSeparator()
         .addItem('⏰ Activar Reportes Automáticos', 'instalarTriggersReportesMensualesAB')
@@ -1521,14 +1522,24 @@ function configurarValidaciones() {
     entrevistas.getRange('L2:L500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
     );
-    // Estado (O) - Resultado de entrevista (última columna)
-    // Opciones: Aprobada, No aprobada, No asistió, Reprogramada, Derivar a Paso a Paso, 🔗 Abrir Formulario
-    entrevistas.getRange('O2:O500').setDataValidation(
-      SpreadsheetApp.newDataValidation()
-        .requireValueInList(CONFIG_AB.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Formulario']))
-        .setAllowInvalid(false)
-        .build()
-    );
+    // Estado (columna dinámica por encabezado)
+    const headersEnt = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+    const colEstado = headersEnt.indexOf('Estado') + 1;
+    if (colEstado > 0) {
+      // Limpia validaciones duplicadas comunes (N/O/P) y aplica solo en la columna Estado real
+      [14, 15, 16].forEach(col => {
+        if (col !== colEstado && col <= entrevistas.getLastColumn()) {
+          entrevistas.getRange(2, col, 499, 1).clearDataValidations();
+        }
+      });
+
+      entrevistas.getRange(2, colEstado, 499, 1).setDataValidation(
+        SpreadsheetApp.newDataValidation()
+          .requireValueInList(CONFIG_AB.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Formulario']))
+          .setAllowInvalid(false)
+          .build()
+      );
+    }
   }
 
   // === HOJA DE SELECCIONADAS ===
@@ -6936,12 +6947,34 @@ function instalarTodoLoNuevoAB() {
     redisenarReporteAB();
     repararFormulasReporte();
     configurarValidaciones();
+    repararDesplegableEntrevistasAB();
     SpreadsheetApp.flush();
     ss.toast('✅ Instalación completa aplicada', 'Sistema actualizado', 6);
     ui.alert('✅ Listo', 'Se instaló todo lo nuevo y se repararon fórmulas del reporte.', ui.ButtonSet.OK);
   } catch (e) {
     ui.alert('❌ Error', 'No se pudo completar la instalación: ' + e.message, ui.ButtonSet.OK);
   }
+}
+
+function repararDesplegableEntrevistasAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (!entrevistas || entrevistas.getLastRow() < 2) return;
+
+  const headers = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+  const colEstado = headers.indexOf('Estado') + 1;
+  if (colEstado < 1) return;
+
+  [14, 15, 16].forEach(col => {
+    if (col !== colEstado && col <= entrevistas.getLastColumn()) {
+      entrevistas.getRange(2, col, 499, 1).clearDataValidations();
+    }
+  });
+
+  const opciones = CONFIG_AB.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Formulario']);
+  entrevistas.getRange(2, colEstado, 499, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(opciones).setAllowInvalid(false).build()
+  );
 }
 
 
@@ -7241,16 +7274,16 @@ function generarTextoImpactoAB_(datos, mesTexto) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function guardarReporteMensualAutomaticoAB() {
+function guardarReporteMensualAB_(fechaRef) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let mensuales = ss.getSheetByName('Reportes Mensuales');
     if (!mensuales) { crearHojaReportesMensuales(); mensuales = ss.getSheetByName('Reportes Mensuales'); }
 
-    const hoy      = new Date();
-    const mes      = hoy.getMonth() + 1;
-    const anio     = hoy.getFullYear();
-    const mesTexto = Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'MMMM yyyy');
+    const baseDate = fechaRef || new Date();
+    const mes      = baseDate.getMonth() + 1;
+    const anio     = baseDate.getFullYear();
+    const mesTexto = Utilities.formatDate(baseDate, Session.getScriptTimeZone(), 'MMMM yyyy');
 
     // Recolectar datos directamente de las hojas fuente
     const hojaInteres     = ss.getSheetByName('Hoja de Interés');
@@ -7308,6 +7341,33 @@ function guardarReporteMensualAutomaticoAB() {
   } catch (e) {
     Logger.log('Error en guardarReporteMensualAutomaticoAB: ' + e.message);
   }
+}
+
+function guardarReporteMensualAutomaticoAB() {
+  guardarReporteMensualAB_(new Date());
+}
+
+function generarReporteMensualPorMesAB() {
+  const ui = SpreadsheetApp.getUi();
+  const resp = ui.prompt('📅 Generar Reporte Mensual', 'Ingresa mes/año en formato MM/YYYY (ejemplo: 03/2026):', ui.ButtonSet.OK_CANCEL);
+  if (resp.getSelectedButton() !== ui.Button.OK) return;
+
+  const txt = (resp.getResponseText() || '').trim();
+  const m = txt.match(/^(\d{1,2})\s*\/\s*(\d{4})$/);
+  if (!m) {
+    ui.alert('Formato inválido. Usa MM/YYYY, por ejemplo 03/2026.');
+    return;
+  }
+
+  const mes = Number(m[1]);
+  const anio = Number(m[2]);
+  if (mes < 1 || mes > 12) {
+    ui.alert('Mes inválido. Debe ser entre 1 y 12.');
+    return;
+  }
+
+  guardarReporteMensualAB_(new Date(anio, mes - 1, 1));
+  ui.alert('✅ Listo', 'Se guardó/actualizó el reporte de ' + (m[1].padStart(2, '0')) + '/' + anio + ' en "Reportes Mensuales".', ui.ButtonSet.OK);
 }
 
 function guardarReporteMensual() {
