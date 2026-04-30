@@ -8435,6 +8435,50 @@ function repararFormulasCohortes() {
   ss.toast('✅ Fórmulas de Cohortes reparadas correctamente', 'Reparación completada', 3);
 }
 
+/**
+ * Reinstala la hoja "Cohortes" sin borrar cohortes existentes.
+ * - Repara encabezados A:N
+ * - Reaplica validaciones
+ * - Reconstruye fórmulas H/I/J para todas las filas con nombre de cohorte
+ */
+function reinstalarHojaCohortesTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Cohortes');
+  if (!sheet) {
+    crearHojaCohortes();
+    sheet = ss.getSheetByName('Cohortes');
+  }
+  if (!sheet) return;
+
+  const headers = [
+    'Nombre Cohorte', 'Proyecto', 'Año', 'Fecha Inicio', 'Fecha Fin', 'Responsable',
+    'Cupo Máximo', 'Inscritas', 'Graduadx', 'Retiradx', 'Ubicación', 'Horario', 'Notas', 'Estado'
+  ];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#f57c00').setFontColor('white').setFontWeight('bold').setHorizontalAlignment('center');
+
+  const lastRow = Math.max(sheet.getLastRow(), 2);
+  if (lastRow >= 2) {
+    sheet.getRange(2, 6, lastRow - 1, 1).setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.RESPONSABLES).setAllowInvalid(false).build()
+    );
+    sheet.getRange(2, 14, lastRow - 1, 1).setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.ESTADOS_COHORTE).setAllowInvalid(false).build()
+    );
+  }
+
+  for (let i = 2; i <= lastRow; i++) {
+    const nombreCohorte = (sheet.getRange(i, 1).getValue() || '').toString().trim();
+    if (!nombreCohorte) continue;
+    sheet.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!C:C"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
+    sheet.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + i + '),0)');
+    sheet.getRange('J' + i).setFormula('=IFERROR(COUNTIF(Retiradx!H:H,A' + i + '),0)');
+  }
+
+  sheet.setFrozenRows(1);
+  ss.toast('✅ Cohortes reinstalada y reparada', 'Cohortes', 5);
+}
+
 // =====================================================================
 // INSTALAR TODO — BOTÓN MAESTRO DE INSTALACIÓN COMPLETA
 // =====================================================================
