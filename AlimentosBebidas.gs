@@ -1772,9 +1772,10 @@ function alEditarAB(e) {
   }
 
   // === ENTREVISTAS ===
-  // Estado está en columna O (15) - triggers automáticos según resultado
+  // Busca "Estado" por nombre de columna (puede ser N=14 o O=15 según estructura)
   if (hoja === 'Entrevistas') {
-    if (columna === 15) {
+    const headerEditado = sheet.getRange(1, columna).getValue();
+    if (headerEditado === 'Estado') {
       if (val === '🔗 Abrir Formulario') {
         abrirFormularioKobo(sheet, fila, columna);
         return;
@@ -8294,18 +8295,21 @@ function activarMejorasEntrevistasAB() {
       entrevistas.hideColumns(3);
     }
 
-    // 3. Actualizar desplegable Estado (columna O = 15)
-    const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Derivar a Paso a Paso', '🔗 Abrir Formulario'];
-    const validacionEstado = SpreadsheetApp.newDataValidation()
-      .requireValueInList(estadoOpciones)
-      .setAllowInvalid(false)
-      .build();
-    entrevistas.getRange('O2:O500').setDataValidation(validacionEstado);
-
-    // Header Estado en verde
-    entrevistas.getRange('O1')
-      .setBackground('#4caf50')
-      .setFontColor('white');
+    // 3. Actualizar desplegable Estado — busca la columna por nombre
+    const headers = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+    const colEstado = headers.indexOf('Estado') + 1; // 1-based, 0 si no existe
+    if (colEstado > 0) {
+      const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Derivar a Paso a Paso', '🔗 Abrir Formulario'];
+      entrevistas.getRange(2, colEstado, 499).setDataValidation(
+        SpreadsheetApp.newDataValidation()
+          .requireValueInList(estadoOpciones)
+          .setAllowInvalid(false)
+          .build()
+      );
+      entrevistas.getRange(1, colEstado)
+        .setBackground('#4caf50')
+        .setFontColor('white');
+    }
   }
 
   // 4. En Paso a Paso: ocultar columna C también (no tiene acciones)
