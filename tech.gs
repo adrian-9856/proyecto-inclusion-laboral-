@@ -6627,7 +6627,7 @@ function repararFormulasReporte() {
   reporte.getRange('C5').setFormula("=IFERROR(COUNTIFS('Hoja de Interés'!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
   reporte.getRange('B8').setFormula('=IFERROR(COUNTA(Entrevistas!D:D)-1,0)');
   reporte.getRange('C8').setFormula('=IFERROR(COUNTIF(Entrevistas!N:N,""),0)');
-  reporte.getRange('B11').setFormula('=IFERROR(COUNTA(Inscritx!D:D)-1,0)');
+  reporte.getRange('B11').setFormula('=IFERROR(MAX(COUNTA(Inscritx!B:B)-1,SUM(IFERROR(VALUE(Cohortes!H2:H),0))),0)');
   reporte.getRange('B17').setFormula('=IFERROR(COUNTA(Graduadx!D:D)-1,0)');
   reporte.getRange('C17').setFormula("=IFERROR(COUNTIFS(Graduadx!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
   reporte.getRange('B20').setFormula('=IFERROR(COUNTA(Retiradx!D:D)-1,0)');
@@ -6670,7 +6670,7 @@ function redisenarReporteTech() {
     interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + monthStart + ',\'Hoja de Interés\'!A:A,' + monthEnd + '),0)',
     entrevTotal  : '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)',
     entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!A:A,"<>"),0)',
-    inscTotal    : '=IFERROR(COUNTA(Inscritx!D:D)-1,0)',
+    inscTotal    : '=IFERROR(MAX(COUNTA(Inscritx!B:B)-1,SUM(IFERROR(VALUE(Cohortes!H2:H),0))),0)',
     gradTotal    : '=IFERROR(COUNTA(Graduadx!D:D)-1,0)',
     gradMes      : '=IFERROR(COUNTIFS(Graduadx!A:A,' + monthStart + ',Graduadx!A:A,' + monthEnd + '),0)',
     desTotal     : '=IFERROR(COUNTA(Retiradx!D:D)-1,0)',
@@ -6684,7 +6684,7 @@ function redisenarReporteTech() {
     derivMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"Derivar a Paso a Paso")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"Derivar a Paso a Paso"),0)',
     cohActivas   : '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)',
     tasaExito    : '=IFERROR(IF((B22+B25)>0,ROUND(B22/(B22+B25)*100,1)&"%","0%"),"0%")',
-    totalAtend   : '=IFERROR(COUNTA(UNIQUE(FILTER({\'Hoja de Interés\'!B2:B;Entrevistas!D2:D;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B},{\'Hoja de Interés\'!B2:B;Entrevistas!D2:D;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B}<>""))),0)'
+    totalAtend   : '=IFERROR(COUNTA(UNIQUE(FILTER({\'Hoja de Interés\'!B2:B;Entrevistas!B2:B;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B},{\'Hoja de Interés\'!B2:B;Entrevistas!B2:B;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B}<>""))),0)'
   };
 
   sheet.getRange('A1:F1').merge()
@@ -6861,6 +6861,7 @@ function instalarTodoLoNuevoTech() {
     asegurarColumnaFechaEnvioInscritxTech();
     redisenarReporteTech();
     repararFormulasReporte();
+    repararFormulasCohortes();
     configurarValidaciones();
     repararDesplegableEntrevistasTech();
     SpreadsheetApp.flush();
