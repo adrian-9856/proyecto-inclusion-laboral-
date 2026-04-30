@@ -1061,8 +1061,9 @@ function crearHojaInscritx() {
     'Nivel Educativo',  // H
     'Zona',             // I
     'Notas',            // J
-    'Estado',           // K - Automático "Inscritx"
-    'Enviar a Cohorte'  // L - Desplegable dinámico (última columna - trigger)
+    'Estado',                   // K - Automático "Inscritx"
+    'Enviar a Cohorte',         // L - Desplegable dinámico (última columna - trigger)
+    'Fecha envío a Inscritx'    // M - Fecha automática para reportes mensuales
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -1078,6 +1079,7 @@ function crearHojaInscritx() {
   // Destacar columnas importantes
   sheet.getRange('K1').setBackground('#ffd54f'); // Estado en amarillo
   sheet.getRange('L1').setBackground('#4caf50');  // Enviar a Cohorte en verde
+  sheet.getRange('M1').setBackground('#90caf9');  // Fecha envío a Inscritx
 }
 
 /**
@@ -2062,6 +2064,12 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       const norm = header.toLowerCase().replace(/[^a-z0-9]/g, '');
       const targetIdx = colMapInscritx[norm];
       if (targetIdx !== undefined) registroInscritx[targetIdx] = valor;
+    }
+
+    // Fecha de ingreso a Inscritx para medición mensual
+    const idxFechaEnvioInscritx = colMapInscritx['fechaenvioainscritx'];
+    if (idxFechaEnvioInscritx !== undefined && !registroInscritx[idxFechaEnvioInscritx]) {
+      registroInscritx[idxFechaEnvioInscritx] = new Date();
     }
 
     Logger.log('     Escribiendo en Inscritx: ' + JSON.stringify(registroInscritx));
@@ -6730,10 +6738,10 @@ function redisenarReporteAB() {
     desMes       : '=IFERROR(COUNTIFS(Retiradx!A:A,' + S + 'Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)',
     noInscTotal  : '=IFERROR(COUNTA(\'No Inscritx\'!C:C)-1,0)',
     noInscMes    : '=IFERROR(COUNTIFS(\'No Inscritx\'!A:A,' + S + '\'No Inscritx\'!A:A,"<="&EOMONTH(TODAY(),0)),0)',
-    aprobMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"Aprobada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"Aprobada"),0)',
-    noAprobMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"No aprobada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"No aprobada"),0)',
-    noAsistMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"No asistió")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"No asistió"),0)',
-    reprogMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"Reprogramada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"Reprogramada"),0)',
+    aprobMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!O:O,"Aprobada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!N:N,"Aprobada"),0)',
+    noAprobMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!O:O,"No aprobada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!N:N,"No aprobada"),0)',
+    noAsistMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!O:O,"No asistió")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!N:N,"No asistió"),0)',
+    reprogMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!O:O,"Reprogramada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A:A' + E + 'Entrevistas!N:N,"Reprogramada"),0)',
     cohActivas   : '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)',
     tasaExito    : '=IFERROR(IF((B22+B25)>0,ROUND(B22/(B22+B25)*100,1)&"%","0%"),"0%")',
     totalAtend   : '=IFERROR(B7+B22+B25+B28,0)'
