@@ -1132,8 +1132,8 @@ function crearHojaCohortes() {
 
   // Las fórmulas se actualizan cuando se crea la cohorte individual
   for (let i = 2; i <= 20; i++) {
-    // Inscritas: cuenta participantes en la hoja individual de la cohorte, restando los que están en Retiradx
-    sheet.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!E:E"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
+    // Inscritas: cuenta por Creamos ID (col C) en la hoja individual, restando Retiradx
+    sheet.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!C:C"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
     sheet.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + i + '),0)');
     sheet.getRange('J' + i).setFormula('=IFERROR(COUNTIF(Retiradx!H:H,A' + i + '),0)');
   }
@@ -5986,7 +5986,7 @@ function crearNuevaCohorteTech() {
   cohortes.getRange(nuevaFila, 1, 1, 14).setValues([datosCohorte]);
 
   // Fórmulas: Inscritas cuenta en la hoja individual de la cohorte (resta deserciones)
-  cohortes.getRange('H' + nuevaFila).setFormula('=IF(A' + nuevaFila + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!E:E"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!K:K"),"Retiradx"),0))');
+  cohortes.getRange('H' + nuevaFila).setFormula('=IF(A' + nuevaFila + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!C:C"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!K:K"),"Retiradx"),0))');
   cohortes.getRange('I' + nuevaFila).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + nuevaFila + '),0)');
   cohortes.getRange('J' + nuevaFila).setFormula('=IFERROR(COUNTIF(Retiradx!H:H,A' + nuevaFila + '),0)');
 
@@ -8422,8 +8422,8 @@ function repararFormulasCohortes() {
   for (let i = 2; i <= ultimaFila; i++) {
     const nombreCohorte = cohortes.getRange('A' + i).getValue();
     if (nombreCohorte && nombreCohorte.toString().trim() !== '') {
-      // Inscritas: cuenta participantes en la hoja individual, restando los que están en Retiradx
-      cohortes.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!E:E"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
+      // Inscritas: cuenta por Creamos ID (col C) en hoja individual, restando Retiradx
+      cohortes.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!C:C"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
       // Graduadx: cuenta en la hoja Graduadx
       cohortes.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + i + '),0)');
       // Retiradx: cuenta en la hoja Retiradx (aunque también están marcados en la hoja individual)
