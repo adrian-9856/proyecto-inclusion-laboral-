@@ -215,8 +215,10 @@ function setupMenuTech() {
 
       // ========== REPORTES ==========
       .addSubMenu(ui.createMenu('📊 Reportes')
+        .addItem('🚀 Instalar Todo Lo Nuevo', 'instalarTodoLoNuevoTech')
         .addItem('✨ Mejorar Reportes', 'mejorarYRepararReportes')
         .addItem('📊 Guardar Mensual (Manual)', 'guardarReporteMensualAutomatico')
+        .addItem('📅 Generar Mes Anterior...', 'generarReporteMensualPorMesTech')
         .addItem('💾 PowerBI Export', 'crearHojaPowerBIExport')
         .addSeparator()
         .addItem('⏰ Activar Reportes Automáticos', 'instalarTriggersReportesMensuales')
@@ -1074,8 +1076,9 @@ function crearHojaInscritx() {
     'Nivel Educativo',  // H
     'Zona',             // I
     'Notas',            // J
-    'Estado',           // K - Automático "Inscritx"
-    'Enviar a Cohorte'  // L - Desplegable dinámico (última columna - trigger)
+    'Estado',                   // K - Automático "Inscritx"
+    'Enviar a Cohorte',         // L - Desplegable dinámico (última columna - trigger)
+    'Fecha envío a Inscritx'    // M - Fecha automática para reportes mensuales
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -1091,6 +1094,7 @@ function crearHojaInscritx() {
   // Destacar columnas importantes
   sheet.getRange('K1').setBackground('#ffd54f'); // Estado en amarillo
   sheet.getRange('L1').setBackground('#4caf50');  // Enviar a Cohorte en verde
+  sheet.getRange('M1').setBackground('#90caf9');  // Fecha envío a Inscritx
 }
 
 /**
@@ -1128,8 +1132,8 @@ function crearHojaCohortes() {
 
   // Las fórmulas se actualizan cuando se crea la cohorte individual
   for (let i = 2; i <= 20; i++) {
-    // Inscritas: cuenta participantes en la hoja individual de la cohorte, restando los que están en Retiradx
-    sheet.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!E:E"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
+    // Inscritas: cuenta por Creamos ID (col C) en la hoja individual, restando Retiradx
+    sheet.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!C:C"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
     sheet.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + i + '),0)');
     sheet.getRange('J' + i).setFormula('=IFERROR(COUNTIF(Retiradx!H:H,A' + i + '),0)');
   }
@@ -1388,7 +1392,7 @@ function crearHojaReporte() {
     ['RESUMEN GENERAL', 'Valor', '', ''],                                                       // 25
     ['Total personas atendidas', '=B5+B17+B20+B23', '', ''],                                   // 26
     ['Tasa de éxito (graduadas/total)', '=IFERROR(IF((B17+B20)>0,ROUND(B17/(B17+B20)*100,1)&"%","0%"),"0%")', '', ''], // 27
-    ['Participantes activas en cohortes', '=B11', '', '']                                       // 28
+    ['Participantes activas en cohortes', '=IFERROR(SUM(IFERROR(VALUE(Cohortes!G2:G),0))-SUM(IFERROR(VALUE(Cohortes!H2:H),0))-SUM(IFERROR(VALUE(Cohortes!I2:I),0)),0)', '', '']                                       // 28
   ];
 
   sheet.getRange(1, 1, data.length, 4).setValues(data);
@@ -1475,6 +1479,29 @@ function crearHojaReportesMensuales() {
   sheet.setRowHeight(1, 40);
 }
 
+function asegurarEstructuraReportesMensualesTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Reportes Mensuales');
+  if (!sheet) {
+    crearHojaReportesMensuales();
+    sheet = ss.getSheetByName('Reportes Mensuales');
+  }
+  if (!sheet) return;
+
+  const headers = [
+    'Mes/Año', 'Nuevos Registros', 'Entrevistas', 'Aprobadas', 'No Aprobadas', 'No Asistió',
+    'Reprogramadas', 'Derivadas P.Paso', 'Total Inscritx', 'Graduadx Mes', 'Deserciones Mes',
+    'Cohortes Activas', 'Tasa Conversión %', 'Titular de Impacto', 'Logros del Mes', 'Fecha Guardado'
+  ];
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
+  }
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#6a1b9a').setFontColor('white').setFontWeight('bold').setHorizontalAlignment('center');
+  [100,110,90,90,95,90,100,110,95,90,100,110,110,300,400,120].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  sheet.setRowHeight(1, 40);
+}
+
 // =====================================================================
 // CONFIGURAR VALIDACIONES
 // =====================================================================
@@ -1529,14 +1556,24 @@ function configurarValidaciones() {
     entrevistas.getRange('L2:L500').setDataValidation(
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
     );
-    // Estado (O) - Resultado de entrevista (última columna)
-    // Opciones: Aprobada, No aprobada, No asistió, Reprogramada, Derivar a Paso a Paso, 🔗 Abrir Formulario
-    entrevistas.getRange('O2:O500').setDataValidation(
-      SpreadsheetApp.newDataValidation()
-        .requireValueInList(CONFIG_TECH.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Formulario']))
-        .setAllowInvalid(false)
-        .build()
-    );
+    // Estado (columna dinámica por encabezado)
+    const headersEnt = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+    const colEstado = headersEnt.indexOf('Estado') + 1;
+    if (colEstado > 0) {
+      // Limpia validaciones duplicadas comunes (N/O/P) y aplica solo en la columna Estado real
+      [14, 15, 16].forEach(col => {
+        if (col !== colEstado && col <= entrevistas.getLastColumn()) {
+          entrevistas.getRange(2, col, 499, 1).clearDataValidations();
+        }
+      });
+
+      entrevistas.getRange(2, colEstado, 499, 1).setDataValidation(
+        SpreadsheetApp.newDataValidation()
+          .requireValueInList(CONFIG_TECH.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Formulario']))
+          .setAllowInvalid(false)
+          .build()
+      );
+    }
   }
 
   // === HOJA DE SELECCIONADAS ===
@@ -2075,6 +2112,12 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       const norm = header.toLowerCase().replace(/[^a-z0-9]/g, '');
       const targetIdx = colMapInscritx[norm];
       if (targetIdx !== undefined) registroInscritx[targetIdx] = valor;
+    }
+
+    // Fecha de ingreso a Inscritx para medición mensual
+    const idxFechaEnvioInscritx = colMapInscritx['fechaenvioainscritx'];
+    if (idxFechaEnvioInscritx !== undefined && !registroInscritx[idxFechaEnvioInscritx]) {
+      registroInscritx[idxFechaEnvioInscritx] = new Date();
     }
 
     Logger.log('     Escribiendo en Inscritx (tech): ' + JSON.stringify(registroInscritx));
@@ -5966,7 +6009,7 @@ function crearNuevaCohorteTech() {
   cohortes.getRange(nuevaFila, 1, 1, 14).setValues([datosCohorte]);
 
   // Fórmulas: Inscritas cuenta en la hoja individual de la cohorte (resta deserciones)
-  cohortes.getRange('H' + nuevaFila).setFormula('=IF(A' + nuevaFila + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!E:E"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!K:K"),"Retiradx"),0))');
+  cohortes.getRange('H' + nuevaFila).setFormula('=IF(A' + nuevaFila + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!C:C"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + nuevaFila + '&"\'!K:K"),"Retiradx"),0))');
   cohortes.getRange('I' + nuevaFila).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + nuevaFila + '),0)');
   cohortes.getRange('J' + nuevaFila).setFormula('=IFERROR(COUNTIF(Retiradx!H:H,A' + nuevaFila + '),0)');
 
@@ -6607,7 +6650,7 @@ function repararFormulasReporte() {
   reporte.getRange('C5').setFormula("=IFERROR(COUNTIFS('Hoja de Interés'!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
   reporte.getRange('B8').setFormula('=IFERROR(COUNTA(Entrevistas!D:D)-1,0)');
   reporte.getRange('C8').setFormula('=IFERROR(COUNTIF(Entrevistas!N:N,""),0)');
-  reporte.getRange('B11').setFormula('=IFERROR(COUNTA(Inscritx!D:D)-1,0)');
+  reporte.getRange('B11').setFormula('=IFERROR(MAX(COUNTA(Inscritx!B:B)-1,SUM(IFERROR(VALUE(Cohortes!H2:H),0))),0)');
   reporte.getRange('B17').setFormula('=IFERROR(COUNTA(Graduadx!D:D)-1,0)');
   reporte.getRange('C17').setFormula("=IFERROR(COUNTIFS(Graduadx!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
   reporte.getRange('B20').setFormula('=IFERROR(COUNTA(Retiradx!D:D)-1,0)');
@@ -6615,9 +6658,9 @@ function repararFormulasReporte() {
   reporte.getRange('D20').setFormula('=IFERROR(IF((B17+B20)>0,ROUND(B20/(B17+B20)*100,1)&"%","0%"),"0%")');
   reporte.getRange('B23').setFormula("=IFERROR(COUNTA('No Inscritx'!C:C)-1,0)");
   reporte.getRange('C23').setFormula("=IFERROR(COUNTIFS('No Inscritx'!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
-  reporte.getRange('B26').setFormula('=B5+B17+B20+B23');
+  reporte.getRange('B26').setFormula('=IFERROR(SUM(IFERROR(VALUE(B5),0),IFERROR(VALUE(B17),0),IFERROR(VALUE(B20),0),IFERROR(VALUE(B23),0)),0)');
   reporte.getRange('B27').setFormula('=IFERROR(IF((B17+B20)>0,ROUND(B17/(B17+B20)*100,1)&"%","0%"),"0%")');
-  reporte.getRange('B28').setFormula('=B11');
+  reporte.getRange('B28').setFormula('=IFERROR(SUM(IFERROR(VALUE(Cohortes!G2:G),0))-SUM(IFERROR(VALUE(Cohortes!H2:H),0))-SUM(IFERROR(VALUE(Cohortes!I2:I),0)),0)');
   reporte.getRange('B2').setValue(new Date());
 
   ss.toast('✅ Fórmulas del Reporte reparadas', 'Reporte', 4);
@@ -6641,27 +6684,33 @@ function redisenarReporteTech() {
 
   [200, 130, 130, 130, 130, 130].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 
-  const S = '>="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),';
-  const E = ',"<="&EOMONTH(TODAY(),0),';
+  if (!sheet.getRange('Z1').getValue()) sheet.getRange('Z1').setValue(new Date());
+  sheet.getRange('Z1').setNumberFormat('dd/mm/yyyy');
+  sheet.hideColumns(26);
+  const monthStart = '">="&DATE(YEAR($Z$1),MONTH($Z$1),1)';
+  const monthEnd = '"<="&EOMONTH($Z$1,0)';
   const f = {
     interesTotal : '=IFERROR(COUNTA(\'Hoja de Interés\'!E:E)-1,0)',
-    interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + S + '\'Hoja de Interés\'!A:A,"<="&EOMONTH(TODAY(),0)),0)',
+    interesAnioActual : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,">="&DATE(YEAR(TODAY()),1,1),\'Hoja de Interés\'!A:A,"<"&DATE(YEAR(TODAY())+1,1,1)),0)',
+    interesAniosAnteriores : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,"<"&DATE(YEAR(TODAY()),1,1)),0)',
+    interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + monthStart + ',\'Hoja de Interés\'!A:A,' + monthEnd + '),0)',
     entrevTotal  : '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)',
-    entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!A:A,"<>"),0)',
-    inscTotal    : '=IFERROR(COUNTA(Inscritx!D:D)-1,0)',
+    entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!A:A,"<>"),0)',
+    inscTotal    : '=IFERROR(MAX(COUNTA(Inscritx!B:B)-1,SUM(IFERROR(VALUE(Cohortes!H2:H),0))),0)',
     gradTotal    : '=IFERROR(COUNTA(Graduadx!D:D)-1,0)',
-    gradMes      : '=IFERROR(COUNTIFS(Graduadx!A:A,' + S + 'Graduadx!A:A,"<="&EOMONTH(TODAY(),0)),0)',
+    gradMes      : '=IFERROR(COUNTIFS(Graduadx!A:A,' + monthStart + ',Graduadx!A:A,' + monthEnd + '),0)',
     desTotal     : '=IFERROR(COUNTA(Retiradx!D:D)-1,0)',
-    desMes       : '=IFERROR(COUNTIFS(Retiradx!A:A,' + S + 'Retiradx!A:A,"<="&EOMONTH(TODAY(),0)),0)',
+    desMes       : '=IFERROR(COUNTIFS(Retiradx!A:A,' + monthStart + ',Retiradx!A:A,' + monthEnd + '),0)',
     noInscTotal  : '=IFERROR(COUNTA(\'No Inscritx\'!C:C)-1,0)',
-    noInscMes    : '=IFERROR(COUNTIFS(\'No Inscritx\'!A:A,' + S + '\'No Inscritx\'!A:A,"<="&EOMONTH(TODAY(),0)),0)',
-    aprobMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"Aprobada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"Aprobada"),0)',
-    noAprobMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"No aprobada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"No aprobada"),0)',
-    noAsistMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"No asistió")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"No asistió"),0)',
-    reprogMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!O:O,"Reprogramada")+COUNTIFS(Entrevistas!A:A,' + S + 'Entrevistas!A' + E + 'Entrevistas!N:N,"Reprogramada"),0)',
+    noInscMes    : '=IFERROR(COUNTIFS(\'No Inscritx\'!A:A,' + monthStart + ',\'No Inscritx\'!A:A,' + monthEnd + '),0)',
+    aprobMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"Aprobada")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"Aprobada"),0)',
+    noAprobMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"No aprobada")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"No aprobada"),0)',
+    noAsistMes   : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"No asistió")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"No asistió"),0)',
+    reprogMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"Reprogramada")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"Reprogramada"),0)',
+    derivMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"Derivar a Paso a Paso")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"Derivar a Paso a Paso"),0)',
     cohActivas   : '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)',
     tasaExito    : '=IFERROR(IF((B22+B25)>0,ROUND(B22/(B22+B25)*100,1)&"%","0%"),"0%")',
-    totalAtend   : '=IFERROR(B7+B22+B25+B28,0)'
+    totalAtend   : '=IFERROR(COUNTA(UNIQUE(FILTER({\'Hoja de Interés\'!B2:B;Entrevistas!B2:B;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B},{\'Hoja de Interés\'!B2:B;Entrevistas!B2:B;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B}<>""))),0)'
   };
 
   sheet.getRange('A1:F1').merge()
@@ -6673,7 +6722,7 @@ function redisenarReporteTech() {
   sheet.getRange('A2:C2').merge().setValue('Última actualización:').setBackground('#e3f2fd').setFontSize(10).setHorizontalAlignment('right');
   sheet.getRange('D2').setFormula('=TEXT(NOW(),"DD/MM/YYYY HH:MM")').setBackground('#e3f2fd').setFontSize(10).setHorizontalAlignment('left');
   sheet.getRange('E2').setValue('Mes actual:').setBackground('#e3f2fd').setFontSize(10).setHorizontalAlignment('right');
-  sheet.getRange('F2').setFormula('=TEXT(TODAY(),"MMMM YYYY")').setBackground('#e3f2fd').setFontSize(10).setFontWeight('bold').setHorizontalAlignment('left');
+  sheet.getRange('F2').setFormula('=TEXT($Z$1,"MMMM YYYY")').setBackground('#e3f2fd').setFontSize(10).setFontWeight('bold').setHorizontalAlignment('left');
   sheet.setRowHeight(2, 28);
   sheet.setRowHeight(3, 8);
 
@@ -6683,7 +6732,7 @@ function redisenarReporteTech() {
   sheet.setRowHeight(4, 36);
 
   const kpi1 = [
-    { label:'👥 Personas Interesadas', rng:'A5:B5', numRng:'A6:B6', bg:'#1976d2', total: f.interesTotal },
+    { label:'👥 Interesadas (Este Año)', rng:'A5:B5', numRng:'A6:B6', bg:'#1976d2', total: f.interesAnioActual },
     { label:'📋 Entrevistadas',         rng:'C5:D5', numRng:'C6:D6', bg:'#388e3c', total: f.entrevTotal },
     { label:'✅ Inscritx en Formación', rng:'E5:F5', numRng:'E6:F6', bg:'#e65100', total: f.inscTotal }
   ];
@@ -6760,8 +6809,8 @@ function redisenarReporteTech() {
 
   const resumen = [
     ['Total personas atendidas (acum.):', f.totalAtend, 'Tasa de éxito (grad/total):', f.tasaExito, '', ''],
-    ['Inscritx en formación:', f.inscTotal, 'No Seleccionadas Total:', f.noInscTotal, '', ''],
-    ['Graduadx Total:', f.gradTotal, 'Deserciones Total:', f.desTotal, '', '']
+    ['Interesadas este año:', f.interesAnioActual, 'No Seleccionadas Total:', f.noInscTotal, '', ''],
+    ['Interesadas años anteriores:', f.interesAniosAnteriores, 'Derivadas P. Paso (mes):', f.derivMes, '', '']
   ];
   resumen.forEach((row, i) => {
     const r = 19 + i;
@@ -6774,11 +6823,30 @@ function redisenarReporteTech() {
     sheet.getRange(r, 5, 1, 2).merge();
     sheet.setRowHeight(r, 30);
   });
+  sheet.getRange('B19:B21').setNumberFormat('0');
+  sheet.getRange('D19').setNumberFormat('0.0%');
+  sheet.getRange('D20:D21').setNumberFormat('0');
 
   sheet.setRowHeight(22, 10);
   sheet.getRange('A23:F23').merge()
     .setValue('Generado automáticamente  ·  Sistema Inclusión Laboral Creamos Guatemala')
     .setFontColor('#9e9e9e').setFontSize(8).setFontStyle('italic').setHorizontalAlignment('center');
+
+  // ── FILAS 24-30: trazabilidad de métricas ────────────────────────────────
+  sheet.getRange('A24:F24').merge().setValue('🧭 TRAZABILIDAD DE MÉTRICAS (ORIGEN DE DATOS)')
+    .setBackground('#eceff1').setFontColor('#263238').setFontWeight('bold')
+    .setFontSize(10).setHorizontalAlignment('left');
+  const traceRows = [
+    ['Métrica', 'Hoja origen', 'Regla de cálculo', '', '', ''],
+    ['Interesadas (Este Año)', 'Hoja de Interés', 'Fecha en año actual (columna A)', '', '', ''],
+    ['Entrevistadas', 'Entrevistas', 'Conteo de registros con nombre', '', '', ''],
+    ['Inscritx en Formación', 'Inscritx', 'Conteo acumulado actual', '', '', ''],
+    ['Total personas atendidas (acum.)', 'Interés/Entrevistas/Inscritx/Graduadx/Retiradx/No Inscritx', 'IDs únicos (Creamos ID) sin duplicados', '', '', '']
+  ];
+  sheet.getRange(25, 1, traceRows.length, 6).setValues(traceRows);
+  sheet.getRange('A25:C25').setFontWeight('bold').setBackground('#f5f5f5');
+  sheet.getRange('A26:C29').setFontSize(9).setBackground('#fafafa');
+  sheet.getRange('A25:C29').setBorder(true, true, true, true, true, true, '#cfd8dc', SpreadsheetApp.BorderStyle.SOLID);
 
   sheet.setFrozenRows(2);
   ss.toast('✅ Reporte rediseñado', 'Reporte', 4);
@@ -6794,6 +6862,63 @@ function mejorarYRepararReportes() {
     '✓ Resumen ejecutivo\n\n' +
     'Los datos se actualizan automáticamente.',
     SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function asegurarColumnaFechaEnvioInscritxTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Inscritx');
+  if (!sheet) return;
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const yaExiste = headers.some(h => (h || '').toString().toLowerCase().trim() === 'fecha envío a inscritx');
+  if (yaExiste) return;
+
+  const newCol = sheet.getLastColumn() + 1;
+  sheet.getRange(1, newCol).setValue('Fecha envío a Inscritx')
+    .setFontWeight('bold')
+    .setBackground('#90caf9');
+  sheet.getRange(2, newCol, Math.max(1, sheet.getMaxRows() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
+}
+
+function instalarTodoLoNuevoTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  try {
+    reinstalarHojaCohortesTech();
+    asegurarEstructuraReportesMensualesTech();
+    asegurarColumnaFechaEnvioInscritxTech();
+    redisenarReporteTech();
+    repararFormulasReporte();
+    repararFormulasCohortes();
+    configurarValidaciones();
+    repararDesplegableEntrevistasTech();
+    SpreadsheetApp.flush();
+    ss.toast('✅ Instalación completa aplicada', 'Sistema actualizado', 6);
+    ui.alert('✅ Listo', 'Se reinstaló Cohortes y se reparó todo: reporte, fórmulas, validaciones y desplegables.', ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('❌ Error', 'No se pudo completar la instalación: ' + e.message, ui.ButtonSet.OK);
+  }
+}
+
+function repararDesplegableEntrevistasTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (!entrevistas || entrevistas.getLastRow() < 2) return;
+
+  const headers = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+  const colEstado = headers.indexOf('Estado') + 1;
+  if (colEstado < 1) return;
+
+  [14, 15, 16].forEach(col => {
+    if (col !== colEstado && col <= entrevistas.getLastColumn()) {
+      entrevistas.getRange(2, col, 499, 1).clearDataValidations();
+    }
+  });
+
+  const opciones = CONFIG_TECH.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Formulario']);
+  entrevistas.getRange(2, colEstado, 499, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(opciones).setAllowInvalid(false).build()
+  );
 }
 
 /**
@@ -7092,16 +7217,16 @@ function generarTextoImpactoTech_(datos, mesTexto) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function guardarReporteMensualAutomatico() {
+function guardarReporteMensualTech_(fechaRef) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let mensuales = ss.getSheetByName('Reportes Mensuales');
     if (!mensuales) { crearHojaReportesMensuales(); mensuales = ss.getSheetByName('Reportes Mensuales'); }
 
-    const hoy      = new Date();
-    const mes      = hoy.getMonth() + 1;
-    const anio     = hoy.getFullYear();
-    const mesTexto = Utilities.formatDate(hoy, Session.getScriptTimeZone(), 'MMMM yyyy');
+    const baseDate = fechaRef || new Date();
+    const mes      = baseDate.getMonth() + 1;
+    const anio     = baseDate.getFullYear();
+    const mesTexto = Utilities.formatDate(baseDate, Session.getScriptTimeZone(), 'MMMM yyyy');
 
     const hojaInteres     = ss.getSheetByName('Hoja de Interés');
     const hojaEntrevistas = ss.getSheetByName('Entrevistas');
@@ -7158,12 +7283,85 @@ function guardarReporteMensualAutomatico() {
   }
 }
 
+function asegurarFilaMesSiguienteEnCeroTech_(baseDate) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let mensuales = ss.getSheetByName('Reportes Mensuales');
+  if (!mensuales) {
+    crearHojaReportesMensuales();
+    mensuales = ss.getSheetByName('Reportes Mensuales');
+  }
+  if (!mensuales) return;
+
+  const ref = baseDate || new Date();
+  const next = new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
+  const mesTexto = Utilities.formatDate(next, Session.getScriptTimeZone(), 'MMMM yyyy');
+
+  const filaCero = [
+    mesTexto, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '0%', 'Mes en inicio — ' + mesTexto, '', new Date()
+  ];
+
+  const existentes = mensuales.getDataRange().getValues();
+  let filaExistente = -1;
+  for (let i = 1; i < existentes.length; i++) {
+    if ((existentes[i][0] || '').toString().trim().toLowerCase() === mesTexto.toLowerCase()) {
+      filaExistente = i + 1; break;
+    }
+  }
+  if (filaExistente > 0) {
+    mensuales.getRange(filaExistente, 1, 1, filaCero.length).setValues([filaCero]);
+    mensuales.setRowHeight(filaExistente, 40);
+  } else {
+    const nueva = mensuales.getLastRow() + 1;
+    mensuales.getRange(nueva, 1, 1, filaCero.length).setValues([filaCero]);
+    mensuales.setRowHeight(nueva, 40);
+  }
+}
+
+function moverReporteAMesSiguienteTech_(baseDate) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const reporte = ss.getSheetByName('Reporte');
+  if (!reporte) return;
+  const ref = baseDate || new Date();
+  const next = new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
+  reporte.getRange('Z1').setValue(next).setNumberFormat('dd/mm/yyyy');
+}
+
+function guardarReporteMensualAutomatico() {
+  guardarReporteMensualTech_(new Date());
+}
+
+function generarReporteMensualPorMesTech() {
+  const ui = SpreadsheetApp.getUi();
+  const resp = ui.prompt('📅 Generar Reporte Mensual', 'Ingresa mes/año en formato MM/YYYY (ejemplo: 03/2026):', ui.ButtonSet.OK_CANCEL);
+  if (resp.getSelectedButton() !== ui.Button.OK) return;
+
+  const txt = (resp.getResponseText() || '').trim();
+  const m = txt.match(/^(\d{1,2})\s*\/\s*(\d{4})$/);
+  if (!m) {
+    ui.alert('Formato inválido. Usa MM/YYYY, por ejemplo 03/2026.');
+    return;
+  }
+
+  const mes = Number(m[1]);
+  const anio = Number(m[2]);
+  if (mes < 1 || mes > 12) {
+    ui.alert('Mes inválido. Debe ser entre 1 y 12.');
+    return;
+  }
+
+  guardarReporteMensualTech_(new Date(anio, mes - 1, 1));
+  ui.alert('✅ Listo', 'Se guardó/actualizó el reporte de ' + (m[1].padStart(2, '0')) + '/' + anio + ' en "Reportes Mensuales".', ui.ButtonSet.OK);
+}
+
 function guardarReporteMensual() {
   // Función manual — llama al mismo motor que el automático
-  guardarReporteMensualAutomatico();
+  const hoy = new Date();
+  guardarReporteMensualTech_(hoy);
+  asegurarFilaMesSiguienteEnCeroTech_(hoy);
+  moverReporteAMesSiguienteTech_(hoy);
   SpreadsheetApp.getUi().alert(
     '✅ Reporte guardado',
-    'Los datos del mes actual fueron guardados en la hoja "Reportes Mensuales".\n\n' +
+    'Se guardó el mes actual y se creó/actualizó el mes siguiente en cero en "Reportes Mensuales".\n\n' +
     'El trigger automático hace esto el día 1 de cada mes a las 8:00 AM.',
     SpreadsheetApp.getUi().ButtonSet.OK
   );
@@ -8267,16 +8465,19 @@ function repararFormulasReporte() {
 
   // B28: Participantes activas en cohortes (antes era =B11, que solo mostraba Inscritx)
   reporte.getRange('B28').setFormula(
-    '=IFERROR(SUMIF(Cohortes!A:A,"<>",Cohortes!G:G)' +
-    '-SUMIF(Cohortes!A:A,"<>",Cohortes!H:H)' +
-    '-SUMIF(Cohortes!A:A,"<>",Cohortes!I:I),0)'
+    '=IFERROR(SUM(IFERROR(VALUE(Cohortes!G2:G),0))' +
+    '-SUM(IFERROR(VALUE(Cohortes!H2:H),0))' +
+    '-SUM(IFERROR(VALUE(Cohortes!I2:I),0)),0)'
   );
 
   // B26: Total personas atendidas (incluye todas las etapas activas + históricas)
-  reporte.getRange('B26').setFormula('=B5+B8+B11+B28+B17+B20+B23');
+  reporte.getRange('B26').setFormula('=IFERROR(SUM(IFERROR(VALUE(B5),0),IFERROR(VALUE(B8),0),IFERROR(VALUE(B11),0),IFERROR(VALUE(B28),0),IFERROR(VALUE(B17),0),IFERROR(VALUE(B20),0),IFERROR(VALUE(B23),0)),0)');
 
   // C8: Entrevistas pendientes (solo filas con nombre Y sin resultado — evita contar celdas vacías)
   reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(Entrevistas!D:D,"<>",Entrevistas!I:I,""),0)');
+
+  // Limpiar residuos de fórmulas viejas fuera del dashboard (sin tocar trazabilidad 24-30)
+  reporte.getRange('A31:F40').clearContent();
 
   Logger.log('✅ Fórmulas del Reporte reparadas');
 }
@@ -8295,8 +8496,8 @@ function repararFormulasCohortes() {
   for (let i = 2; i <= ultimaFila; i++) {
     const nombreCohorte = cohortes.getRange('A' + i).getValue();
     if (nombreCohorte && nombreCohorte.toString().trim() !== '') {
-      // Inscritas: cuenta participantes en la hoja individual, restando los que están en Retiradx
-      cohortes.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!E:E"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
+      // Inscritas: cuenta por Creamos ID (col C) en hoja individual, restando Retiradx
+      cohortes.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!C:C"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
       // Graduadx: cuenta en la hoja Graduadx
       cohortes.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + i + '),0)');
       // Retiradx: cuenta en la hoja Retiradx (aunque también están marcados en la hoja individual)
@@ -8306,6 +8507,50 @@ function repararFormulasCohortes() {
 
   Logger.log('✅ Fórmulas de Cohortes reparadas');
   ss.toast('✅ Fórmulas de Cohortes reparadas correctamente', 'Reparación completada', 3);
+}
+
+/**
+ * Reinstala la hoja "Cohortes" sin borrar cohortes existentes.
+ * - Repara encabezados A:N
+ * - Reaplica validaciones
+ * - Reconstruye fórmulas H/I/J para todas las filas con nombre de cohorte
+ */
+function reinstalarHojaCohortesTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Cohortes');
+  if (!sheet) {
+    crearHojaCohortes();
+    sheet = ss.getSheetByName('Cohortes');
+  }
+  if (!sheet) return;
+
+  const headers = [
+    'Nombre Cohorte', 'Proyecto', 'Año', 'Fecha Inicio', 'Fecha Fin', 'Responsable',
+    'Cupo Máximo', 'Inscritas', 'Graduadx', 'Retiradx', 'Ubicación', 'Horario', 'Notas', 'Estado'
+  ];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#f57c00').setFontColor('white').setFontWeight('bold').setHorizontalAlignment('center');
+
+  const lastRow = Math.max(sheet.getLastRow(), 2);
+  if (lastRow >= 2) {
+    sheet.getRange(2, 6, lastRow - 1, 1).setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.RESPONSABLES).setAllowInvalid(false).build()
+    );
+    sheet.getRange(2, 14, lastRow - 1, 1).setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_TECH.ESTADOS_COHORTE).setAllowInvalid(false).build()
+    );
+  }
+
+  for (let i = 2; i <= lastRow; i++) {
+    const nombreCohorte = (sheet.getRange(i, 1).getValue() || '').toString().trim();
+    if (!nombreCohorte) continue;
+    sheet.getRange('H' + i).setFormula('=IF(A' + i + '="",0,IFERROR(COUNTIF(INDIRECT("\'"&A' + i + '&"\'!C:C"),"<>")-1-COUNTIF(INDIRECT("\'"&A' + i + '&"\'!K:K"),"Retiradx"),0))');
+    sheet.getRange('I' + i).setFormula('=IFERROR(COUNTIF(Graduadx!H:H,A' + i + '),0)');
+    sheet.getRange('J' + i).setFormula('=IFERROR(COUNTIF(Retiradx!H:H,A' + i + '),0)');
+  }
+
+  sheet.setFrozenRows(1);
+  ss.toast('✅ Cohortes reinstalada y reparada', 'Cohortes', 5);
 }
 
 // =====================================================================
