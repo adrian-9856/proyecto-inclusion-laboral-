@@ -1468,6 +1468,29 @@ function crearHojaReportesMensuales() {
   sheet.setRowHeight(1, 40);
 }
 
+function asegurarEstructuraReportesMensualesAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Reportes Mensuales');
+  if (!sheet) {
+    crearHojaReportesMensuales();
+    sheet = ss.getSheetByName('Reportes Mensuales');
+  }
+  if (!sheet) return;
+
+  const headers = [
+    'Mes/Año', 'Nuevos Registros', 'Entrevistas', 'Aprobadas', 'No Aprobadas', 'No Asistió',
+    'Reprogramadas', 'Derivadas P.Paso', 'Total Inscritx', 'Graduadx Mes', 'Deserciones Mes',
+    'Cohortes Activas', 'Tasa Conversión %', 'Titular de Impacto', 'Logros del Mes', 'Fecha Guardado'
+  ];
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
+  }
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    .setBackground('#6a1b9a').setFontColor('white').setFontWeight('bold').setHorizontalAlignment('center');
+  [100,110,90,90,95,90,100,110,95,90,100,110,110,300,400,120].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+  sheet.setRowHeight(1, 40);
+}
+
 // =====================================================================
 // CONFIGURAR VALIDACIONES
 // =====================================================================
@@ -6971,6 +6994,7 @@ function instalarTodoLoNuevoAB() {
   const ui = SpreadsheetApp.getUi();
   try {
     reinstalarHojaCohortesAB();
+    asegurarEstructuraReportesMensualesAB();
     asegurarColumnaFechaEnvioInscritxAB();
     redisenarReporteAB();
     repararFormulasReporte();
