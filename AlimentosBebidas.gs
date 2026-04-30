@@ -1512,10 +1512,10 @@ function configurarValidaciones() {
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
     );
     // Estado (O) - Resultado de entrevista (última columna)
-    // Opciones: Aprobada, No aprobada, No asistió, Reprogramada, Derivar a Paso a Paso
+    // Opciones: Aprobada, No aprobada, No asistió, Reprogramada, Derivar a Paso a Paso, 🔗 Abrir Kobo
     entrevistas.getRange('O2:O500').setDataValidation(
       SpreadsheetApp.newDataValidation()
-        .requireValueInList(CONFIG_AB.RESULTADO_FINAL.concat(['Derivar a Paso a Paso']))
+        .requireValueInList(CONFIG_AB.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Kobo']))
         .setAllowInvalid(false)
         .build()
     );
@@ -1774,11 +1774,23 @@ function alEditarAB(e) {
   // Estado está en columna O (15) - triggers automáticos según resultado
   if (hoja === 'Entrevistas') {
     if (columna === 15) {
+      if (val === '🔗 Abrir Kobo') {
+        abrirFormularioKobo(sheet, fila, columna);
+        return;
+      }
       procesarResultadoEntrevista(sheet, fila, val);
-      // Si es "Derivar a Paso a Paso", copiar a esa hoja
       if (val === 'Derivar a Paso a Paso') {
         derivarApasoAPaso(sheet, fila);
       }
+    }
+  }
+
+  // === PASO A PASO ===
+  // Estado está en columna O (15) - mismas opciones que Entrevistas
+  if (hoja === 'Paso a Paso') {
+    if (columna === 15 && val === '🔗 Abrir Kobo') {
+      abrirFormularioKobo(sheet, fila, columna);
+      return;
     }
   }
 
@@ -2124,6 +2136,24 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
   }
 
   // "Reprogramada" no hace nada automático
+}
+
+/**
+ * Muestra un modal con el link clickeable al formulario Kobo y limpia la celda Estado.
+ */
+function abrirFormularioKobo(sheet, fila, columna) {
+  sheet.getRange(fila, columna).setValue('');
+  const html = HtmlService.createHtmlOutput(
+    '<div style="padding:24px;font-family:Arial,sans-serif;text-align:center;">' +
+    '<h3 style="color:#1565c0;margin-top:0;">🔗 Formulario de Entrevista</h3>' +
+    '<p style="color:#555;margin-bottom:20px;">Haz clic para abrir el formulario:</p>' +
+    '<a href="https://ee.kobotoolbox.org/x/LHmyWvLj" target="_blank" ' +
+    'style="display:inline-block;background:#2196f3;color:white;padding:14px 28px;' +
+    'text-decoration:none;border-radius:8px;font-size:16px;font-weight:bold;">' +
+    '🔗 Abrir Formulario</a>' +
+    '</div>'
+  ).setWidth(320).setHeight(180);
+  SpreadsheetApp.getUi().showModalDialog(html, '🔗 Formulario Kobo');
 }
 
 /**
@@ -8286,13 +8316,17 @@ function activarMejorasEntrevistasAB() {
     entrevistas.getRange('C2:C500').setFontColor('#1565c0');
 
     // 3. Actualizar desplegable Estado (columna O = 15)
-    const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Derivar a Paso a Paso'];
-    entrevistas.getRange('O2:O500').setDataValidation(
-      SpreadsheetApp.newDataValidation()
-        .requireValueInList(estadoOpciones)
-        .setAllowInvalid(false)
-        .build()
-    );
+    const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Derivar a Paso a Paso', '🔗 Abrir Kobo'];
+    const validacionEstado = SpreadsheetApp.newDataValidation()
+      .requireValueInList(estadoOpciones)
+      .setAllowInvalid(false)
+      .build();
+    entrevistas.getRange('O2:O500').setDataValidation(validacionEstado);
+    // Aplicar también en Paso a Paso
+    const pasoAPaso = ss.getSheetByName('Paso a Paso');
+    if (pasoAPaso) {
+      pasoAPaso.getRange('O2:O500').setDataValidation(validacionEstado);
+    }
 
     // Header Estado en verde
     entrevistas.getRange('O1')
