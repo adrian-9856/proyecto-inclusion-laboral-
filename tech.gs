@@ -44,6 +44,7 @@ const CONFIG_TECH = {
   // Responsables del programa
   RESPONSABLES: [
     'Eva',
+    'Pamela Samayoa',
     'Adrian Torres',
     'Paola Ortiz'
   ],
@@ -1525,10 +1526,10 @@ function configurarValidaciones() {
       SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
     );
     // Estado (O) - Resultado de entrevista (última columna)
-    // Opciones: Aprobada, No aprobada, No asistió, Reprogramada, Derivar a Paso a Paso, 🔗 Abrir Kobo
+    // Opciones: Aprobada, No aprobada, No asistió, Reprogramada, Derivar a Paso a Paso, 🔗 Abrir Formulario
     entrevistas.getRange('O2:O500').setDataValidation(
       SpreadsheetApp.newDataValidation()
-        .requireValueInList(CONFIG_TECH.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Kobo']))
+        .requireValueInList(CONFIG_TECH.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Formulario']))
         .setAllowInvalid(false)
         .build()
     );
@@ -1791,7 +1792,7 @@ function alEditarTech(e) {
   // Estado está en columna O (15) - triggers automáticos según resultado
   if (hoja === 'Entrevistas') {
     if (columna === 15) {
-      if (val === '🔗 Abrir Kobo') {
+      if (val === '🔗 Abrir Formulario') {
         abrirFormularioKobo(sheet, fila, columna);
         return;
       }
@@ -1799,15 +1800,6 @@ function alEditarTech(e) {
       if (val === 'Derivar a Paso a Paso') {
         derivarApasoAPaso(sheet, fila);
       }
-    }
-  }
-
-  // === PASO A PASO ===
-  // Estado está en columna O (15) - mismas opciones que Entrevistas
-  if (hoja === 'Paso a Paso') {
-    if (columna === 15 && val === '🔗 Abrir Kobo') {
-      abrirFormularioKobo(sheet, fila, columna);
-      return;
     }
   }
 
@@ -8084,13 +8076,14 @@ function configurarEmailEva() {
 
 function enviarEmailDesercionEva(nombre, cohorte, motivo, creamosId) {
   try {
-    const emailEva   = obtenerEmailEva();
-    const emailNotif = obtenerEmailConfiguracion();
+    const emailEva    = obtenerEmailEva();
+    const emailPamela = 'pamelasamayoa@creamosguatemala.org';
+    const emailNotif  = obtenerEmailConfiguracion();
     const fecha = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
 
     const asunto = '⚠️ Deserción — ' + nombre + ' — Actualizar Salesforce';
     const cuerpo =
-      'Hola Eva,\n\n' +
+      'Hola Eva y Pamela,\n\n' +
       'Se registró la siguiente DESERCIÓN en el Sistema de Inclusión Laboral:\n\n' +
       '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
       'Nombre:      ' + nombre + '\n' +
@@ -8104,8 +8097,8 @@ function enviarEmailDesercionEva(nombre, cohorte, motivo, creamosId) {
       'para mantener el CRM actualizado.\n\n' +
       'Mensaje automático — Sistema de Inclusión Laboral Tecnología';
 
-    const destinatarios = [emailEva];
-    if (emailNotif && emailNotif !== emailEva) destinatarios.push(emailNotif);
+    const destinatarios = [emailEva, emailPamela];
+    if (emailNotif && !destinatarios.includes(emailNotif)) destinatarios.push(emailNotif);
     MailApp.sendEmail(destinatarios.join(','), asunto, cuerpo);
     Logger.log('✅ Email deserción enviado a: ' + destinatarios.join(', '));
   } catch (e) {
@@ -8224,55 +8217,34 @@ function instalarSistemaCompletoTech() {
 /**
  * Activa las mejoras de Entrevistas SIN reinstalar todo el sistema
  * - Crea hoja "Paso a Paso"
- * - Pone link de Kobo en columna C de Entrevistas
- * - Agrega "Derivar a Paso a Paso" al desplegable Estado
+ * - Oculta columna C "Abrir Kobo" (reemplazada por opción en desplegable)
+ * - Actualiza desplegable Estado con "Derivar a Paso a Paso" y "🔗 Abrir Formulario"
  */
 function activarMejorasEntrevistasTech() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const KOBO_LINK = 'https://ee.kobotoolbox.org/x/LHmyWvLj';
 
   ss.toast('🔧 Activando mejoras de Entrevistas...', 'Instalando', 3);
 
   // 1. Crear hoja "Paso a Paso" si no existe
   crearHojaPasoAPaso();
 
-  // 2. Agregar link de Kobo en columna C de Entrevistas
+  // 2. Ocultar columna C "Abrir Kobo" si existe (ya no se usa como columna)
   const entrevistas = ss.getSheetByName('Entrevistas');
   if (entrevistas) {
-    const lastRow = Math.max(entrevistas.getLastRow(), 2);
-
-    // Verificar si la columna C ya tiene el header correcto
     const headerC = entrevistas.getRange('C1').getValue();
-    if (headerC !== '🔗 Abrir Kobo') {
-      // Insertar columna C si aún tiene la estructura vieja (sin columna Kobo)
-      entrevistas.insertColumnBefore(3);
-      entrevistas.getRange('C1')
-        .setValue('🔗 Abrir Kobo')
-        .setBackground('#2196f3')
-        .setFontColor('white')
-        .setFontWeight('bold')
-        .setHorizontalAlignment('center');
-      entrevistas.setColumnWidth(3, 120);
+    if (headerC === '🔗 Abrir Kobo') {
+      entrevistas.getRange('C1').setValue('').setBackground(null).setFontColor(null);
+      entrevistas.getRange('C2:C500').clearContent().setFontColor(null);
+      entrevistas.hideColumns(3);
     }
 
-    // Poner fórmula HYPERLINK en C2:C500 — link clickeable en cada fila
-    entrevistas.getRange('C2:C500').setFormula(
-      '=HYPERLINK("' + KOBO_LINK + '","🔗 Abrir Kobo")'
-    );
-    entrevistas.getRange('C2:C500').setFontColor('#1565c0');
-
     // 3. Actualizar desplegable Estado (columna O = 15)
-    const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Derivar a Paso a Paso', '🔗 Abrir Kobo'];
+    const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Derivar a Paso a Paso', '🔗 Abrir Formulario'];
     const validacionEstado = SpreadsheetApp.newDataValidation()
       .requireValueInList(estadoOpciones)
       .setAllowInvalid(false)
       .build();
     entrevistas.getRange('O2:O500').setDataValidation(validacionEstado);
-    // Aplicar también en Paso a Paso
-    const pasoAPaso = ss.getSheetByName('Paso a Paso');
-    if (pasoAPaso) {
-      pasoAPaso.getRange('O2:O500').setDataValidation(validacionEstado);
-    }
 
     // Header Estado en verde
     entrevistas.getRange('O1')
@@ -8280,14 +8252,26 @@ function activarMejorasEntrevistasTech() {
       .setFontColor('white');
   }
 
+  // 4. En Paso a Paso: ocultar columna C también (no tiene acciones)
+  const pasoAPaso = ss.getSheetByName('Paso a Paso');
+  if (pasoAPaso) {
+    const headerCPP = pasoAPaso.getRange('C1').getValue();
+    if (headerCPP === '🔗 Abrir Kobo') {
+      pasoAPaso.getRange('C1').setValue('').setBackground(null).setFontColor(null);
+      pasoAPaso.getRange('C2:C500').clearContent();
+      pasoAPaso.hideColumns(3);
+    }
+  }
+
   ss.toast('✅ Mejoras activadas correctamente', 'Listo', 4);
   SpreadsheetApp.getUi().alert(
     '✅ Mejoras de Entrevistas activadas',
-    '✓ Hoja "Paso a Paso" creada\n' +
-    '✓ Columna "🔗 Abrir Kobo" configurada\n' +
-    '✓ Desplegable Estado actualizado con "Derivar a Paso a Paso"\n\n' +
-    'Ahora cuando cambies Estado a "Derivar a Paso a Paso",\n' +
-    'la fila se copiará automáticamente a la hoja "Paso a Paso".',
+    '✓ Hoja "Paso a Paso" lista\n' +
+    '✓ Columna "Abrir Kobo" ocultada\n' +
+    '✓ Desplegable Estado actualizado\n\n' +
+    'En Estado de Entrevistas ahora tienes:\n' +
+    '• "Derivar a Paso a Paso" → copia la fila\n' +
+    '• "🔗 Abrir Formulario" → abre el formulario Kobo',
     SpreadsheetApp.getUi().ButtonSet.OK
   );
 }
