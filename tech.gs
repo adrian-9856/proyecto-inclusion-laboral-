@@ -2223,12 +2223,11 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
 }
 
 /**
- * Muestra un modal con el link clickeable al formulario Kobo y limpia la celda Estado.
+ * Muestra panel con datos de la persona listos para copiar al formulario Kobo.
  */
 function abrirFormularioKobo(sheet, fila, columna) {
   sheet.getRange(fila, columna).setValue('');
 
-  // Leer datos de la fila actual
   const colMap = obtenerMapaColumnas(sheet);
   const datos = sheet.getRange(fila, 1, 1, sheet.getLastColumn()).getValues()[0];
   const getVal = (nombre) => {
@@ -2238,52 +2237,71 @@ function abrirFormularioKobo(sheet, fila, columna) {
     return (v === null || v === undefined) ? '' : v.toString().trim();
   };
 
-  // Mapeo de campos Entrevistas → XPath del formulario Kobo
-  const root = CONFIG_TECH.KOBO_FORM_ROOT;
-  const programa = CONFIG_TECH.PROGRAMA_NOMBRE;
-  const campos = [
-    ['info_programa/prog_origen',       programa],
-    ['info_programa/responsable_ref',   getVal('Entrevistador')],
-    ['info_referido/es_participante',   getVal('Creamos ID') ? 'si' : ''],
-    ['info_referido/creamos_id',        getVal('Creamos ID')],
-    ['info_referido/nombre_completo',   getVal('Nombre Completo')],
-    ['info_referido/dpi_cui',           getVal('DPI')],
-    ['info_referido/edad',              getVal('Edad')],
-    ['info_referido/genero',            getVal('Género')],
-    ['info_referido/telefono',          getVal('Teléfono')],
-    ['info_referido/zona_residencia',   getVal('Zona')],
-    ['info_referido/prog_destino',      programa],
-    ['sec_educacion/ultimo_nivel_ed',   getVal('Nivel Educativo')]
-  ];
+  const programa    = CONFIG_TECH.PROGRAMA_NOMBRE;
+  const urlForm     = CONFIG_TECH.KOBO_FORMULARIO_URL;
+  const nombre      = getVal('Nombre Completo') || '—';
+  const responsable = getVal('Entrevistador') || '—';
 
-  // Construir URL con parámetros Enketo d[/root/grupo/campo]=valor
-  const params = campos
-    .filter(([, v]) => v !== '')
-    .map(([campo, val]) => encodeURIComponent('d[/' + root + '/' + campo + ']') + '=' + encodeURIComponent(val))
-    .join('&');
+  const filas = [
+    ['Programa',          programa],
+    ['Responsable',       responsable],
+    ['Ya es participante','si'],
+    ['Creamos ID',        getVal('Creamos ID')],
+    ['Nombre completo',   nombre],
+    ['DPI / CUI',         getVal('DPI')],
+    ['Edad',              getVal('Edad')],
+    ['Género',            getVal('Género')],
+    ['Teléfono',          getVal('Teléfono')],
+    ['Zona residencia',   getVal('Zona')],
+    ['Programa destino',  programa],
+    ['Nivel educativo',   getVal('Nivel Educativo')]
+  ].filter(([, v]) => v !== '');
 
-  const urlFinal = CONFIG_TECH.KOBO_FORMULARIO_URL + (params ? '?' + params : '');
-  const nombre = getVal('Nombre Completo') || 'esta persona';
+  const filasHtml = filas.map(([label, val]) =>
+    '<tr>' +
+    '<td style="padding:4px 8px;color:#546e7a;font-size:12px;white-space:nowrap;">' + label + '</td>' +
+    '<td style="padding:4px 8px;font-size:13px;font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="' + val + '">' + val + '</td>' +
+    '<td style="padding:4px 4px;">' +
+    '<button onclick="navigator.clipboard.writeText(\'' + val.replace(/'/g, "\\'") + '\').then(()=>{this.textContent=\'✅\';setTimeout(()=>this.textContent=\'📋\',1200)})" ' +
+    'style="border:none;background:#e3f2fd;border-radius:4px;cursor:pointer;padding:3px 7px;font-size:12px;">📋</button>' +
+    '</td></tr>'
+  ).join('');
 
-  const urlBase = CONFIG_TECH.KOBO_FORMULARIO_URL;
   const html = HtmlService.createHtmlOutput(
-    '<div style="padding:20px;font-family:Arial,sans-serif;text-align:center;">' +
-    '<h3 style="color:#1565c0;margin-top:0;">🔗 Formulario de Referidos</h3>' +
-    '<p style="color:#555;font-size:13px;margin-bottom:4px;">Datos de:</p>' +
-    '<p style="color:#1565c0;font-weight:bold;font-size:15px;margin:4px 0 12px;">' + nombre + '</p>' +
-    '<a href="' + urlFinal + '" target="_blank" ' +
-    'style="display:inline-block;background:#1976d2;color:white;padding:12px 24px;' +
-    'text-decoration:none;border-radius:8px;font-size:14px;font-weight:bold;margin-bottom:8px;">' +
-    '✅ Abrir con datos pre-llenados</a><br>' +
-    '<a href="' + urlBase + '" target="_blank" ' +
-    'style="display:inline-block;background:#78909c;color:white;padding:8px 20px;' +
-    'text-decoration:none;border-radius:6px;font-size:12px;">' +
-    '📋 Abrir formulario vacío (si el otro no funciona)</a>' +
-    '<p style="color:#9e9e9e;font-size:11px;margin-top:12px;">' +
-    'Programa: ' + programa + ' · Responsable: ' + (getVal('Entrevistador') || '—') + '</p>' +
+    '<div style="font-family:Arial,sans-serif;padding:12px;">' +
+    '<div style="text-align:center;margin-bottom:12px;">' +
+    '<a href="' + urlForm + '" target="_blank" ' +
+    'style="display:inline-block;background:#1976d2;color:white;padding:11px 22px;' +
+    'text-decoration:none;border-radius:8px;font-size:14px;font-weight:bold;">' +
+    '🔗 Abrir Formulario Kobo</a>' +
+    '</div>' +
+    '<p style="color:#78909c;font-size:11px;text-align:center;margin:0 0 10px;">' +
+    'Clic en 📋 para copiar cada dato y pegarlo en el formulario</p>' +
+    '<table style="width:100%;border-collapse:collapse;background:#fafafa;border-radius:6px;overflow:hidden;">' +
+    '<tr style="background:#1565c0;">' +
+    '<th style="padding:6px 8px;color:white;font-size:11px;text-align:left;">Campo</th>' +
+    '<th style="padding:6px 8px;color:white;font-size:11px;text-align:left;">Valor</th>' +
+    '<th style="padding:6px 4px;color:white;font-size:11px;">Copiar</th>' +
+    '</tr>' +
+    filasHtml +
+    '</table>' +
+    '<div style="text-align:center;margin-top:10px;">' +
+    '<button id="copyAll" onclick="copyAll()" ' +
+    'style="border:none;background:#e8f5e9;border-radius:6px;cursor:pointer;padding:7px 16px;font-size:12px;color:#2e7d32;font-weight:bold;">' +
+    '📋 Copiar todos los datos</button>' +
+    '</div>' +
+    '<script>' +
+    'function copyAll(){' +
+    'const rows=[' + filas.map(([l,v]) => '["'+l.replace(/"/g,'\\"')+'","'+v.replace(/"/g,'\\"')+'"]').join(',') + '];' +
+    'const txt=rows.map(r=>r[0]+": "+r[1]).join("\\n");' +
+    'navigator.clipboard.writeText(txt).then(()=>{' +
+    'document.getElementById("copyAll").textContent="✅ Copiado!";' +
+    'setTimeout(()=>document.getElementById("copyAll").textContent="📋 Copiar todos los datos",2000);});' +
+    '}' +
+    '</script>' +
     '</div>'
-  ).setWidth(380).setHeight(250);
-  SpreadsheetApp.getUi().showModalDialog(html, '🔗 Formulario Kobo Pre-llenado');
+  ).setWidth(400).setHeight(520);
+  SpreadsheetApp.getUi().showModalDialog(html, '📋 Datos para Formulario — ' + nombre);
 }
 
 /**
