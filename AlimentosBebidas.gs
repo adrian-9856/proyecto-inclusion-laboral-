@@ -6799,6 +6799,7 @@ function redisenarReporteAB() {
     interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + monthStart + ',\'Hoja de Interés\'!A:A,' + monthEnd + '),0)',
     entrevTotal  : '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)',
     entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!A:A,"<>"),0)',
+    inscMes      : '=IFERROR(COUNTIFS(Inscritx!M:M,' + monthStart + ',Inscritx!M:M,' + monthEnd + '),0)',
     inscTotal    : '=IFERROR(MAX(COUNTA(Inscritx!B:B)-1,SUM(IFERROR(VALUE(Cohortes!H2:H),0))),0)',
     gradTotal    : '=IFERROR(COUNTA(Graduadx!D:D)-1,0)',
     gradMes      : '=IFERROR(COUNTIFS(Graduadx!A:A,' + monthStart + ',Graduadx!A:A,' + monthEnd + '),0)',
@@ -6841,9 +6842,9 @@ function redisenarReporteAB() {
 
   // ── FILAS 5-6: KPIs fila 1 (Interesadas | Entrevistadas | Inscritx) ───────
   const kpi1 = [
-    { label:'👥 Interesadas (Este Año)', rng:'A5:B5', numRng:'A6:B6', bg:'#1976d2', total: f.interesAnioActual },
-    { label:'📋 Entrevistadas',         rng:'C5:D5', numRng:'C6:D6', bg:'#388e3c', total: f.entrevTotal },
-    { label:'✅ Inscritx en Formación', rng:'E5:F5', numRng:'E6:F6', bg:'#e65100', total: f.inscTotal }
+    { label:'👥 Interesadas (Este Mes)', rng:'A5:B5', numRng:'A6:B6', bg:'#1976d2', total: f.interesMes },
+    { label:'📋 Entrevistadas (Este Mes)', rng:'C5:D5', numRng:'C6:D6', bg:'#388e3c', total: f.entrevMes },
+    { label:'✅ Inscritx (Este Mes)',    rng:'E5:F5', numRng:'E6:F6', bg:'#e65100', total: f.inscMes }
   ];
   kpi1.forEach(k => {
     sheet.getRange(k.rng).merge().setValue(k.label)
@@ -6858,9 +6859,9 @@ function redisenarReporteAB() {
 
   // ── FILAS 7-8: KPIs fila 2 (Graduadx | Deserciones | Cohortes) ───────────
   const kpi2 = [
-    { label:'🎓 Graduadx Total',    rng:'A7:B7', numRng:'A8:B8', bg:'#00796b', total: f.gradTotal },
-    { label:'⚠️ Deserciones Total', rng:'C7:D7', numRng:'C8:D8', bg:'#c62828', total: f.desTotal },
-    { label:'🏫 Cohortes Activas',  rng:'E7:F7', numRng:'E8:F8', bg:'#6a1b9a', total: f.cohActivas }
+    { label:'🎓 Graduadx (Este Mes)',    rng:'A7:B7', numRng:'A8:B8', bg:'#00796b', total: f.gradMes },
+    { label:'⚠️ Deserciones (Este Mes)', rng:'C7:D7', numRng:'C8:D8', bg:'#c62828', total: f.desMes },
+    { label:'🏫 Cohortes Activas',       rng:'E7:F7', numRng:'E8:F8', bg:'#6a1b9a', total: f.cohActivas }
   ];
   kpi2.forEach(k => {
     sheet.getRange(k.rng).merge().setValue(k.label)
@@ -6937,9 +6938,9 @@ function redisenarReporteAB() {
 
   // Datos resumen
   const resumen = [
-    ['Total personas atendidas (acum.):', f.totalAtend, 'Tasa de éxito (grad/total):', f.tasaExito, '', ''],
-    ['Interesadas este año:', f.interesAnioActual, 'No Seleccionadas Total:', f.noInscTotal, '', ''],
-    ['Interesadas años anteriores:', f.interesAniosAnteriores, 'Derivadas P. Paso (mes):', f.derivMes, '', '']
+    ['Nuevas registradas (mes):', f.interesMes,  'Aprobadas (mes):', f.aprobMes, '', ''],
+    ['Entrevistadas (mes):',      f.entrevMes,   'No Seleccionadas (mes):', f.noInscMes, '', ''],
+    ['Graduadx (mes):',           f.gradMes,     'Derivadas P. Paso (mes):', f.derivMes, '', '']
   ];
   resumen.forEach((row, i) => {
     const r = 19 + i;
@@ -6953,8 +6954,7 @@ function redisenarReporteAB() {
     sheet.setRowHeight(r, 30);
   });
   sheet.getRange('B19:B21').setNumberFormat('0');
-  sheet.getRange('D19').setNumberFormat('0.0%');
-  sheet.getRange('D20:D21').setNumberFormat('0');
+  sheet.getRange('D19:D21').setNumberFormat('0');
 
   // ── FILA 22: pie ──────────────────────────────────────────────────────────
   sheet.setRowHeight(22, 10);
@@ -6970,14 +6970,14 @@ function redisenarReporteAB() {
     ['Métrica', 'Valor actual', 'Hoja origen', 'Regla de cálculo', '', ''],
     ['Interesadas (Este Año)', '', 'Hoja de Interés', 'Fecha en año actual (columna A)', '', ''],
     ['Entrevistadas', '', 'Entrevistas', 'Conteo de registros con nombre', '', ''],
-    ['Inscritx en Formación', '', 'Inscritx + Cohortes', 'MAX(Inscritx IDs, suma Cohortes Inscritas)', '', ''],
-    ['Total personas atendidas (acum.)', '', 'Interés/Entrevistas/Inscritx/Graduadx/Retiradx/No Inscritx', 'IDs únicos (Creamos ID) sin duplicados', '', '']
+    ['Inscritx (Este Mes)', '', 'Inscritx', 'Fecha envío a Inscritx en el mes actual (col M)', '', ''],
+    ['Aprobadas (Este Mes)', '', 'Entrevistas', 'Estado = Aprobada en el mes actual', '', '']
   ];
   sheet.getRange(25, 1, traceRows.length, 6).setValues(traceRows);
-  sheet.getRange('B26').setFormula(f.interesAnioActual);
-  sheet.getRange('B27').setFormula(f.entrevTotal);
-  sheet.getRange('B28').setFormula(f.inscTotal);
-  sheet.getRange('B29').setFormula(f.totalAtend);
+  sheet.getRange('B26').setFormula(f.interesMes);
+  sheet.getRange('B27').setFormula(f.entrevMes);
+  sheet.getRange('B28').setFormula(f.inscMes);
+  sheet.getRange('B29').setFormula(f.aprobMes);
   sheet.getRange('A25:D25').setFontWeight('bold').setBackground('#f5f5f5');
   sheet.getRange('A26:D29').setFontSize(9).setBackground('#fafafa');
   sheet.getRange('A25:D29').setBorder(true, true, true, true, true, true, '#cfd8dc', SpreadsheetApp.BorderStyle.SOLID);

@@ -140,7 +140,9 @@ const CONFIG_TECH = {
     'Aprobada',
     'No aprobada',
     'No asistió',
-    'Reprogramada'
+    'Reprogramada',
+    'Próxima cohorte Programación',
+    'Próxima cohorte Alfa Digital'
   ],
 
   // Estados de cohorte
@@ -217,6 +219,7 @@ function setupMenuTech() {
       .addSubMenu(ui.createMenu('📊 Reportes')
         .addItem('🚀 Instalar Todo Lo Nuevo', 'instalarTodoLoNuevoTech')
         .addItem('✨ Mejorar Reportes', 'mejorarYRepararReportes')
+        .addItem('🔄 Reiniciar Mes Actual en Reporte', 'reiniciarMesEnReporteTech')
         .addItem('📊 Guardar Mensual (Manual)', 'guardarReporteMensualAutomatico')
         .addItem('📅 Generar Mes Anterior...', 'generarReporteMensualPorMesTech')
         .addItem('💾 PowerBI Export', 'crearHojaPowerBIExport')
@@ -1749,21 +1752,30 @@ function guardarResponsables(responsables) {
 function aplicarFormatos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Formato para Entrevistas - Estado (columna I)
+  // Formato para Entrevistas - Estado (columna dinámica)
   const entrevistas = ss.getSheetByName('Entrevistas');
   if (entrevistas) {
-    const rangoEstadoEnt = entrevistas.getRange('I2:I500');
+    const headersEnt2 = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+    const colEstadoEnt = headersEnt2.indexOf('Estado') + 1;
+    const colLetra = colEstadoEnt > 0
+      ? String.fromCharCode(64 + colEstadoEnt)
+      : 'N'; // fallback columna N
+    const rangoEstadoEnt = entrevistas.getRange(colLetra + '2:' + colLetra + '500');
 
     const reglaAprobada = SpreadsheetApp.newConditionalFormatRule()
-      .whenTextContains('Aprobada').setBackground('#c8e6c9').setRanges([rangoEstadoEnt]).build();
+      .whenTextEqualTo('Aprobada').setBackground('#c8e6c9').setRanges([rangoEstadoEnt]).build();
     const reglaPendiente = SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('Pendiente').setBackground('#fff9c4').setRanges([rangoEstadoEnt]).build();
     const reglaNoAprobada = SpreadsheetApp.newConditionalFormatRule()
       .whenTextContains('No aprobada').setBackground('#ffcdd2').setRanges([rangoEstadoEnt]).build();
     const reglaNoAsistio = SpreadsheetApp.newConditionalFormatRule()
       .whenTextContains('No asistió').setBackground('#ffcdd2').setRanges([rangoEstadoEnt]).build();
+    const reglaProgramacion = SpreadsheetApp.newConditionalFormatRule()
+      .whenTextContains('Próxima cohorte Programación').setBackground('#bbdefb').setRanges([rangoEstadoEnt]).build();
+    const reglaAlfaDigital = SpreadsheetApp.newConditionalFormatRule()
+      .whenTextContains('Próxima cohorte Alfa Digital').setBackground('#dcedc8').setRanges([rangoEstadoEnt]).build();
 
-    entrevistas.setConditionalFormatRules([reglaAprobada, reglaPendiente, reglaNoAprobada, reglaNoAsistio]);
+    entrevistas.setConditionalFormatRules([reglaAprobada, reglaPendiente, reglaNoAprobada, reglaNoAsistio, reglaProgramacion, reglaAlfaDigital]);
   }
 
   // Formato condicional para Cohortes - Cupo lleno (Inscritas >= Cupo Máximo)
@@ -2049,7 +2061,10 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
   // Buscar Creamos ID de forma flexible
   const creamosId = datos[colMapEntrevistas['creamosid']] || datos[colMapEntrevistas['creamos id']];
 
-  if (resultado === 'Aprobada') {
+  // "Próxima cohorte Programación/Alfa Digital" → igual que Aprobada pero con nota de programa
+  const esProximaCohorte = resultado === 'Próxima cohorte Programación' || resultado === 'Próxima cohorte Alfa Digital';
+
+  if (resultado === 'Aprobada' || esProximaCohorte) {
     const interes = ss.getSheetByName('Hoja de Interés');
     const busqueda = creamosId ? buscarPorCreamosID(interes, creamosId) : null;
     const filaInteres = busqueda ? busqueda.fila : null;
@@ -2088,9 +2103,17 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       return val;
     };
 
-    Logger.log('>>>> TRASLADO DESDE ENTREVISTAS (Aprobada - tech): ' + getVal('Nombre Completo') + ' (' + creamosId + ')');
+    Logger.log('>>>> TRASLADO DESDE ENTREVISTAS (' + resultado + ' - tech): ' + getVal('Nombre Completo') + ' (' + creamosId + ')');
     Logger.log('     Nivel Educativo: ' + getVal('Nivel Educativo'));
     Logger.log('     Zona: ' + getVal('Zona'));
+
+    // Para "Próxima cohorte" se agrega nota del programa en Notas
+    const notaBase = getVal('Observaciones');
+    let notaFinal = notaBase;
+    if (esProximaCohorte) {
+      const etiqueta = resultado === 'Próxima cohorte Programación' ? '[Próxima cohorte Programación]' : '[Próxima cohorte Alfa Digital]';
+      notaFinal = notaBase ? etiqueta + ' ' + notaBase : etiqueta;
+    }
 
     // Mapeo dinámico robusto Entrevistas → Inscritx
     const mapping = {
@@ -2103,7 +2126,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       'Teléfono': getVal('Teléfono'),
       'Nivel Educativo': getVal('Nivel Educativo'),
       'Zona': getVal('Zona'),
-      'Notas': getVal('Observaciones'),
+      'Notas': notaFinal,
       'Estado': 'Inscritx'
     };
 
@@ -2138,7 +2161,10 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     }
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#c8e6c9');
 
-    ss.toast('✅ Aprobada - copiada a Inscritx. (Mapeo Robusto V2.5)', 'Entrevista', 4);
+    const toastMsg = esProximaCohorte
+      ? '✅ ' + resultado + ' — copiada a Inscritx con nota de programa.'
+      : '✅ Aprobada - copiada a Inscritx. (Mapeo Robusto V2.5)';
+    ss.toast(toastMsg, 'Entrevista', 4);
     return;
   }
 
@@ -6684,7 +6710,8 @@ function redisenarReporteTech() {
 
   [200, 130, 130, 130, 130, 130].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 
-  if (!sheet.getRange('Z1').getValue()) sheet.getRange('Z1').setValue(new Date());
+  // Z1 siempre = mes actual (se auto-actualiza cada mes)
+  sheet.getRange('Z1').setFormula('=TODAY()');
   sheet.getRange('Z1').setNumberFormat('dd/mm/yyyy');
   sheet.hideColumns(26);
   const monthStart = '">="&DATE(YEAR($Z$1),MONTH($Z$1),1)';
@@ -6696,6 +6723,7 @@ function redisenarReporteTech() {
     interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + monthStart + ',\'Hoja de Interés\'!A:A,' + monthEnd + '),0)',
     entrevTotal  : '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)',
     entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!A:A,"<>"),0)',
+    inscMes      : '=IFERROR(COUNTIFS(Inscritx!M:M,' + monthStart + ',Inscritx!M:M,' + monthEnd + '),0)',
     inscTotal    : '=IFERROR(MAX(COUNTA(Inscritx!B:B)-1,SUM(IFERROR(VALUE(Cohortes!H2:H),0))),0)',
     gradTotal    : '=IFERROR(COUNTA(Graduadx!D:D)-1,0)',
     gradMes      : '=IFERROR(COUNTIFS(Graduadx!A:A,' + monthStart + ',Graduadx!A:A,' + monthEnd + '),0)',
@@ -6732,9 +6760,9 @@ function redisenarReporteTech() {
   sheet.setRowHeight(4, 36);
 
   const kpi1 = [
-    { label:'👥 Interesadas (Este Año)', rng:'A5:B5', numRng:'A6:B6', bg:'#1976d2', total: f.interesAnioActual },
-    { label:'📋 Entrevistadas',         rng:'C5:D5', numRng:'C6:D6', bg:'#388e3c', total: f.entrevTotal },
-    { label:'✅ Inscritx en Formación', rng:'E5:F5', numRng:'E6:F6', bg:'#e65100', total: f.inscTotal }
+    { label:'👥 Interesadas (Este Mes)', rng:'A5:B5', numRng:'A6:B6', bg:'#1976d2', total: f.interesMes },
+    { label:'📋 Entrevistadas (Este Mes)', rng:'C5:D5', numRng:'C6:D6', bg:'#388e3c', total: f.entrevMes },
+    { label:'✅ Inscritx (Este Mes)',    rng:'E5:F5', numRng:'E6:F6', bg:'#e65100', total: f.inscMes }
   ];
   kpi1.forEach(k => {
     sheet.getRange(k.rng).merge().setValue(k.label).setBackground(k.bg).setFontColor('white')
@@ -6746,9 +6774,9 @@ function redisenarReporteTech() {
   sheet.setRowHeight(6, 70);
 
   const kpi2 = [
-    { label:'🎓 Graduadx Total',    rng:'A7:B7', numRng:'A8:B8', bg:'#00796b', total: f.gradTotal },
-    { label:'⚠️ Deserciones Total', rng:'C7:D7', numRng:'C8:D8', bg:'#c62828', total: f.desTotal },
-    { label:'🏫 Cohortes Activas',  rng:'E7:F7', numRng:'E8:F8', bg:'#6a1b9a', total: f.cohActivas }
+    { label:'🎓 Graduadx (Este Mes)',    rng:'A7:B7', numRng:'A8:B8', bg:'#00796b', total: f.gradMes },
+    { label:'⚠️ Deserciones (Este Mes)', rng:'C7:D7', numRng:'C8:D8', bg:'#c62828', total: f.desMes },
+    { label:'🏫 Cohortes Activas',       rng:'E7:F7', numRng:'E8:F8', bg:'#6a1b9a', total: f.cohActivas }
   ];
   kpi2.forEach(k => {
     sheet.getRange(k.rng).merge().setValue(k.label).setBackground(k.bg).setFontColor('white')
@@ -6808,9 +6836,9 @@ function redisenarReporteTech() {
   sheet.setRowHeight(18, 34);
 
   const resumen = [
-    ['Total personas atendidas (acum.):', f.totalAtend, 'Tasa de éxito (grad/total):', f.tasaExito, '', ''],
-    ['Interesadas este año:', f.interesAnioActual, 'No Seleccionadas Total:', f.noInscTotal, '', ''],
-    ['Interesadas años anteriores:', f.interesAniosAnteriores, 'Derivadas P. Paso (mes):', f.derivMes, '', '']
+    ['Nuevas registradas (mes):', f.interesMes,  'Aprobadas (mes):', f.aprobMes, '', ''],
+    ['Entrevistadas (mes):',      f.entrevMes,   'No Seleccionadas (mes):', f.noInscMes, '', ''],
+    ['Graduadx (mes):',           f.gradMes,     'Derivadas P. Paso (mes):', f.derivMes, '', '']
   ];
   resumen.forEach((row, i) => {
     const r = 19 + i;
@@ -6824,8 +6852,7 @@ function redisenarReporteTech() {
     sheet.setRowHeight(r, 30);
   });
   sheet.getRange('B19:B21').setNumberFormat('0');
-  sheet.getRange('D19').setNumberFormat('0.0%');
-  sheet.getRange('D20:D21').setNumberFormat('0');
+  sheet.getRange('D19:D21').setNumberFormat('0');
 
   sheet.setRowHeight(22, 10);
   sheet.getRange('A23:F23').merge()
@@ -6838,10 +6865,10 @@ function redisenarReporteTech() {
     .setFontSize(10).setHorizontalAlignment('left');
   const traceRows = [
     ['Métrica', 'Hoja origen', 'Regla de cálculo', '', '', ''],
-    ['Interesadas (Este Año)', 'Hoja de Interés', 'Fecha en año actual (columna A)', '', '', ''],
-    ['Entrevistadas', 'Entrevistas', 'Conteo de registros con nombre', '', '', ''],
-    ['Inscritx en Formación', 'Inscritx', 'Conteo acumulado actual', '', '', ''],
-    ['Total personas atendidas (acum.)', 'Interés/Entrevistas/Inscritx/Graduadx/Retiradx/No Inscritx', 'IDs únicos (Creamos ID) sin duplicados', '', '', '']
+    ['Interesadas (Este Mes)', 'Hoja de Interés', 'Fecha en el mes actual (columna A)', '', '', ''],
+    ['Entrevistadas (Este Mes)', 'Entrevistas', 'Fecha entrevista en el mes actual', '', '', ''],
+    ['Inscritx (Este Mes)', 'Inscritx', 'Fecha envío a Inscritx en el mes actual (col M)', '', '', ''],
+    ['Aprobadas (Este Mes)', 'Entrevistas', 'Estado = Aprobada en el mes actual', '', '', '']
   ];
   sheet.getRange(25, 1, traceRows.length, 6).setValues(traceRows);
   sheet.getRange('A25:C25').setFontWeight('bold').setBackground('#f5f5f5');
@@ -6957,6 +6984,29 @@ function instalarTriggersReportesMensuales() {
     '💾 PowerBI Export se regenera a las 8:05 AM\n\n' +
     'Ya no necesitas hacer nada manualmente.',
     ui.ButtonSet.OK);
+}
+
+/**
+ * Reinicia el mes de referencia del Reporte al mes actual.
+ * Se puede ejecutar desde el menú: Reportes → Reiniciar Mes Actual en Reporte
+ */
+function reiniciarMesEnReporteTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const reporte = ss.getSheetByName('Reporte');
+  if (!reporte) {
+    SpreadsheetApp.getUi().alert('⚠️ No se encontró la hoja "Reporte". Ejecuta primero "Mejorar Reportes".');
+    return;
+  }
+  reporte.getRange('Z1').setFormula('=TODAY()');
+  SpreadsheetApp.flush();
+  const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
+  ss.toast('✅ Reporte reiniciado al mes actual: ' + mesActual, 'Reporte', 4);
+  SpreadsheetApp.getUi().alert(
+    '✅ Reporte reiniciado',
+    'Ahora el reporte muestra los datos de: ' + mesActual + '\n\n' +
+    'El reporte se actualizará automáticamente cada mes.',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
 }
 
 /**
@@ -8593,7 +8643,7 @@ function activarMejorasEntrevistasTech() {
     const headers = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
     const colEstado = headers.indexOf('Estado') + 1; // 1-based, 0 si no existe
     if (colEstado > 0) {
-      const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Derivar a Paso a Paso', '🔗 Abrir Formulario'];
+      const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Próxima cohorte Programación', 'Próxima cohorte Alfa Digital', 'Derivar a Paso a Paso', '🔗 Abrir Formulario'];
       entrevistas.getRange(2, colEstado, 499).setDataValidation(
         SpreadsheetApp.newDataValidation()
           .requireValueInList(estadoOpciones)
