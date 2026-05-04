@@ -169,7 +169,8 @@ const CONFIG_AB = {
   // URL Enketo del formulario de referidos (para pre-llenado)
   KOBO_FORMULARIO_URL: 'https://ee.kobotoolbox.org/x/LHmyWvLj',
   // Raíz XForm del formulario (ajustar si el pre-llenado no funciona)
-  KOBO_FORM_ROOT: 'data',
+  // Ver en KoboToolbox → Configuración → General → "Form ID"
+  KOBO_FORM_ROOT: 'C_08_Referencia_de_Programas',
   // Programa que se enviará como origen en el formulario
   PROGRAMA_NOMBRE: 'Alimentos y Bebidas',
 
@@ -2257,19 +2258,24 @@ function abrirFormularioKobo(sheet, fila, columna) {
   const urlFinal = CONFIG_AB.KOBO_FORMULARIO_URL + (params ? '?' + params : '');
   const nombre = getVal('Nombre Completo') || 'esta persona';
 
+  const urlBase = CONFIG_AB.KOBO_FORMULARIO_URL;
   const html = HtmlService.createHtmlOutput(
     '<div style="padding:20px;font-family:Arial,sans-serif;text-align:center;">' +
     '<h3 style="color:#1565c0;margin-top:0;">🔗 Formulario de Referidos</h3>' +
-    '<p style="color:#555;font-size:13px;margin-bottom:4px;">Se pre-llenará con datos de:</p>' +
-    '<p style="color:#1565c0;font-weight:bold;font-size:15px;margin:4px 0 16px;">' + nombre + '</p>' +
+    '<p style="color:#555;font-size:13px;margin-bottom:4px;">Datos de:</p>' +
+    '<p style="color:#1565c0;font-weight:bold;font-size:15px;margin:4px 0 12px;">' + nombre + '</p>' +
     '<a href="' + urlFinal + '" target="_blank" ' +
-    'style="display:inline-block;background:#1976d2;color:white;padding:14px 28px;' +
-    'text-decoration:none;border-radius:8px;font-size:15px;font-weight:bold;">' +
-    '🔗 Abrir Formulario Pre-llenado</a>' +
-    '<p style="color:#9e9e9e;font-size:11px;margin-top:14px;">' +
+    'style="display:inline-block;background:#1976d2;color:white;padding:12px 24px;' +
+    'text-decoration:none;border-radius:8px;font-size:14px;font-weight:bold;margin-bottom:8px;">' +
+    '✅ Abrir con datos pre-llenados</a><br>' +
+    '<a href="' + urlBase + '" target="_blank" ' +
+    'style="display:inline-block;background:#78909c;color:white;padding:8px 20px;' +
+    'text-decoration:none;border-radius:6px;font-size:12px;">' +
+    '📋 Abrir formulario vacío (si el otro no funciona)</a>' +
+    '<p style="color:#9e9e9e;font-size:11px;margin-top:12px;">' +
     'Programa: ' + programa + ' · Responsable: ' + (getVal('Entrevistador') || '—') + '</p>' +
     '</div>'
-  ).setWidth(360).setHeight(220);
+  ).setWidth(380).setHeight(250);
   SpreadsheetApp.getUi().showModalDialog(html, '🔗 Formulario Kobo Pre-llenado');
 }
 
