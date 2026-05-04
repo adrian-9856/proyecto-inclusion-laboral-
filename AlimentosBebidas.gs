@@ -2295,19 +2295,64 @@ function abrirFormularioKobo(sheet, fila, columna) {
     '📋 Copiar todos los datos</button>' +
     '</div>' +
 
+    // Estado del registro
+    '<p id="logStatus" style="color:#78909c;font-size:11px;text-align:center;margin:6px 0 0;height:16px;"></p>' +
+
     '<script>' +
+    'var datosParaLog=' + JSON.stringify(Object.fromEntries(filas)) + ';' +
     'function copyAll(){' +
     'const rows=[' + filas.map(([l,v]) => '["'+l.replace(/"/g,'\\"')+'","'+v.replace(/"/g,'\\"')+'"]').join(',') + '];' +
     'const txt=rows.map(r=>r[0]+": "+r[1]).join("\\n");' +
     'navigator.clipboard.writeText(txt).then(()=>{' +
     'document.getElementById("copyAll").textContent="✅ Copiado!";' +
-    'setTimeout(()=>document.getElementById("copyAll").textContent="📋 Copiar todos los datos",2000);});' +
+    'setTimeout(()=>document.getElementById("copyAll").textContent="📋 Copiar todos los datos",2000);' +
+    'google.script.run' +
+    '.withSuccessHandler(function(){document.getElementById("logStatus").textContent="📝 Registro guardado";})' +
+    '.withFailureHandler(function(){document.getElementById("logStatus").textContent="⚠️ No se pudo guardar el registro";})' +
+    '.registrarEnvioKoboAB(datosParaLog);' +
+    '});' +
     '}' +
     '</script>' +
 
     '</div>'
-  ).setWidth(400).setHeight(520);
+  ).setWidth(400).setHeight(545);
   SpreadsheetApp.getUi().showModalDialog(html, '📋 Datos para Formulario — ' + nombre);
+}
+
+/**
+ * Guarda un registro en "Registro Formulario Kobo" cada vez que se copian
+ * todos los datos desde el panel del formulario. Solo se llama si el usuario
+ * hizo clic en "Copiar todos los datos".
+ */
+function registrarEnvioKoboAB(datos) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let hoja = ss.getSheetByName('Registro Formulario Kobo');
+
+  if (!hoja) {
+    hoja = ss.insertSheet('Registro Formulario Kobo');
+    const headers = [
+      'Fecha y Hora', 'Usuario', 'Creamos ID', 'Nombre Completo',
+      'Programa', 'Responsable', 'Teléfono', 'DPI / CUI',
+      'Zona', 'Nivel Educativo'
+    ];
+    hoja.getRange(1, 1, 1, headers.length).setValues([headers])
+      .setBackground('#1565c0').setFontColor('white').setFontWeight('bold');
+    hoja.setFrozenRows(1);
+    [180, 160, 130, 200, 140, 120, 100, 120, 100, 160].forEach((w, i) => hoja.setColumnWidth(i + 1, w));
+  }
+
+  hoja.appendRow([
+    new Date(),
+    Session.getActiveUser().getEmail() || '—',
+    datos['Creamos ID']      || '',
+    datos['Nombre completo'] || '',
+    datos['Programa']        || '',
+    datos['Responsable']     || '',
+    datos['Teléfono']        || '',
+    datos['DPI / CUI']       || '',
+    datos['Zona residencia'] || '',
+    datos['Nivel educativo'] || ''
+  ]);
 }
 
 /**
