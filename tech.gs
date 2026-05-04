@@ -166,6 +166,13 @@ const CONFIG_TECH = {
   // URL de KoboToolbox para importar Estipendios
   KOBO_ESTIPENDIOS_URL: 'https://kf.kobotoolbox.org/api/v2/assets/ay7MxyzvXBGGakXG7jkAE3/export-settings/esS6RKmzxXxn3qK87Jwxgrt/data.csv',
 
+  // URL Enketo del formulario de referidos (para pre-llenado)
+  KOBO_FORMULARIO_URL: 'https://ee.kobotoolbox.org/x/LHmyWvLj',
+  // Raíz XForm del formulario (ajustar si el pre-llenado no funciona)
+  KOBO_FORM_ROOT: 'data',
+  // Programa que se enviará como origen en el formulario
+  PROGRAMA_NOMBRE: 'Tecnología',
+
   // Token de Kobo para autenticación
   KOBO_TOKEN: '64cc018b88067397addd36b09288be8b6539cf39',
 
@@ -2219,17 +2226,58 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
  */
 function abrirFormularioKobo(sheet, fila, columna) {
   sheet.getRange(fila, columna).setValue('');
+
+  // Leer datos de la fila actual
+  const colMap = obtenerMapaColumnas(sheet);
+  const datos = sheet.getRange(fila, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const getVal = (nombre) => {
+    const norm = nombre.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const idx = colMap[norm];
+    const v = idx !== undefined ? datos[idx] : '';
+    return (v === null || v === undefined) ? '' : v.toString().trim();
+  };
+
+  // Mapeo de campos Entrevistas → XPath del formulario Kobo
+  const root = CONFIG_TECH.KOBO_FORM_ROOT;
+  const programa = CONFIG_TECH.PROGRAMA_NOMBRE;
+  const campos = [
+    ['info_programa/prog_origen',       programa],
+    ['info_programa/responsable_ref',   getVal('Entrevistador')],
+    ['info_referido/es_participante',   getVal('Creamos ID') ? 'si' : ''],
+    ['info_referido/creamos_id',        getVal('Creamos ID')],
+    ['info_referido/nombre_completo',   getVal('Nombre Completo')],
+    ['info_referido/dpi_cui',           getVal('DPI')],
+    ['info_referido/edad',              getVal('Edad')],
+    ['info_referido/genero',            getVal('Género')],
+    ['info_referido/telefono',          getVal('Teléfono')],
+    ['info_referido/zona_residencia',   getVal('Zona')],
+    ['info_referido/prog_destino',      programa],
+    ['sec_educacion/ultimo_nivel_ed',   getVal('Nivel Educativo')]
+  ];
+
+  // Construir URL con parámetros Enketo d[/root/grupo/campo]=valor
+  const params = campos
+    .filter(([, v]) => v !== '')
+    .map(([campo, val]) => encodeURIComponent('d[/' + root + '/' + campo + ']') + '=' + encodeURIComponent(val))
+    .join('&');
+
+  const urlFinal = CONFIG_TECH.KOBO_FORMULARIO_URL + (params ? '?' + params : '');
+  const nombre = getVal('Nombre Completo') || 'esta persona';
+
   const html = HtmlService.createHtmlOutput(
-    '<div style="padding:24px;font-family:Arial,sans-serif;text-align:center;">' +
-    '<h3 style="color:#1565c0;margin-top:0;">🔗 Formulario de Entrevista</h3>' +
-    '<p style="color:#555;margin-bottom:20px;">Haz clic para abrir el formulario:</p>' +
-    '<a href="https://ee.kobotoolbox.org/x/LHmyWvLj" target="_blank" ' +
-    'style="display:inline-block;background:#2196f3;color:white;padding:14px 28px;' +
-    'text-decoration:none;border-radius:8px;font-size:16px;font-weight:bold;">' +
-    '🔗 Abrir Formulario</a>' +
+    '<div style="padding:20px;font-family:Arial,sans-serif;text-align:center;">' +
+    '<h3 style="color:#1565c0;margin-top:0;">🔗 Formulario de Referidos</h3>' +
+    '<p style="color:#555;font-size:13px;margin-bottom:4px;">Se pre-llenará con datos de:</p>' +
+    '<p style="color:#1565c0;font-weight:bold;font-size:15px;margin:4px 0 16px;">' + nombre + '</p>' +
+    '<a href="' + urlFinal + '" target="_blank" ' +
+    'style="display:inline-block;background:#1976d2;color:white;padding:14px 28px;' +
+    'text-decoration:none;border-radius:8px;font-size:15px;font-weight:bold;">' +
+    '🔗 Abrir Formulario Pre-llenado</a>' +
+    '<p style="color:#9e9e9e;font-size:11px;margin-top:14px;">' +
+    'Programa: ' + programa + ' · Responsable: ' + (getVal('Entrevistador') || '—') + '</p>' +
     '</div>'
-  ).setWidth(320).setHeight(180);
-  SpreadsheetApp.getUi().showModalDialog(html, '🔗 Formulario Kobo');
+  ).setWidth(360).setHeight(220);
+  SpreadsheetApp.getUi().showModalDialog(html, '🔗 Formulario Kobo Pre-llenado');
 }
 
 /**
