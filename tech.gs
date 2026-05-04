@@ -4,7 +4,7 @@
  * =====================================================================
  *
  * FLUJO SIMPLIFICADO:
- * 1. Hoja de Interés: Estado → "Entrevista agendada" o "No interesado"
+ * 1. Hoja de Interés: Estado → "Entrevista realizada" o "No interesado"
  * 2. Entrevistas: Final → "Aprobada" (→ Inscritx) / "No aprobada" (→ No Inscritx)
  * 3. Inscritx: "Enviar a Cohorte" → envía a la hoja individual
  * 4. Cohortes: Estado "Finalizada" → pregunta si graduar a todas
@@ -178,7 +178,11 @@ const CONFIG_TECH = {
   KOBO_TOKEN: '64cc018b88067397addd36b09288be8b6539cf39',
 
   // Email para alertas de estipendios
-  EMAIL_ALERTAS_ESTIPENDIOS: 'adrian@example.com'  // ⚠️ CAMBIAR POR TU EMAIL REAL
+  EMAIL_ALERTAS_ESTIPENDIOS: 'adrian@example.com',  // ⚠️ CAMBIAR POR TU EMAIL REAL
+
+  // ID del Google Sheets de Alimentos y Bebidas (para traslados entre programas)
+  // Se encuentra en la URL: docs.google.com/spreadsheets/d/[ESTE_ID]/edit
+  ID_SPREADSHEET_AB: ''  // ⚠️ PEGAR EL ID DEL SPREADSHEET DE ALIMENTOS Y BEBIDAS
 };
 
 // =====================================================================
@@ -251,6 +255,7 @@ function setupMenuTech() {
       .addSubMenu(ui.createMenu('⚙️ Configuración')
         .addItem('✅ Instalar Sistema', 'instalarSistemaCompletoTech')
         .addItem('🆕 Activar Mejoras Entrevistas', 'activarMejorasEntrevistasTech')
+        .addItem('🔄 Activar Traslados entre Programas', 'activarTrasladosTech')
         .addSeparator()
         .addItem('🔗 URL Kobo Registros', 'configurarKoboURL')
         .addItem('🔗 URL Kobo Entrevistas', 'configurarKoboEntrevistasURL')
@@ -1089,7 +1094,8 @@ function crearHojaInscritx() {
     'Notas',            // J
     'Estado',                   // K - Automático "Inscritx"
     'Enviar a Cohorte',         // L - Desplegable dinámico (última columna - trigger)
-    'Fecha envío a Inscritx'    // M - Fecha automática para reportes mensuales
+    'Fecha envío a Inscritx',   // M - Fecha automática para reportes mensuales
+    'Trasladar a A y B'         // N - Traslado a programa de Alimentos y Bebidas
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -1098,7 +1104,7 @@ function crearHojaInscritx() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [50, 100, 130, 200, 120, 60, 120, 150, 120, 250, 120, 180].forEach((w, i) => {
+  [50, 100, 130, 200, 120, 60, 120, 150, 120, 250, 120, 180, 100, 180].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -1106,6 +1112,7 @@ function crearHojaInscritx() {
   sheet.getRange('K1').setBackground('#ffd54f'); // Estado en amarillo
   sheet.getRange('L1').setBackground('#4caf50');  // Enviar a Cohorte en verde
   sheet.getRange('M1').setBackground('#90caf9');  // Fecha envío a Inscritx
+  sheet.getRange('N1').setBackground('#ffcc80');  // Trasladar a A y B en naranja
 }
 
 /**
@@ -1523,7 +1530,7 @@ function configurarValidaciones() {
   const responsables = obtenerResponsablesActuales();
 
   // === HOJA DE INTERÉS ===
-  // Estado: solo "Entrevista agendada" y "No interesado"
+  // Estado: solo "Entrevista realizada" y "No interesado"
   const interes = ss.getSheetByName('Hoja de Interés');
   if (interes) {
     // Limpiar validaciones de datos de Kobo
@@ -1541,7 +1548,7 @@ function configurarValidaciones() {
     // Estado (columna P) - SOLO DOS OPCIONES
     interes.getRange('P2:P500').setDataValidation(
       SpreadsheetApp.newDataValidation()
-        .requireValueInList(['Entrevista agendada', 'No interesado'])
+        .requireValueInList(['Entrevista realizada', 'No interesado'])
         .setAllowInvalid(false)
         .build()
     );
@@ -1607,6 +1614,10 @@ function configurarValidaciones() {
         SpreadsheetApp.newDataValidation().requireValueInList(cohortes).setAllowInvalid(false).build()
       );
     }
+    // Trasladar a A y B (N)
+    seleccionadas.getRange('N2:N500').setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(['Sí, trasladar a A y B']).setAllowInvalid(false).build()
+    );
   }
 
   // === HOJA DE GRADUADAS ===
@@ -1834,7 +1845,7 @@ function alEditarTech(e) {
   if (val === '') return;
 
   // === HOJA DE INTERÉS ===
-  // Estado está en columna P (16) - solo "Entrevista agendada" o "No interesado"
+  // Estado está en columna P (16) - solo "Entrevista realizada" o "No interesado"
   // ¿Tiene Hoja de Interés? está en columna Q (17) - Sí/No con marcado de color
   if (hoja === 'Hoja de Interés') {
     // Autocompletar cuando editan DPI (col D=4) o Nombre (col E=5)
@@ -1867,10 +1878,14 @@ function alEditarTech(e) {
 
   // === SELECCIONADAS ===
   // "Enviar a Cohorte" está en columna K (11) - al seleccionar cohorte se envía
+  // "Trasladar a A y B" está en columna N (14)
   if (hoja === 'Inscritx') {
     // Enviar a Cohorte está en columna L (12)
     if (columna === 12 && val !== '') {
       procesarEnvioACohorte(sheet, fila, val);
+    }
+    if (columna === 14 && val === 'Sí, trasladar a A y B') {
+      trasladarPersonaAAyB(sheet, fila);
     }
   }
 
@@ -1938,7 +1953,7 @@ function alEditarTech(e) {
 /**
  * Procesa cambio de estado en Hoja de Interés
  * - "No interesado" → Copia a No Inscritx (conserva registro en Hoja de Interés)
- * - "Entrevista agendada" → Copia a Entrevistas (conserva registro en Hoja de Interés)
+ * - "Entrevista realizada" → Copia a Entrevistas (conserva registro en Hoja de Interés)
  */
 function procesarCambioEstadoInteres(sheet, fila, estado) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -2009,7 +2024,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#ffe0b2');
     ss.toast('Registrado en No Inscritx', 'Hoja de Interés', 3);
   } 
-  else if (estado === 'Entrevista agendada') {
+  else if (estado === 'Entrevista realizada') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
     const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, ['C', 'E']);  // Columnas C=CreamosID y E=Nombre (evita sobrescritura en ambos casos)
@@ -2850,6 +2865,105 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
     // UNLOCK: Siempre liberar el lock
     lock.releaseLock();
   }
+}
+
+/**
+ * Traslada una persona de Inscritx (Tecnología) a la Hoja de Interés de Alimentos y Bebidas.
+ * Requiere configurar CONFIG_TECH.ID_SPREADSHEET_AB con el ID del otro Sheets.
+ */
+function trasladarPersonaAAyB(sheet, fila) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const colN = 14; // columna N = "Trasladar a A y B"
+
+  const idDestino = CONFIG_TECH.ID_SPREADSHEET_AB;
+  if (!idDestino || idDestino.trim() === '') {
+    ui.alert(
+      '⚠️ No configurado',
+      'Para usar traslados, abre el script de Tecnología y\n' +
+      'coloca el ID del Sheets de Alimentos y Bebidas en:\n\n' +
+      'CONFIG_TECH.ID_SPREADSHEET_AB\n\n' +
+      'El ID está en la URL del otro Sheets:\n' +
+      'docs.google.com/spreadsheets/d/[ESTE_ID]/edit',
+      ui.ButtonSet.OK
+    );
+    sheet.getRange(fila, colN).setValue('');
+    return;
+  }
+
+  const colMap = obtenerMapaColumnas(sheet);
+  const maxCol = sheet.getLastColumn();
+  const datos = sheet.getRange(fila, 1, 1, maxCol).getValues()[0];
+  const getVal = (n) => { const i = colMap[n.toLowerCase()]; return i !== undefined ? datos[i] : ''; };
+
+  const nombre = getVal('Nombre Completo');
+  if (!nombre || nombre.toString().trim() === '') {
+    ui.alert('⚠️ Error', 'Esta fila no tiene nombre. No se puede trasladar.', ui.ButtonSet.OK);
+    sheet.getRange(fila, colN).setValue('');
+    return;
+  }
+
+  const resp = ui.alert(
+    '🔄 Confirmar traslado',
+    '¿Trasladar a ' + nombre + ' al programa de Alimentos y Bebidas?\n\n' +
+    'Se agregará en la Hoja de Interés de A y B como nuevo registro.',
+    ui.ButtonSet.YES_NO
+  );
+  if (resp !== ui.Button.YES) {
+    sheet.getRange(fila, colN).setValue('');
+    return;
+  }
+
+  let ssDest;
+  try {
+    ssDest = SpreadsheetApp.openById(idDestino.trim());
+  } catch (e) {
+    ui.alert('⚠️ Error al abrir A y B', 'No se pudo abrir el Sheets de Alimentos y Bebidas.\nVerifica el ID en CONFIG_TECH.ID_SPREADSHEET_AB.\n\nError: ' + e.message, ui.ButtonSet.OK);
+    sheet.getRange(fila, colN).setValue('');
+    return;
+  }
+
+  const hojaDestino = ssDest.getSheetByName('Hoja de Interés');
+  if (!hojaDestino) {
+    ui.alert('⚠️ Error', 'No se encontró la hoja "Hoja de Interés" en el Sheets de Alimentos y Bebidas.', ui.ButtonSet.OK);
+    sheet.getRange(fila, colN).setValue('');
+    return;
+  }
+
+  const colMapDest = obtenerMapaColumnas(hojaDestino);
+  const numColsDest = hojaDestino.getLastColumn();
+  const nuevaFila = hojaDestino.getLastRow() + 1;
+  const registro = new Array(numColsDest).fill('');
+
+  const mapping = {
+    'Creamos ID':      getVal('Creamos ID'),
+    'DPI':             getVal('DPI'),
+    'Nombre Completo': nombre,
+    'Género':          getVal('Género'),
+    'Edad':            getVal('Edad'),
+    'Teléfono':        getVal('Teléfono'),
+    'Nivel Educativo': getVal('Nivel Educativo'),
+    'Zona':            getVal('Zona'),
+    'Notas':           'Trasladado desde Tecnología el ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy')
+  };
+
+  for (const [header, valor] of Object.entries(mapping)) {
+    const norm = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const idx = colMapDest[norm];
+    if (idx !== undefined) registro[idx] = valor;
+  }
+
+  try {
+    hojaDestino.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
+    SpreadsheetApp.flush();
+  } catch (e) {
+    ui.alert('⚠️ Error al guardar', 'No se pudo escribir en la Hoja de Interés de A y B.\n\nError: ' + e.message, ui.ButtonSet.OK);
+    sheet.getRange(fila, colN).setValue('');
+    return;
+  }
+
+  sheet.getRange(fila, colN).setValue('✅ Trasladado');
+  ss.toast('✅ ' + nombre + ' trasladado a Alimentos y Bebidas', 'Traslado completado', 4);
 }
 
 /**
@@ -4059,7 +4173,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       // Restaurar dropdown de Estado (columna P) para esta fila
       hojaInteres.getRange(nuevaFila, 16).setDataValidation(
         SpreadsheetApp.newDataValidation()
-          .requireValueInList(['Entrevista agendada', 'No interesado'])
+          .requireValueInList(['Entrevista realizada', 'No interesado'])
           .setAllowInvalid(false)
           .build()
       );
@@ -7643,7 +7757,7 @@ function crearDatosPrueba() {
 
   const interes = ss.getSheetByName('Hoja de Interés');
   // Orden: Fecha, No, CreamosID, DPI, Nombre, Género, Edad, Teléfono, NivelEducativo, Zona, ComoSeEntero, Responsable, Notas, DeseaInscribirse, ServicioFormacion, Estado
-  // Estado vacío para que usuario elija "Entrevista agendada" o "No interesado"
+  // Estado vacío para que usuario elija "Entrevista realizada" o "No interesado"
   const datosPrueba = [
     ['', '', 'CR001', '1234567890101', 'María García', 'Mujer / Femenino', '22', '5555-1234', 'Diversificado completo', 'Zona 1', 'Redes', 'Adrian Torres', '', '', '', ''],
     ['', '', 'CR002', '2345678901212', 'Ana Martínez', 'Mujer / Femenino', '25', '5555-5678', 'Universitario', 'Zona 7', 'Referido', 'Paola Ortiz', '', '', '', ''],
@@ -8791,6 +8905,54 @@ function activarMejorasEntrevistasTech() {
     '• "Derivar a Paso a Paso" → copia la fila\n' +
     '• "🔗 Abrir Formulario" → abre el formulario Kobo',
     SpreadsheetApp.getUi().ButtonSet.OK
+  );
+}
+
+/**
+ * Agrega la columna "Trasladar a A y B" (col N) a la hoja Inscritx existente
+ * y configura el dropdown. Ejecutar una sola vez desde el menú Configuración.
+ */
+function activarTrasladosTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const inscritx = ss.getSheetByName('Inscritx');
+  if (!inscritx) {
+    ui.alert('⚠️ Error', 'No se encontró la hoja "Inscritx".', ui.ButtonSet.OK);
+    return;
+  }
+
+  const headers = inscritx.getRange(1, 1, 1, inscritx.getLastColumn()).getValues()[0];
+  const colTrasladar = headers.indexOf('Trasladar a A y B') + 1;
+
+  if (colTrasladar > 0) {
+    ui.alert('ℹ️ Ya activado', 'La columna "Trasladar a A y B" ya existe en Inscritx.', ui.ButtonSet.OK);
+    return;
+  }
+
+  const nuevaCol = inscritx.getLastColumn() + 1;
+  inscritx.getRange(1, nuevaCol).setValue('Trasladar a A y B')
+    .setBackground('#ffcc80')
+    .setFontColor('white')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+  inscritx.setColumnWidth(nuevaCol, 180);
+  inscritx.getRange(2, nuevaCol, 499).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Sí, trasladar a A y B'])
+      .setAllowInvalid(false)
+      .build()
+  );
+
+  ui.alert(
+    '✅ Traslados activados',
+    '✓ Columna "Trasladar a A y B" agregada en Inscritx\n\n' +
+    '⚠️ PASO SIGUIENTE:\n' +
+    'Abre el script (Extensiones → Apps Script) y en CONFIG_TECH\n' +
+    'coloca el ID del Google Sheets de Alimentos y Bebidas:\n\n' +
+    'ID_SPREADSHEET_AB: "PEGAR_ID_AQUI"\n\n' +
+    'El ID está en la URL del Sheets de A y B:\n' +
+    'docs.google.com/spreadsheets/d/[ESTE_ID]/edit',
+    ui.ButtonSet.OK
   );
 }
 
@@ -11983,10 +12145,10 @@ function desactivarTriggersEstipendios() {
 
 /**
  * Procesa todas las filas pendientes de "Hoja de Interés" que tienen estado
- * "Entrevista agendada" pero que aún no se copiaron a "Entrevistas"
+ * "Entrevista realizada" pero que aún no se copiaron a "Entrevistas"
  *
  * Esta función es útil cuando hay muchos registros que se marcaron como
- * "Entrevista agendada" pero el proceso automático no los completó todos
+ * "Entrevista realizada" pero el proceso automático no los completó todos
  * (por ejemplo, cuando se editan muchas celdas a la vez).
  */
 function procesarFilasPendientesAEntrevistas() {
@@ -11997,7 +12159,7 @@ function procesarFilasPendientesAEntrevistas() {
   const respuesta = ui.alert(
     '🔄 Procesar Filas Pendientes',
     'Esta función procesará todas las filas de "Hoja de Interés" que tienen estado ' +
-    '"Entrevista agendada" pero que aún no están en "Entrevistas".\n\n' +
+    '"Entrevista realizada" pero que aún no están en "Entrevistas".\n\n' +
     '¿Deseas continuar?',
     ui.ButtonSet.YES_NO
   );
@@ -12050,7 +12212,7 @@ function procesarFilasPendientesAEntrevistas() {
     const estado = datosInteres[i][idxEstado];
     const creamosId = datosInteres[i][idxCreamosId];
 
-    if (estado && estado.toString().trim() === 'Entrevista agendada' &&
+    if (estado && estado.toString().trim() === 'Entrevista realizada' &&
         creamosId && creamosId.toString().trim() !== '' &&
         !creamosIDsEnEntrevistas.has(creamosId.toString().trim())) {
       filasPendientes.push({
@@ -12063,7 +12225,7 @@ function procesarFilasPendientesAEntrevistas() {
 
   if (filasPendientes.length === 0) {
     ss.toast('✅ No hay filas pendientes', 'Completado', 5);
-    ui.alert('✅ No se encontraron filas pendientes.\n\nTodas las filas con estado "Entrevista agendada" ya están en "Entrevistas".');
+    ui.alert('✅ No se encontraron filas pendientes.\n\nTodas las filas con estado "Entrevista realizada" ya están en "Entrevistas".');
     return;
   }
 
