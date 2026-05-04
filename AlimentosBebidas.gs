@@ -140,7 +140,9 @@ const CONFIG_AB = {
     'Aprobada',
     'No aprobada',
     'No asistió',
-    'Reprogramada'
+    'Reprogramada',
+    'Próxima cohorte Barismo',
+    'Próxima cohorte Gastronomía'
   ],
 
   // Estados de cohorte
@@ -218,6 +220,7 @@ function setupMenuAB() {
       .addSubMenu(ui.createMenu('📊 Reportes')
         .addItem('🚀 Instalar Todo Lo Nuevo', 'instalarTodoLoNuevoAB')
         .addItem('✨ Mejorar Reportes', 'mejorarYRepararReportesAB')
+        .addItem('🔄 Reiniciar Mes Actual en Reporte', 'reiniciarMesEnReporteAB')
         .addItem('📊 Guardar Mensual (Manual)', 'guardarReporteMensualAutomaticoAB')
         .addItem('📅 Generar Mes Anterior...', 'generarReporteMensualPorMesAB')
         .addItem('💾 PowerBI Export', 'crearHojaPowerBIExportAB')
@@ -1738,21 +1741,30 @@ function guardarResponsables(responsables) {
 function aplicarFormatos() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Formato para Entrevistas - Estado (columna I)
+  // Formato para Entrevistas - Estado (columna dinámica)
   const entrevistas = ss.getSheetByName('Entrevistas');
   if (entrevistas) {
-    const rangoEstadoEnt = entrevistas.getRange('I2:I500');
+    const headersEnt2 = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+    const colEstadoEnt = headersEnt2.indexOf('Estado') + 1;
+    const colLetra = colEstadoEnt > 0
+      ? String.fromCharCode(64 + colEstadoEnt)
+      : 'N'; // fallback columna N
+    const rangoEstadoEnt = entrevistas.getRange(colLetra + '2:' + colLetra + '500');
 
     const reglaAprobada = SpreadsheetApp.newConditionalFormatRule()
-      .whenTextContains('Aprobada').setBackground('#c8e6c9').setRanges([rangoEstadoEnt]).build();
+      .whenTextEqualTo('Aprobada').setBackground('#c8e6c9').setRanges([rangoEstadoEnt]).build();
     const reglaPendiente = SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('Pendiente').setBackground('#fff9c4').setRanges([rangoEstadoEnt]).build();
     const reglaNoAprobada = SpreadsheetApp.newConditionalFormatRule()
       .whenTextContains('No aprobada').setBackground('#ffcdd2').setRanges([rangoEstadoEnt]).build();
     const reglaNoAsistio = SpreadsheetApp.newConditionalFormatRule()
       .whenTextContains('No asistió').setBackground('#ffcdd2').setRanges([rangoEstadoEnt]).build();
+    const reglaBarismo = SpreadsheetApp.newConditionalFormatRule()
+      .whenTextContains('Próxima cohorte Barismo').setBackground('#bbdefb').setRanges([rangoEstadoEnt]).build();
+    const reglaGastronomia = SpreadsheetApp.newConditionalFormatRule()
+      .whenTextContains('Próxima cohorte Gastronomía').setBackground('#dcedc8').setRanges([rangoEstadoEnt]).build();
 
-    entrevistas.setConditionalFormatRules([reglaAprobada, reglaPendiente, reglaNoAprobada, reglaNoAsistio]);
+    entrevistas.setConditionalFormatRules([reglaAprobada, reglaPendiente, reglaNoAprobada, reglaNoAsistio, reglaBarismo, reglaGastronomia]);
   }
 
   // Formato condicional para Cohortes - Cupo lleno (Inscritas >= Cupo Máximo)
@@ -2024,6 +2036,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
  * - "Aprobada" → Mueve a Inscritx
  * - "No aprobada" / "No asistió" → Mueve a No Inscritx
  * - "Reprogramada" → No hace nada
+ * - "Próxima cohorte Barismo" / "Próxima cohorte Gastronomía" → Mueve a Inscritx con nota
  */
 function procesarResultadoEntrevista(sheet, fila, resultado) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -2036,7 +2049,10 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
   // Buscar Creamos ID de forma flexible
   const creamosId = datos[colMapEntrevistas['creamosid']] || datos[colMapEntrevistas['creamos id']];
 
-  if (resultado === 'Aprobada') {
+  // "Próxima cohorte Barismo/Gastronomía" → igual que Aprobada pero con nota de programa
+  const esProximaCohorte = resultado === 'Próxima cohorte Barismo' || resultado === 'Próxima cohorte Gastronomía';
+
+  if (resultado === 'Aprobada' || esProximaCohorte) {
     const interes = ss.getSheetByName('Hoja de Interés');
     const busqueda = creamosId ? buscarPorCreamosID(interes, creamosId) : null;
     const filaInteres = busqueda ? busqueda.fila : null;
@@ -2075,9 +2091,17 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       return val;
     };
 
-    Logger.log('>>>> TRASLADO DESDE ENTREVISTAS (Aprobada): ' + getVal('Nombre Completo') + ' (' + creamosId + ')');
+    Logger.log('>>>> TRASLADO DESDE ENTREVISTAS (' + resultado + '): ' + getVal('Nombre Completo') + ' (' + creamosId + ')');
     Logger.log('     Nivel Educativo: ' + getVal('Nivel Educativo'));
     Logger.log('     Zona: ' + getVal('Zona'));
+
+    // Para "Próxima cohorte" se agrega nota del programa en Notas
+    const notaBase = getVal('Observaciones');
+    let notaFinal = notaBase;
+    if (esProximaCohorte) {
+      const etiqueta = resultado === 'Próxima cohorte Barismo' ? '[Próxima cohorte Barismo]' : '[Próxima cohorte Gastronomía]';
+      notaFinal = notaBase ? etiqueta + ' ' + notaBase : etiqueta;
+    }
 
     // Mapeo dinámico robusto Entrevistas → Inscritx
     const mapping = {
@@ -2090,7 +2114,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       'Teléfono': getVal('Teléfono'),
       'Nivel Educativo': getVal('Nivel Educativo'),
       'Zona': getVal('Zona'),
-      'Notas': getVal('Observaciones'),
+      'Notas': notaFinal,
       'Estado': 'Inscritx'
     };
 
@@ -2128,7 +2152,10 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     }
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#c8e6c9');
 
-    ss.toast('✅ Aprobada - copiada a Inscritx. (Mapeo Robusto V2.5)', 'Entrevista', 4);
+    const toastMsg = esProximaCohorte
+      ? '✅ ' + resultado + ' — copiada a Inscritx con nota de programa.'
+      : '✅ Aprobada - copiada a Inscritx. (Mapeo Robusto V2.5)';
+    ss.toast(toastMsg, 'Entrevista', 4);
     return;
   }
 
@@ -6759,7 +6786,8 @@ function redisenarReporteAB() {
   [200, 130, 130, 130, 130, 130].forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 
   // ── Fórmulas base ─────────────────────────────────────────────────────────
-  if (!sheet.getRange('Z1').getValue()) sheet.getRange('Z1').setValue(new Date());
+  // Z1 siempre = mes actual (se auto-actualiza cada mes)
+  sheet.getRange('Z1').setFormula('=TODAY()');
   sheet.getRange('Z1').setNumberFormat('dd/mm/yyyy');
   sheet.hideColumns(26);
   const monthStart = '">="&DATE(YEAR($Z$1),MONTH($Z$1),1)';
@@ -7070,6 +7098,30 @@ function instalarTriggersReportesMensualesAB() {
     '💾 PowerBI Export se regenera a las 8:05 AM\n\n' +
     'Ya no necesitas hacer nada manualmente.',
     ui.ButtonSet.OK);
+}
+
+/**
+ * Reinicia el mes de referencia del Reporte al mes actual.
+ * Útil cuando el reporte quedó fijado en un mes anterior.
+ * Se puede ejecutar desde el menú: Reportes → Reiniciar Mes Actual en Reporte
+ */
+function reiniciarMesEnReporteAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const reporte = ss.getSheetByName('Reporte');
+  if (!reporte) {
+    SpreadsheetApp.getUi().alert('⚠️ No se encontró la hoja "Reporte". Ejecuta primero "Mejorar Reportes".');
+    return;
+  }
+  reporte.getRange('Z1').setFormula('=TODAY()');
+  SpreadsheetApp.flush();
+  const mesActual = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
+  ss.toast('✅ Reporte reiniciado al mes actual: ' + mesActual, 'Reporte', 4);
+  SpreadsheetApp.getUi().alert(
+    '✅ Reporte reiniciado',
+    'Ahora el reporte muestra los datos de: ' + mesActual + '\n\n' +
+    'El reporte se actualizará automáticamente cada mes.',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
 }
 
 /**
@@ -8699,7 +8751,7 @@ function activarMejorasEntrevistasAB() {
     const headers = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
     const colEstado = headers.indexOf('Estado') + 1; // 1-based, 0 si no existe
     if (colEstado > 0) {
-      const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Derivar a Paso a Paso', '🔗 Abrir Formulario'];
+      const estadoOpciones = ['Aprobada', 'No aprobada', 'No asistió', 'Reprogramada', 'Próxima cohorte Barismo', 'Próxima cohorte Gastronomía', 'Derivar a Paso a Paso', '🔗 Abrir Formulario'];
       entrevistas.getRange(2, colEstado, 499).setDataValidation(
         SpreadsheetApp.newDataValidation()
           .requireValueInList(estadoOpciones)
