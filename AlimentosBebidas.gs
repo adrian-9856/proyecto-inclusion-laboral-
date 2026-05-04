@@ -182,7 +182,7 @@ const CONFIG_AB = {
 
   // ID del Google Sheets de Tecnología (para traslados entre programas)
   // Se encuentra en la URL: docs.google.com/spreadsheets/d/[ESTE_ID]/edit
-  ID_SPREADSHEET_TECH: ''  // ⚠️ PEGAR EL ID DEL SPREADSHEET DE TECNOLOGÍA
+  ID_SPREADSHEET_TECH: '1En60zjrwPTrSMFrLUWr2KgXmH7y3vcopfpQgy6lY3HU'
 };
 
 // =====================================================================

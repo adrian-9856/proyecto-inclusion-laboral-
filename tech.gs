@@ -182,7 +182,7 @@ const CONFIG_TECH = {
 
   // ID del Google Sheets de Alimentos y Bebidas (para traslados entre programas)
   // Se encuentra en la URL: docs.google.com/spreadsheets/d/[ESTE_ID]/edit
-  ID_SPREADSHEET_AB: ''  // ⚠️ PEGAR EL ID DEL SPREADSHEET DE ALIMENTOS Y BEBIDAS
+  ID_SPREADSHEET_AB: '1Ay1z3HdFHTzSjq7891sQVuEpIXBA8g9XGibjI-wFklc'
 };
 
 // =====================================================================
