@@ -2136,7 +2136,16 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
   // Buscar Creamos ID de forma flexible
   const creamosId = datos[colMapEntrevistas['creamosid']] || datos[colMapEntrevistas['creamos id']];
 
-  // "Próxima cohorte Programación/Alfa Digital" → igual que Aprobada pero con nota de programa
+  // Helper disponible para TODOS los bloques de la función
+  const getVal = (nombre) => {
+    const norm = nombre.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const idx = colMapEntrevistas[norm];
+    let val = idx !== undefined ? datos[idx] : '';
+    if (norm === 'niveleducativo') return normalizarNivelEducativo(val);
+    return val;
+  };
+
+  // "Próxima cohorte Programación/Alfa Digital" → igual que Seleccionada/o pero con nota de programa
   const esProximaCohorte = resultado === 'Próxima cohorte Programación' || resultado === 'Próxima cohorte Alfa Digital';
 
   if (resultado === 'Seleccionada/o' || resultado === 'Aprobada' || esProximaCohorte) {
@@ -2166,17 +2175,6 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     // Preparar registro para Inscritx de forma dinámica
     const numColumnasInscritx = seleccionadas.getLastColumn();
     const registroInscritx = new Array(numColumnasInscritx).fill('');
-    
-    // Función helper para obtener valor de Entrevistas de forma robusta
-    const getVal = (nombre) => {
-      const norm = nombre.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const idx = colMapEntrevistas[norm];
-      let val = idx !== undefined ? datos[idx] : '';
-      
-      // Auto-normalizar nivel educativo
-      if (norm === 'niveleducativo') return normalizarNivelEducativo(val);
-      return val;
-    };
 
     Logger.log('>>>> TRASLADO DESDE ENTREVISTAS (' + resultado + ' - tech): ' + getVal('Nombre Completo') + ' (' + creamosId + ')');
     Logger.log('     Nivel Educativo: ' + getVal('Nivel Educativo'));
