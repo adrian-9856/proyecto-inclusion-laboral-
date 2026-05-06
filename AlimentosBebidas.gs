@@ -2017,62 +2017,17 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   Logger.log('     Nivel Educativo encontrado: ' + getVal('Nivel Educativo'));
   Logger.log('     Zona encontrada: ' + getVal('Zona'));
 
-  // "Entrevista agendada" → solo marca color azul claro, no mueve datos
-  if (estado === 'Entrevista agendada') {
-    sheet.getRange(fila, 1, 1, maxCol).setBackground('#e3f2fd');
-    ss.toast('Entrevista agendada ✓', 'Hoja de Interés', 3);
-    return;
-  }
-
-  if (estado === 'No interesada/o' || estado === 'No interesado') {
-    const noInscritx = ss.getSheetByName('No Inscritx');
-    const colMapNoInsc = obtenerMapaColumnas(noInscritx);
-    const nuevaFila = obtenerPrimeraFilaVacia(noInscritx, 'C');
-
-    const numColsNoInsc = noInscritx.getLastColumn();
-    const registro = new Array(numColsNoInsc).fill('');
-    
-    const mapping = {
-      'Fecha': new Date(),
-      'Creamos ID': creamosId,
-      'Nombre Completo': nombreCompleto,
-      'Género': getVal('Género'),
-      'Nivel Educativo': getVal('Nivel Educativo'),
-      'Zona': getVal('Zona'),
-      'Motivo': 'No interesada/o inicial'
-    };
-
-    for (let [header, valor] of Object.entries(mapping)) {
-      const norm = header.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const targetIdx = colMapNoInsc[norm];
-      if (targetIdx !== undefined) registro[targetIdx] = valor;
-    }
-
-    try {
-      noInscritx.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
-      SpreadsheetApp.flush();
-    } catch (e) {
-      Logger.log('⚠️ ERROR CRÍTICO escribiendo en No Inscritx (AB): ' + e.message);
-      SpreadsheetApp.getUi().alert('⚠️ Error al guardar en No Inscritx. Por favor inténtalo nuevamente.\n\nDetalle: ' + e.message);
-      return; // ❌ NO REINTENTAR - puede sobrescribir datos
-    }
-    
-    // Autocompletar robusto
-    autocompletarFilaDesdeDirectorio(noInscritx, nuevaFila, mapearColumnasParaAutocompletar(noInscritx));
-    
-    sheet.getRange(fila, 1, 1, maxCol).setBackground('#ffe0b2');
-    ss.toast('Registrado en No Inscritx', 'Hoja de Interés', 3);
-  } 
-  else if (estado === 'Entrevista realizada') {
+  // "Entrevista agendada" → copia a Entrevistas y marca azul
+  if (estado === 'Entrevista agendada' || estado === 'Entrevista realizada') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
-    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, ['C', 'E']);  // Columnas C=CreamosID y E=Nombre (evita sobrescritura en ambos casos)
+    const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, ['C', 'E']);
 
     const numColsEnt = entrevistas.getLastColumn();
     const registro = new Array(numColsEnt).fill('');
-    
+
     const mapping = {
-      'Fecha Entrevista': new Date(),  // Nombre correcto de columna A en Entrevistas
+      'Fecha Entrevista': new Date(),
       'Creamos ID': creamosId,
       'DPI': getVal('DPI'),
       'Nombre Completo': nombreCompleto,
@@ -2095,14 +2050,57 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     } catch (e) {
       Logger.log('⚠️ ERROR CRÍTICO escribiendo en Entrevistas (AB): ' + e.message);
       SpreadsheetApp.getUi().alert('⚠️ Error al guardar en Entrevistas. Por favor inténtalo nuevamente.\n\nDetalle: ' + e.message);
-      return; // ❌ NO REINTENTAR - puede sobrescribir datos
+      return;
     }
-    
-    // Autocompletar robusto
+
     autocompletarFilaDesdeDirectorio(entrevistas, nuevaFila, mapearColumnasParaAutocompletar(entrevistas));
-    
-    sheet.getRange(fila, 1, 1, maxCol).setBackground('#e8f5e9');
-    ss.toast('Copiada a Entrevistas', 'Hoja de Interés', 3);
+
+    sheet.getRange(fila, 1, 1, maxCol).setBackground('#e3f2fd');
+    ss.toast('✅ Copiada a Entrevistas', 'Hoja de Interés', 4);
+    return;
+  }
+
+  if (estado === 'No interesada/o' || estado === 'No interesado') {
+    const noInscritx = ss.getSheetByName('No Inscritx');
+    const colMapNoInsc = obtenerMapaColumnas(noInscritx);
+    const nuevaFila = obtenerPrimeraFilaVacia(noInscritx, 'C');
+
+    const numColsNoInsc = noInscritx.getLastColumn();
+    const registro = new Array(numColsNoInsc).fill('');
+
+    const mapping = {
+      'Fecha': new Date(),
+      'Creamos ID': creamosId,
+      'Nombre Completo': nombreCompleto,
+      'Género': getVal('Género'),
+      'Edad': getVal('Edad'),
+      'Teléfono': getVal('Teléfono'),
+      'Nivel Educativo': getVal('Nivel Educativo'),
+      'Zona': getVal('Zona'),
+      'Etapa': 'Interés inicial',
+      'Motivo': 'No interesada/o inicial',
+      'Origen': 'Hoja de Interés'
+    };
+
+    for (let [header, valor] of Object.entries(mapping)) {
+      const norm = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const targetIdx = colMapNoInsc[norm];
+      if (targetIdx !== undefined) registro[targetIdx] = valor;
+    }
+
+    try {
+      noInscritx.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
+      SpreadsheetApp.flush();
+    } catch (e) {
+      Logger.log('⚠️ ERROR CRÍTICO escribiendo en No Inscritx (AB): ' + e.message);
+      SpreadsheetApp.getUi().alert('⚠️ Error al guardar en No Inscritx. Por favor inténtalo nuevamente.\n\nDetalle: ' + e.message);
+      return;
+    }
+
+    autocompletarFilaDesdeDirectorio(noInscritx, nuevaFila, mapearColumnasParaAutocompletar(noInscritx));
+
+    sheet.getRange(fila, 1, 1, maxCol).setBackground('#ffe0b2');
+    ss.toast('✅ Registrada/o en No Inscritx', 'Hoja de Interés', 4);
   }
 }
 
