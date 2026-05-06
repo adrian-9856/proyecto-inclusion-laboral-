@@ -13144,20 +13144,25 @@ function actualizarTodoTech() {
   );
   if (confirmar !== ui.Button.YES) return;
 
-  // ── Paso 0: Instalar trigger (CRÍTICO — sin esto nada funciona) ───────
+  // ── Paso 0: Limpiar triggers viejos e instalar el correcto ────────────
   ss.toast('Paso 0/3: Verificando trigger...', 'Actualizando', 15);
   try {
     const triggers = ScriptApp.getProjectTriggers();
-    const yaInstalado = triggers.some(t => t.getHandlerFunction() === 'alEditarTech');
-    if (!yaInstalado) {
-      triggers.forEach(t => {
-        if (t.getHandlerFunction() === 'alEditarTech') ScriptApp.deleteTrigger(t);
-      });
-      ScriptApp.newTrigger('alEditarTech').forSpreadsheet(ss).onEdit().create();
-      log.push('✓ Trigger alEditarTech instalado (era necesario)');
-    } else {
-      log.push('ℹ Trigger alEditarTech ya estaba instalado');
+    let borrados = [];
+    // Borrar triggers obsoletos: 'alEditar' (nombre viejo) y duplicados de 'alEditarTech'
+    triggers.forEach(t => {
+      const fn = t.getHandlerFunction();
+      if (fn === 'alEditar' || fn === 'alEditarTech') {
+        ScriptApp.deleteTrigger(t);
+        borrados.push(fn);
+      }
+    });
+    // Instalar trigger correcto limpio
+    ScriptApp.newTrigger('alEditarTech').forSpreadsheet(ss).onEdit().create();
+    if (borrados.length > 0) {
+      log.push('✓ Triggers obsoletos eliminados: ' + borrados.join(', '));
     }
+    log.push('✓ Trigger alEditarTech instalado correctamente');
   } catch(e) { errores.push('✗ Error instalando trigger: ' + e.message + ' — Ve a Extensiones → Apps Script → Triggers e instala manualmente alEditarTech'); }
 
   // ── Paso 1: Reparar columnas ──────────────────────────────────────────

@@ -13070,20 +13070,25 @@ function actualizarTodoAB() {
   );
   if (confirmar !== ui.Button.YES) return;
 
-  // ── Paso 0: Instalar trigger (CRÍTICO — sin esto nada funciona) ───────
+  // ── Paso 0: Limpiar triggers viejos e instalar el correcto ────────────
   ss.toast('Paso 0/3: Verificando trigger...', 'Actualizando', 15);
   try {
     const triggers = ScriptApp.getProjectTriggers();
-    const yaInstalado = triggers.some(t => t.getHandlerFunction() === 'alEditarAB');
-    if (!yaInstalado) {
-      triggers.forEach(t => {
-        if (t.getHandlerFunction() === 'alEditarAB') ScriptApp.deleteTrigger(t);
-      });
-      ScriptApp.newTrigger('alEditarAB').forSpreadsheet(ss).onEdit().create();
-      log.push('✓ Trigger alEditarAB instalado (era necesario)');
-    } else {
-      log.push('ℹ Trigger alEditarAB ya estaba instalado');
+    let borrados = [];
+    // Borrar triggers obsoletos: 'alEditar' (nombre viejo) y duplicados de 'alEditarAB'
+    triggers.forEach(t => {
+      const fn = t.getHandlerFunction();
+      if (fn === 'alEditar' || fn === 'alEditarAB') {
+        ScriptApp.deleteTrigger(t);
+        borrados.push(fn);
+      }
+    });
+    // Instalar trigger correcto limpio
+    ScriptApp.newTrigger('alEditarAB').forSpreadsheet(ss).onEdit().create();
+    if (borrados.length > 0) {
+      log.push('✓ Triggers obsoletos eliminados: ' + borrados.join(', '));
     }
+    log.push('✓ Trigger alEditarAB instalado correctamente');
   } catch(e) { errores.push('✗ Error instalando trigger: ' + e.message + ' — Ve a Extensiones → Apps Script → Triggers e instala manualmente alEditarAB'); }
 
   // ── Paso 1: Reparar columnas ──────────────────────────────────────────
