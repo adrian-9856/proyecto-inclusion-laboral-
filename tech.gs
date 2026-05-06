@@ -1898,25 +1898,25 @@ function alEditarTech(e) {
   }
 
   // === COHORTES ===
-  // Estado está en columna N (14) - "Finalizada" activa graduación masiva
   if (hoja === 'Cohortes') {
-    if (columna === 14 && val === 'Finalizada') {
+    const headerCoh = sheet.getRange(1, columna).getValue().toString().trim();
+    if (headerCoh === 'Estado' && val === 'Finalizada') {
       procesarFinalizacionCohorte(sheet, fila);
     }
   }
 
-  // === NO SELECCIONADAS ===
-  // Acción está en columna K (11) - reenviar a Entrevistas o Inscritx
+  // === NO INSCRITX ===
   if (hoja === 'No Inscritx') {
-    if (columna === 11 && val.startsWith('Reenviar')) {
+    const headerNoIns = sheet.getRange(1, columna).getValue().toString().trim();
+    if (headerNoIns === 'Acción' && val.startsWith('Reenviar')) {
       procesarReenvioDesdeNoInscritx(sheet, fila, val);
     }
   }
 
-  // === DESERCIONES ===
-  // Acción está en columna M (13) - reenviar a Inscritx
+  // === RETIRADX ===
   if (hoja === 'Retiradx') {
-    if (columna === 13 && val === 'Reenviar a Inscritx') {
+    const headerRet = sheet.getRange(1, columna).getValue().toString().trim();
+    if (headerRet === 'Acción' && val === 'Reenviar a Inscritx') {
       procesarReenvioDesdeRetiradx(sheet, fila);
     }
   }
@@ -2024,6 +2024,13 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   Logger.log('>>>> TRASLADO DESDE INTERÉS (tech): ' + nombreCompleto + ' (' + creamosId + ')');
   Logger.log('     Nivel Educativo encontrado: ' + getVal('Nivel Educativo'));
   Logger.log('     Zona encontrada: ' + getVal('Zona'));
+
+  // "Entrevista agendada" → solo marca color azul claro, no mueve datos
+  if (estado === 'Entrevista agendada') {
+    sheet.getRange(fila, 1, 1, maxCol).setBackground('#e3f2fd');
+    ss.toast('Entrevista agendada ✓', 'Hoja de Interés', 3);
+    return;
+  }
 
   if (estado === 'No interesada/o' || estado === 'No interesado') {
     const noInscritx = ss.getSheetByName('No Inscritx');
@@ -7788,22 +7795,24 @@ function guardarReporteMensual() {
 // =====================================================================
 
 function instalarTriggers() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
     const triggers = ScriptApp.getProjectTriggers();
-
     triggers.forEach(trigger => {
       if (['alEditarTech', 'actualizarReportesTech'].includes(trigger.getHandlerFunction())) {
         ScriptApp.deleteTrigger(trigger);
       }
     });
-
     ScriptApp.newTrigger('alEditarTech').forSpreadsheet(ss).onEdit().create();
     ScriptApp.newTrigger('actualizarReportesTech').timeBased().everyHours(1).create();
-
     ss.toast('✅ Triggers instalados', 'OK', 3);
+    ui.alert('✅ Triggers instalados', 'alEditarTech (onEdit) instalado correctamente.\nLas automatizaciones ya funcionan.', ui.ButtonSet.OK);
     return true;
-  } catch (e) { return false; }
+  } catch (e) {
+    ui.alert('❌ Error instalando triggers', e.message + '\n\nVe a Extensiones → Apps Script → Triggers y agrega manualmente:\nFunción: alEditarTech\nEvento: Al editar', ui.ButtonSet.OK);
+    return false;
+  }
 }
 
 // =====================================================================
@@ -13134,6 +13143,7 @@ function actualizarTodoTech() {
   const confirmar = ui.alert(
     '🔄 ACTUALIZAR TODO',
     'Aplicará todos los cambios necesarios para dejar el sistema listo:\n\n' +
+    '0. Instalar/verificar trigger de automatizaciones\n' +
     '1. Reparar columnas (Entrevistas, Hoja de Interés)\n' +
     '2. Instalar columnas faltantes (1ra/2da Llamada, Notas)\n' +
     '3. Reconfigurar todos los dropdowns\n\n' +
@@ -13141,6 +13151,22 @@ function actualizarTodoTech() {
     ui.ButtonSet.YES_NO
   );
   if (confirmar !== ui.Button.YES) return;
+
+  // ── Paso 0: Instalar trigger (CRÍTICO — sin esto nada funciona) ───────
+  ss.toast('Paso 0/3: Verificando trigger...', 'Actualizando', 15);
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    const yaInstalado = triggers.some(t => t.getHandlerFunction() === 'alEditarTech');
+    if (!yaInstalado) {
+      triggers.forEach(t => {
+        if (t.getHandlerFunction() === 'alEditarTech') ScriptApp.deleteTrigger(t);
+      });
+      ScriptApp.newTrigger('alEditarTech').forSpreadsheet(ss).onEdit().create();
+      log.push('✓ Trigger alEditarTech instalado (era necesario)');
+    } else {
+      log.push('ℹ Trigger alEditarTech ya estaba instalado');
+    }
+  } catch(e) { errores.push('✗ Error instalando trigger: ' + e.message + ' — Ve a Extensiones → Apps Script → Triggers e instala manualmente alEditarTech'); }
 
   // ── Paso 1: Reparar columnas ──────────────────────────────────────────
   ss.toast('Paso 1/3: Reparando columnas...', 'Actualizando', 15);

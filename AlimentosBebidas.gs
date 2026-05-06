@@ -1882,33 +1882,33 @@ function alEditarAB(e) {
   }
 
   // === COHORTES ===
-  // Estado está en columna N (14) - "Finalizada" activa graduación masiva
   if (hoja === 'Cohortes') {
-    if (columna === 14 && val === 'Finalizada') {
+    const headerCoh = sheet.getRange(1, columna).getValue().toString().trim();
+    if (headerCoh === 'Estado' && val === 'Finalizada') {
       procesarFinalizacionCohorte(sheet, fila);
     }
   }
 
-  // === NO SELECCIONADAS ===
-  // Acción está en columna K (11) - reenviar a Entrevistas o Inscritx
+  // === NO INSCRITX ===
   if (hoja === 'No Inscritx') {
-    if (columna === 11 && val.startsWith('Reenviar')) {
+    const headerNoIns = sheet.getRange(1, columna).getValue().toString().trim();
+    if (headerNoIns === 'Acción' && val.startsWith('Reenviar')) {
       procesarReenvioDesdeNoInscritx(sheet, fila, val);
     }
   }
 
-  // === DESERCIONES ===
-  // Acción está en columna M (13) - reenviar a Inscritx
+  // === RETIRADX ===
   if (hoja === 'Retiradx') {
-    if (columna === 13 && val === 'Reenviar a Inscritx') {
+    const headerRet = sheet.getRange(1, columna).getValue().toString().trim();
+    if (headerRet === 'Acción' && val === 'Reenviar a Inscritx') {
       procesarReenvioDesdeRetiradx(sheet, fila);
     }
   }
 
   // === REFERENCIAS DE PROGRAMAS ===
-  // ¿Tiene Hoja de Interés? está en columna M (13) - marca con color
   if (hoja === 'Referencias de Programas') {
-    if (columna === 13 && (val === 'Sí' || val === 'No')) {
+    const headerRef = sheet.getRange(1, columna).getValue().toString().trim();
+    if (headerRef === '¿Tiene Hoja de Interés?' && (val === 'Sí' || val === 'No')) {
       procesarMarcaHojaInteres(sheet, fila, val);
     }
   }
@@ -2016,6 +2016,13 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   Logger.log('>>>> TRASLADO DESDE INTERÉS: ' + nombreCompleto + ' (' + creamosId + ')');
   Logger.log('     Nivel Educativo encontrado: ' + getVal('Nivel Educativo'));
   Logger.log('     Zona encontrada: ' + getVal('Zona'));
+
+  // "Entrevista agendada" → solo marca color azul claro, no mueve datos
+  if (estado === 'Entrevista agendada') {
+    sheet.getRange(fila, 1, 1, maxCol).setBackground('#e3f2fd');
+    ss.toast('Entrevista agendada ✓', 'Hoja de Interés', 3);
+    return;
+  }
 
   if (estado === 'No interesada/o' || estado === 'No interesado') {
     const noInscritx = ss.getSheetByName('No Inscritx');
@@ -7920,22 +7927,24 @@ function guardarReporteMensual() {
 // =====================================================================
 
 function instalarTriggers() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
     const triggers = ScriptApp.getProjectTriggers();
-
     triggers.forEach(trigger => {
       if (['alEditarAB', 'actualizarReportesAB'].includes(trigger.getHandlerFunction())) {
         ScriptApp.deleteTrigger(trigger);
       }
     });
-
     ScriptApp.newTrigger('alEditarAB').forSpreadsheet(ss).onEdit().create();
     ScriptApp.newTrigger('actualizarReportesAB').timeBased().everyHours(1).create();
-
     ss.toast('✅ Triggers instalados', 'OK', 3);
+    ui.alert('✅ Triggers instalados', 'alEditarAB (onEdit) instalado correctamente.\nLas automatizaciones ya funcionan.', ui.ButtonSet.OK);
     return true;
-  } catch (e) { return false; }
+  } catch (e) {
+    ui.alert('❌ Error instalando triggers', e.message + '\n\nVe a Extensiones → Apps Script → Triggers y agrega manualmente:\nFunción: alEditarAB\nEvento: Al editar', ui.ButtonSet.OK);
+    return false;
+  }
 }
 
 // =====================================================================
@@ -13056,6 +13065,7 @@ function actualizarTodoAB() {
   const confirmar = ui.alert(
     '🔄 ACTUALIZAR TODO',
     'Aplicará todos los cambios necesarios para dejar el sistema listo:\n\n' +
+    '0. Instalar/verificar trigger de automatizaciones\n' +
     '1. Reparar columnas (Entrevistas, Hoja de Interés, Inscritx)\n' +
     '2. Instalar columnas faltantes (1ra/2da Llamada, Notas)\n' +
     '3. Reconfigurar todos los dropdowns\n\n' +
@@ -13063,6 +13073,116 @@ function actualizarTodoAB() {
     ui.ButtonSet.YES_NO
   );
   if (confirmar !== ui.Button.YES) return;
+
+  // ── Paso 0: Instalar trigger (CRÍTICO — sin esto nada funciona) ───────
+  ss.toast('Paso 0/3: Verificando trigger...', 'Actualizando', 15);
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    const yaInstalado = triggers.some(t => t.getHandlerFunction() === 'alEditarAB');
+    if (!yaInstalado) {
+      triggers.forEach(t => {
+        if (t.getHandlerFunction() === 'alEditarAB') ScriptApp.deleteTrigger(t);
+      });
+      ScriptApp.newTrigger('alEditarAB').forSpreadsheet(ss).onEdit().create();
+      log.push('✓ Trigger alEditarAB instalado (era necesario)');
+    } else {
+      log.push('ℹ Trigger alEditarAB ya estaba instalado');
+    }
+  } catch(e) { errores.push('✗ Error instalando trigger: ' + e.message + ' — Ve a Extensiones → Apps Script → Triggers e instala manualmente alEditarAB'); }
+
+  // ── Paso 1: Reparar columnas ──────────────────────────────────────────
+  ss.toast('Paso 1/3: Reparando columnas...', 'Actualizando', 15);
+
+  // 1a. Entrevistas: eliminar "Calificación"
+  try {
+    const ent = ss.getSheetByName('Entrevistas');
+    if (ent) {
+      const hdrs = ent.getRange(1, 1, 1, ent.getLastColumn()).getValues()[0];
+      const col = hdrs.indexOf('Calificación') + 1;
+      if (col > 0) { ent.deleteColumn(col); log.push('✓ "Calificación" eliminada de Entrevistas'); }
+      else { log.push('ℹ "Calificación" no estaba en Entrevistas'); }
+    }
+  } catch(e) { errores.push('✗ Error eliminando Calificación: ' + e.message); }
+
+  // 1b. Hoja de Interés: mover "Notas/Comentario" antes de "Estado"
+  try {
+    const res = moverColumnaAntesDe_AB(ss.getSheetByName('Hoja de Interés'), 'Notas/Comentario', 'Estado');
+    log.push(res);
+  } catch(e) { errores.push('✗ Error moviendo Notas/Comentario: ' + e.message); }
+
+  // 1c. Inscritx: eliminar "Trasladar a Tecnología"
+  try {
+    const ins = ss.getSheetByName('Inscritx');
+    if (ins) {
+      const hdrs = ins.getRange(1, 1, 1, ins.getLastColumn()).getValues()[0];
+      const col = hdrs.indexOf('Trasladar a Tecnología') + 1;
+      if (col > 0) { ins.deleteColumn(col); log.push('✓ "Trasladar a Tecnología" eliminada de Inscritx'); }
+      else { log.push('ℹ "Trasladar a Tecnología" no estaba en Inscritx'); }
+    }
+  } catch(e) { errores.push('✗ Error eliminando Trasladar a Tecnología: ' + e.message); }
+
+  // 1d. Inscritx: mover "Fecha envío a Inscritx" a columna A
+  try {
+    const ins = ss.getSheetByName('Inscritx');
+    if (ins) {
+      const hdrs = ins.getRange(1, 1, 1, ins.getLastColumn()).getValues()[0];
+      const col = hdrs.indexOf('Fecha envío a Inscritx') + 1;
+      if (col > 1) {
+        ins.moveColumns(ins.getRange(1, col, 1, 1), 1);
+        log.push('✓ "Fecha envío a Inscritx" movida a columna A');
+      } else if (col === 1) { log.push('ℹ "Fecha envío a Inscritx" ya está en columna A'); }
+      else { log.push('⚠ "Fecha envío a Inscritx" no encontrada en Inscritx'); }
+    }
+  } catch(e) { errores.push('✗ Error moviendo Fecha envío: ' + e.message); }
+
+  // ── Paso 2: Columnas faltantes en Hoja de Interés ────────────────────
+  ss.toast('Paso 2/3: Verificando columnas...', 'Actualizando', 15);
+  try {
+    const interes = ss.getSheetByName('Hoja de Interés');
+    if (interes) {
+      const hdrsInt = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
+      const ya1ra   = hdrsInt.some(h => h === '1ra Llamada');
+      const ya2da   = hdrsInt.some(h => h === '2da Llamada');
+      const yaNotas = hdrsInt.some(h => h === 'Notas/Comentario');
+      if (!ya1ra) {
+        const c = interes.getLastColumn() + 1;
+        interes.getRange(1, c).setValue('1ra Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
+        interes.getRange(2, c, 499).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente']).setAllowInvalid(true).build());
+        interes.hideColumns(c);
+        log.push('✓ Columna "1ra Llamada" agregada');
+      }
+      if (!ya2da) {
+        const c = interes.getLastColumn() + 1;
+        interes.getRange(1, c).setValue('2da Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
+        interes.getRange(2, c, 499).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente', 'Reprogramada']).setAllowInvalid(true).build());
+        interes.hideColumns(c);
+        log.push('✓ Columna "2da Llamada" agregada');
+      }
+      if (!yaNotas) {
+        const c = interes.getLastColumn() + 1;
+        interes.getRange(1, c).setValue('Notas/Comentario').setBackground('#fff9c4').setFontWeight('bold').setHorizontalAlignment('center');
+        interes.setColumnWidth(c, 250);
+        log.push('✓ Columna "Notas/Comentario" agregada');
+      }
+      if (ya1ra && ya2da && yaNotas) log.push('ℹ Todas las columnas ya existían');
+    }
+  } catch(e) { errores.push('✗ Error en columnas de Interés: ' + e.message); }
+
+  // ── Paso 3: Reconfigurar validaciones ─────────────────────────────────
+  ss.toast('Paso 3/3: Reconfigurando dropdowns...', 'Actualizando', 15);
+  try {
+    configurarValidaciones();
+    log.push('✓ Dropdowns actualizados en todas las hojas');
+  } catch(e) { errores.push('✗ Error en configurarValidaciones: ' + e.message); }
+
+  // ── Resultado ─────────────────────────────────────────────────────────
+  SpreadsheetApp.flush();
+  const titulo = errores.length > 0 ? '⚠️ Actualización completada con advertencias' : '✅ Actualización completada';
+  ui.alert(titulo,
+    (log.length > 0 ? log.join('\n') : '') +
+    (errores.length > 0 ? '\n\n⚠️ Errores:\n' + errores.join('\n') : ''),
+    ui.ButtonSet.OK);
+}
 
   // ── Paso 1: Reparar columnas ──────────────────────────────────────────
   ss.toast('Paso 1/3: Reparando columnas...', 'Actualizando', 15);
