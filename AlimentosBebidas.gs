@@ -1535,50 +1535,47 @@ function configurarValidaciones() {
         .build()
     );
 
-    // Estado (columna P) - SOLO DOS OPCIONES
+    // Estado (columna P) - incluye opciones nuevas y compatibilidad con valores anteriores
     interes.getRange('P2:P500').setDataValidation(
       SpreadsheetApp.newDataValidation()
-        .requireValueInList(['Entrevista realizada', 'No interesada/o'])
-        .setAllowInvalid(false)
+        .requireValueInList(['Entrevista realizada', 'Entrevista agendada', 'No interesada/o', 'No interesado', 'Reprogramada'])
+        .setAllowInvalid(true)
         .build()
     );
   }
 
   // === HOJA DE ENTREVISTAS ===
-  // Columnas: A-Fecha, B-Hora, C-AbrirKobo, D-CreamosID, E-DPI, F-Nombre, G-Género, H-Edad, I-Tel, J-NivelEdu, K-Zona, L-Entrevistador, M-Calificación, N-Observaciones, O-Estado
+  // Usa detección dinámica por nombre de columna para evitar errores de posición
   const entrevistas = ss.getSheetByName('Entrevistas');
   if (entrevistas) {
-    // Género (G)
-    entrevistas.getRange('G2:G500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.GENEROS).setAllowInvalid(true).build()
-    );
-    // Nivel Educativo (J)
-    entrevistas.getRange('J2:J500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.NIVELES_EDUCATIVOS).setAllowInvalid(true).build()
-    );
-    // Zona (K)
-    entrevistas.getRange('K2:K500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.ZONAS).setAllowInvalid(true).build()
-    );
-    // Entrevistador (L)
-    entrevistas.getRange('L2:L500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
-    );
-    // Estado (columna dinámica por encabezado)
     const headersEnt = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
-    const colEstado = headersEnt.indexOf('Estado') + 1;
-    if (colEstado > 0) {
-      // Limpia validaciones duplicadas comunes (N/O/P) y aplica solo en la columna Estado real
-      [14, 15, 16].forEach(col => {
-        if (col !== colEstado && col <= entrevistas.getLastColumn()) {
-          entrevistas.getRange(2, col, 499, 1).clearDataValidations();
-        }
-      });
 
-      entrevistas.getRange(2, colEstado, 499, 1).setDataValidation(
+    // Función auxiliar: aplicar validación a columna buscada por nombre
+    const aplicarValidacionEnt = (nombreCol, lista, allowInvalid) => {
+      const idx = headersEnt.findIndex(h => h.toString().trim().toLowerCase() === nombreCol.toLowerCase());
+      if (idx >= 0) {
+        entrevistas.getRange(2, idx + 1, 499, 1).setDataValidation(
+          SpreadsheetApp.newDataValidation().requireValueInList(lista).setAllowInvalid(allowInvalid !== false).build()
+        );
+      }
+    };
+
+    aplicarValidacionEnt('Género', CONFIG_AB.GENEROS, true);
+    aplicarValidacionEnt('Nivel Educativo', CONFIG_AB.NIVELES_EDUCATIVOS, true);
+    aplicarValidacionEnt('Zona', CONFIG_AB.ZONAS, true);
+    aplicarValidacionEnt('Entrevistador', responsables, true);
+
+    // Estado: acepta valores anteriores (Aprobada, No asistió) para no romper datos viejos
+    const colEstado = headersEnt.findIndex(h => h.toString().trim() === 'Estado');
+    if (colEstado >= 0) {
+      const opcionesEstado = CONFIG_AB.RESULTADO_FINAL.concat([
+        'Aprobada', 'No aprobada', 'No asistió',          // valores viejos (compat)
+        'Derivar a Paso a Paso', 'Derivación a Programas'
+      ]);
+      entrevistas.getRange(2, colEstado + 1, 499, 1).setDataValidation(
         SpreadsheetApp.newDataValidation()
-          .requireValueInList(CONFIG_AB.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', 'Derivación a Programas']))
-          .setAllowInvalid(false)
+          .requireValueInList(opcionesEstado)
+          .setAllowInvalid(true)
           .build()
       );
     }
@@ -9231,72 +9228,89 @@ function activarTrasladosAB() {
 function instalarCambiosNuevosAB() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
+  const log = [];
 
-  // 1. Agregar columnas a Hoja de Interés
+  // 1. Agregar columnas a Hoja de Interés (solo si no existen)
   const interes = ss.getSheetByName('Hoja de Interés');
   if (interes) {
-    const lastCol = interes.getLastColumn() + 1;
-    interes.getRange(1, lastCol).setValue('1ra Llamada').setBackground('#f0f0f0').setFontWeight('bold');
-    interes.getRange(1, lastCol + 1).setValue('2da Llamada').setBackground('#f0f0f0').setFontWeight('bold');
-    interes.getRange(1, lastCol + 2).setValue('Notas/Comentario').setBackground('#fff9c4').setFontWeight('bold');
+    const hdrsInt = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
 
-    // Ocultar las columnas de llamadas
-    interes.hideColumns(lastCol);
-    interes.hideColumns(lastCol + 1);
+    const ya1ra = hdrsInt.some(h => h === '1ra Llamada');
+    const ya2da = hdrsInt.some(h => h === '2da Llamada');
+    const yaNotas = hdrsInt.some(h => h === 'Notas/Comentario');
 
-    // Dropdowns para 1ra y 2da llamada
-    interes.getRange(2, lastCol, 499).setDataValidation(
-      SpreadsheetApp.newDataValidation()
-        .requireValueInList(['Contestó', 'No contestó', 'Pendiente'])
-        .setAllowInvalid(true).build()
-    );
-    interes.getRange(2, lastCol + 1, 499).setDataValidation(
-      SpreadsheetApp.newDataValidation()
-        .requireValueInList(['Contestó', 'No contestó', 'Pendiente', 'Reprogramada'])
-        .setAllowInvalid(true).build()
-    );
-  }
+    if (!ya1ra || !ya2da || !yaNotas) {
+      const lastCol = interes.getLastColumn() + 1;
+      if (!ya1ra) {
+        interes.getRange(1, lastCol).setValue('1ra Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
+        interes.getRange(2, lastCol, 499).setDataValidation(
+          SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente']).setAllowInvalid(true).build()
+        );
+        interes.hideColumns(lastCol);
+      }
+      if (!ya2da) {
+        const col2 = interes.getLastColumn() + 1;
+        interes.getRange(1, col2).setValue('2da Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
+        interes.getRange(2, col2, 499).setDataValidation(
+          SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente', 'Reprogramada']).setAllowInvalid(true).build()
+        );
+        interes.hideColumns(col2);
+      }
+      if (!yaNotas) {
+        const colN = interes.getLastColumn() + 1;
+        interes.getRange(1, colN).setValue('Notas/Comentario').setBackground('#fff9c4').setFontWeight('bold').setHorizontalAlignment('center');
+        interes.setColumnWidth(colN, 250);
+      }
+      log.push('✓ Columnas de llamadas agregadas');
+    } else {
+      log.push('ℹ Columnas ya existían (no se duplicaron)');
+    }
 
-  // 2. Actualizar Estado en Hoja de Interés
-  interes.getRange('P2:P500').setDataValidation(
-    SpreadsheetApp.newDataValidation()
-      .requireValueInList(['Entrevista realizada', 'No interesada/o', 'Reprogramada'])
-      .setAllowInvalid(false).build()
-  );
-
-  // 3. Actualizar Entrevistas
-  const entrevistas = ss.getSheetByName('Entrevistas');
-  if (entrevistas) {
-    const headers = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
-    const colEstado = headers.indexOf('Estado') + 1;
-    if (colEstado > 0) {
-      // Reemplazar opciones
-      const newOpciones = [
-        'Seleccionada/o',
-        'No asistió / No aprobó',
-        'Reprogramada',
-        'Próxima cohorte Barismo',
-        'Próxima cohorte Gastronomía',
-        'Derivar a Paso a Paso',
-        'Derivación a Programas',
-        'Enviar a Tecnología'
-      ];
-      entrevistas.getRange(2, colEstado, 499).setDataValidation(
+    // Actualizar Estado (busca la columna por nombre)
+    const idxEstado = hdrsInt.findIndex(h => h.toString().trim() === 'Estado');
+    if (idxEstado >= 0) {
+      interes.getRange(2, idxEstado + 1, 499, 1).setDataValidation(
         SpreadsheetApp.newDataValidation()
-          .requireValueInList(newOpciones)
-          .setAllowInvalid(false).build()
+          .requireValueInList(['Entrevista realizada', 'Entrevista agendada', 'No interesada/o', 'No interesado', 'Reprogramada'])
+          .setAllowInvalid(true).build()
       );
+      log.push('✓ Dropdown Estado actualizado (con compat. datos viejos)');
     }
   }
 
+  // 2. Actualizar Entrevistas (detección dinámica)
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (entrevistas) {
+    const hdrs = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+    const idxE = hdrs.findIndex(h => h.toString().trim() === 'Estado');
+    if (idxE >= 0) {
+      const opciones = [
+        'Seleccionada/o', 'Aprobada',
+        'No asistió / No aprobó', 'No aprobada', 'No asistió',
+        'Reprogramada',
+        'Próxima cohorte Barismo', 'Próxima cohorte Gastronomía',
+        'Derivar a Paso a Paso', 'Derivación a Programas',
+        'Enviar a Tecnología'
+      ];
+      entrevistas.getRange(2, idxE + 1, 499, 1).setDataValidation(
+        SpreadsheetApp.newDataValidation().requireValueInList(opciones).setAllowInvalid(true).build()
+      );
+      log.push('✓ Dropdown Estado de Entrevistas actualizado');
+    }
+  }
+
+  // Reconfigurar validaciones de todas las hojas (con detección dinámica)
+  configurarValidaciones();
+  log.push('✓ Validaciones recalibradas en todas las hojas');
+
   ui.alert(
-    '✅ Cambios instalados',
-    '✓ Columnas de llamadas agregadas (ocultas)\n' +
-    '✓ "Reprogramada" disponible en Hoja de Interés\n' +
-    '✓ "No interesada/o" en lugar de "No interesado"\n' +
-    '✓ "Derivación a Programas" en Entrevistas\n' +
-    '✓ "Seleccionada/o" en lugar de "Aprobada"\n\n' +
-    'Los cambios están listos. No se modificaron datos existentes.',
+    '✅ Cambios instalados correctamente',
+    log.join('\n') + '\n\n' +
+    'Opciones nuevas disponibles:\n' +
+    '• "Reprogramada" en Hoja de Interés (con registro de seguimiento)\n' +
+    '• "No interesada/o" en Hoja de Interés\n' +
+    '• "Seleccionada/o" y "Derivación a Programas" en Entrevistas\n\n' +
+    'Los datos existentes NO fueron borrados.',
     ui.ButtonSet.OK
   );
 }
