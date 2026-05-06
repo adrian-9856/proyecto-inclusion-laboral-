@@ -1889,16 +1889,11 @@ function alEditarTech(e) {
     }
   }
 
-  // === SELECCIONADAS ===
-  // "Enviar a Cohorte" está en columna K (11) - al seleccionar cohorte se envía
-  // "Trasladar a A y B" está en columna N (14)
+  // === INSCRITX ===
   if (hoja === 'Inscritx') {
-    // Enviar a Cohorte está en columna L (12)
-    if (columna === 12 && val !== '') {
+    const headerInsc = sheet.getRange(1, columna).getValue().toString().trim();
+    if (headerInsc === 'Enviar a Cohorte' && val !== '') {
       procesarEnvioACohorte(sheet, fila, val);
-    }
-    if (columna === 14 && val === 'Sí, trasladar a A y B') {
-      trasladarPersonaAAyB(sheet, fila);
     }
   }
 
