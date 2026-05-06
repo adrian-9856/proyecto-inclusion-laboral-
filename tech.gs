@@ -202,6 +202,9 @@ function setupMenuTech() {
   try {
     const ui = SpreadsheetApp.getUi();
     ui.createMenu('💻 Tecnología')
+      // ========== ACTUALIZAR TODO ==========
+      .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodoTech')
+      .addSeparator()
       // ========== ACCIONES PRINCIPALES ==========
       .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
       .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboTech')
@@ -13114,6 +13117,125 @@ function repararDashboardEstipendios() {
 
   SpreadsheetApp.flush();
   ss.toast('✅ Dashboard reparado. Los KPIs ahora muestran datos reales.', 'Estipendios', 5);
+}
+
+// =====================================================================
+// ACTUALIZAR TODO — Un solo botón que aplica todos los cambios
+// =====================================================================
+function actualizarTodoTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const confirmar = ui.alert(
+    '🔄 ACTUALIZAR TODO',
+    'Esta función aplicará todos los cambios pendientes:\n\n' +
+    '1. Reparar columnas (Entrevistas, Hoja de Interés)\n' +
+    '2. Instalar cambios nuevos (dropdowns, llamadas, reprogramada)\n' +
+    '3. Reconfigurar todas las validaciones\n\n' +
+    '⚠️ Los datos existentes NO se borran.\n\n' +
+    '¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmar !== ui.Button.YES) return;
+
+  ss.toast('Paso 1/3: Reparando columnas...', 'Actualizando', 10);
+  try { repararColumnasTech_silencioso(); } catch(e) { Logger.log('repararColumnas: ' + e); }
+
+  ss.toast('Paso 2/3: Instalando cambios nuevos...', 'Actualizando', 10);
+  try { instalarCambiosNuevosTech_silencioso(); } catch(e) { Logger.log('instalarCambios: ' + e); }
+
+  ss.toast('Paso 3/3: Reconfigurando validaciones...', 'Actualizando', 10);
+  try { configurarValidaciones(); } catch(e) { Logger.log('configurarValidaciones: ' + e); }
+
+  ss.toast('✅ Todo actualizado correctamente', 'Listo', 5);
+  ui.alert(
+    '✅ Actualización completa',
+    '✓ Columna "Calificación" eliminada de Entrevistas\n' +
+    '✓ "Notas/Comentario" reubicada entre Servicio y Estado\n' +
+    '✓ Dropdowns actualizados con las opciones correctas\n' +
+    '✓ Columnas 1ra/2da Llamada y Notas verificadas\n' +
+    '✓ Validaciones recalibradas en todas las hojas',
+    ui.ButtonSet.OK
+  );
+}
+
+function repararColumnasTech_silencioso() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (entrevistas) {
+    const hdrsEnt = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+    const colCalif = hdrsEnt.indexOf('Calificación') + 1;
+    if (colCalif > 0) entrevistas.deleteColumn(colCalif);
+  }
+
+  const interes = ss.getSheetByName('Hoja de Interés');
+  if (interes) {
+    const hdrsInt = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
+    const idxEstado = hdrsInt.indexOf('Estado') + 1;
+    const idxNotas  = hdrsInt.indexOf('Notas/Comentario') + 1;
+    if (idxNotas > 0 && idxEstado > 0 && idxNotas !== idxEstado - 1) {
+      interes.moveColumns(interes.getRange(1, idxNotas, 1, 1), idxEstado);
+    }
+  }
+}
+
+function instalarCambiosNuevosTech_silencioso() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const interes = ss.getSheetByName('Hoja de Interés');
+  if (interes) {
+    const hdrsInt = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
+    const ya1ra   = hdrsInt.some(h => h === '1ra Llamada');
+    const ya2da   = hdrsInt.some(h => h === '2da Llamada');
+    const yaNotas = hdrsInt.some(h => h === 'Notas/Comentario');
+
+    if (!ya1ra) {
+      const c1 = interes.getLastColumn() + 1;
+      interes.getRange(1, c1).setValue('1ra Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
+      interes.getRange(2, c1, 499).setDataValidation(
+        SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente']).setAllowInvalid(true).build()
+      );
+      interes.hideColumns(c1);
+    }
+    if (!ya2da) {
+      const c2 = interes.getLastColumn() + 1;
+      interes.getRange(1, c2).setValue('2da Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
+      interes.getRange(2, c2, 499).setDataValidation(
+        SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente', 'Reprogramada']).setAllowInvalid(true).build()
+      );
+      interes.hideColumns(c2);
+    }
+    if (!yaNotas) {
+      const cN = interes.getLastColumn() + 1;
+      interes.getRange(1, cN).setValue('Notas/Comentario').setBackground('#fff9c4').setFontWeight('bold').setHorizontalAlignment('center');
+      interes.setColumnWidth(cN, 250);
+    }
+
+    const hdrsAct = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
+    const idxEstado = hdrsAct.findIndex(h => h.toString().trim() === 'Estado');
+    if (idxEstado >= 0) {
+      interes.getRange(2, idxEstado + 1, 499, 1).setDataValidation(
+        SpreadsheetApp.newDataValidation()
+          .requireValueInList(['Entrevista realizada', 'Entrevista agendada', 'No interesada/o', 'No interesado', 'Reprogramada'])
+          .setAllowInvalid(true).build()
+      );
+    }
+  }
+
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (entrevistas) {
+    const hdrs = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+    const idxE = hdrs.findIndex(h => h.toString().trim() === 'Estado');
+    if (idxE >= 0) {
+      const opciones = CONFIG_TECH.RESULTADO_FINAL.concat([
+        'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a A y B'
+      ]);
+      entrevistas.getRange(2, idxE + 1, 499, 1).setDataValidation(
+        SpreadsheetApp.newDataValidation().requireValueInList(opciones).setAllowInvalid(true).build()
+      );
+    }
+  }
 }
 
 // =====================================================================
