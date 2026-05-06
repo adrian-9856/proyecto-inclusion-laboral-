@@ -1524,28 +1524,21 @@ function configurarValidaciones() {
   const responsables = obtenerResponsablesActuales();
 
   // === HOJA DE INTERÉS ===
-  // Estado: solo "Entrevista realizada" y "No interesado"
   const interes = ss.getSheetByName('Hoja de Interés');
   if (interes) {
-    // Limpiar validaciones de datos de Kobo
-    interes.getRange('I2:I500').clearDataValidations();
-    interes.getRange('J2:J500').clearDataValidations();
+    const hdrsHI = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
 
-    // Género (columna F) - Desplegable con opciones de género
-    interes.getRange('F2:F500').setDataValidation(
-      SpreadsheetApp.newDataValidation()
-        .requireValueInList(CONFIG_AB.GENEROS)
-        .setAllowInvalid(true)
-        .build()
-    );
+    const aplicarHI = (nombreCol, lista, allowInvalid) => {
+      const idx = hdrsHI.findIndex(h => h.toString().trim().toLowerCase() === nombreCol.toLowerCase());
+      if (idx >= 0) {
+        interes.getRange(2, idx + 1, 499, 1).setDataValidation(
+          SpreadsheetApp.newDataValidation().requireValueInList(lista).setAllowInvalid(allowInvalid !== false).build()
+        );
+      }
+    };
 
-    // Estado (columna P) - incluye opciones nuevas y compatibilidad con valores anteriores
-    interes.getRange('P2:P500').setDataValidation(
-      SpreadsheetApp.newDataValidation()
-        .requireValueInList(['Entrevista realizada', 'Entrevista agendada', 'No interesada/o', 'No interesado', 'Reprogramada'])
-        .setAllowInvalid(true)
-        .build()
-    );
+    aplicarHI('Género', CONFIG_AB.GENEROS, true);
+    aplicarHI('Estado', ['Entrevista agendada', 'Reprogramada', 'No interesada/o'], true);
   }
 
   // === HOJA DE ENTREVISTAS ===
@@ -1586,30 +1579,26 @@ function configurarValidaciones() {
     }
   }
 
-  // === HOJA DE SELECCIONADAS ===
-  // Columnas: A-No, B-CreamosID, C-DPI, D-Nombre, E-Género, F-Edad, G-Tel, H-NivelEdu, I-Zona, J-Notas, K-Estado, L-EnviarACohorte
+  // === HOJA DE SELECCIONADAS (Inscritx) ===
   const seleccionadas = ss.getSheetByName('Inscritx');
   if (seleccionadas) {
-    // Género (E)
-    seleccionadas.getRange('E2:E500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.GENEROS).setAllowInvalid(true).build()
-    );
-    seleccionadas.getRange('H2:H500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.NIVELES_EDUCATIVOS).setAllowInvalid(false).build()
-    );
-    seleccionadas.getRange('I2:I500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.ZONAS).setAllowInvalid(true).build()
-    );
-    // Enviar a Cohorte (L) - dropdown dinámico con cohortes activas
+    const hdrsIns = seleccionadas.getRange(1, 1, 1, seleccionadas.getLastColumn()).getValues()[0];
+
+    const aplicarIns = (nombreCol, lista, allowInvalid) => {
+      const idx = hdrsIns.findIndex(h => h.toString().trim().toLowerCase() === nombreCol.toLowerCase());
+      if (idx >= 0) {
+        seleccionadas.getRange(2, idx + 1, 499, 1).setDataValidation(
+          SpreadsheetApp.newDataValidation().requireValueInList(lista).setAllowInvalid(allowInvalid !== false).build()
+        );
+      }
+    };
+
+    aplicarIns('Género', CONFIG_AB.GENEROS, true);
+    aplicarIns('Nivel Educativo', CONFIG_AB.NIVELES_EDUCATIVOS, true);
+    aplicarIns('Zona', CONFIG_AB.ZONAS, true);
     if (cohortes.length > 0) {
-      seleccionadas.getRange('L2:L500').setDataValidation(
-        SpreadsheetApp.newDataValidation().requireValueInList(cohortes).setAllowInvalid(false).build()
-      );
+      aplicarIns('Enviar a Cohorte', cohortes, false);
     }
-    // Trasladar a Tecnología (N)
-    seleccionadas.getRange('N2:N500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(['Sí, trasladar a Tecnología']).setAllowInvalid(false).build()
-    );
   }
 
   // === HOJA DE GRADUADAS ===
@@ -4318,21 +4307,22 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       // Restaurar fórmula de No. (columna B) que setValues sobreescribe
       hojaInteres.getRange('B' + nuevaFila).setFormula('=IF(E' + nuevaFila + '<>"",COUNTA($E$2:E' + nuevaFila + '),"")');
 
-      // Restaurar dropdown de Género (columna F) para esta fila
-      hojaInteres.getRange(nuevaFila, 6).setDataValidation(
-        SpreadsheetApp.newDataValidation()
-          .requireValueInList(CONFIG_AB.GENEROS)
-          .setAllowInvalid(true)
-          .build()
-      );
-
-      // Restaurar dropdown de Estado (columna P) para esta fila
-      hojaInteres.getRange(nuevaFila, 16).setDataValidation(
-        SpreadsheetApp.newDataValidation()
-          .requireValueInList(['Entrevista realizada', 'No interesada/o'])
-          .setAllowInvalid(false)
-          .build()
-      );
+      // Restaurar dropdowns de Género y Estado (detección dinámica)
+      const hdrsHIImport = hojaInteres.getRange(1, 1, 1, hojaInteres.getLastColumn()).getValues()[0];
+      const colGeneroHI = hdrsHIImport.findIndex(h => h.toString().trim().toLowerCase() === 'género') + 1;
+      const colEstadoHI = hdrsHIImport.findIndex(h => h.toString().trim() === 'Estado') + 1;
+      if (colGeneroHI > 0) {
+        hojaInteres.getRange(nuevaFila, colGeneroHI).setDataValidation(
+          SpreadsheetApp.newDataValidation().requireValueInList(CONFIG_AB.GENEROS).setAllowInvalid(true).build()
+        );
+      }
+      if (colEstadoHI > 0) {
+        hojaInteres.getRange(nuevaFila, colEstadoHI).setDataValidation(
+          SpreadsheetApp.newDataValidation()
+            .requireValueInList(['Entrevista agendada', 'Reprogramada', 'No interesada/o'])
+            .setAllowInvalid(true).build()
+        );
+      }
 
       if (creamosId) idsExistentes.add(creamosId.toUpperCase());
       if (dpi) dpisExistentes.add(dpi);
@@ -9282,7 +9272,7 @@ function instalarCambiosNuevosAB() {
     if (idxEstado >= 0) {
       interes.getRange(2, idxEstado + 1, 499, 1).setDataValidation(
         SpreadsheetApp.newDataValidation()
-          .requireValueInList(['Entrevista realizada', 'Entrevista agendada', 'No interesada/o', 'No interesado', 'Reprogramada'])
+          .requireValueInList(['Entrevista agendada', 'Reprogramada', 'No interesada/o'])
           .setAllowInvalid(true).build()
       );
       log.push('✓ Dropdown Estado actualizado (con compat. datos viejos)');
@@ -13154,7 +13144,7 @@ function instalarCambiosNuevosAB_silencioso() {
     if (idxEstado >= 0) {
       interes.getRange(2, idxEstado + 1, 499, 1).setDataValidation(
         SpreadsheetApp.newDataValidation()
-          .requireValueInList(['Entrevista realizada', 'Entrevista agendada', 'No interesada/o', 'No interesado', 'Reprogramada'])
+          .requireValueInList(['Entrevista agendada', 'Reprogramada', 'No interesada/o'])
           .setAllowInvalid(true).build()
       );
     }
