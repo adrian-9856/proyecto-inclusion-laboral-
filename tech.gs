@@ -137,7 +137,7 @@ const CONFIG_TECH = {
 
   // Resultado Final de entrevista (simplificado)
   RESULTADO_FINAL: [
-    'Aprobada',
+    'Seleccionada/o',
     'No asistió / No aprobó',
     'Reprogramada',
     'Próxima cohorte Programación',
@@ -256,6 +256,7 @@ function setupMenuTech() {
         .addItem('✅ Instalar Sistema', 'instalarSistemaCompletoTech')
         .addItem('🆕 Activar Mejoras Entrevistas', 'activarMejorasEntrevistasTech')
         .addItem('🔄 Activar Traslados entre Programas', 'activarTrasladosTech')
+        .addItem('📋 Instalar Cambios Nuevos (Llamadas + Reprogramada)', 'instalarCambiosNuevosTech')
         .addSeparator()
         .addItem('🔗 URL Kobo Registros', 'configurarKoboURL')
         .addItem('🔗 URL Kobo Entrevistas', 'configurarKoboEntrevistasURL')
@@ -1548,7 +1549,7 @@ function configurarValidaciones() {
     // Estado (columna P) - SOLO DOS OPCIONES
     interes.getRange('P2:P500').setDataValidation(
       SpreadsheetApp.newDataValidation()
-        .requireValueInList(['Entrevista realizada', 'No interesado'])
+        .requireValueInList(['Entrevista realizada', 'No interesada/o'])
         .setAllowInvalid(false)
         .build()
     );
@@ -1587,7 +1588,7 @@ function configurarValidaciones() {
 
       entrevistas.getRange(2, colEstado, 499, 1).setDataValidation(
         SpreadsheetApp.newDataValidation()
-          .requireValueInList(CONFIG_TECH.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Formulario']))
+          .requireValueInList(CONFIG_TECH.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', 'Derivación a Programas']))
           .setAllowInvalid(false)
           .build()
       );
@@ -1782,7 +1783,7 @@ function aplicarFormatos() {
     const rangoEstadoEnt = entrevistas.getRange(colLetra + '2:' + colLetra + '500');
 
     const reglaAprobada = SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo('Aprobada').setBackground('#c8e6c9').setRanges([rangoEstadoEnt]).build();
+      .whenTextEqualTo('Seleccionada/o').setBackground('#c8e6c9').setRanges([rangoEstadoEnt]).build();
     const reglaPendiente = SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('Pendiente').setBackground('#fff9c4').setRanges([rangoEstadoEnt]).build();
     const reglaNoAsistioNoAprobo = SpreadsheetApp.newConditionalFormatRule()
@@ -1843,16 +1844,33 @@ function alEditarTech(e) {
   if (val === '') return;
 
   // === HOJA DE INTERÉS ===
-  // Estado está en columna P (16) - solo "Entrevista realizada" o "No interesado"
-  // ¿Tiene Hoja de Interés? está en columna Q (17) - Sí/No con marcado de color
   if (hoja === 'Hoja de Interés') {
     // Autocompletar cuando editan DPI (col D=4) o Nombre (col E=5)
     if (columna === 4 || columna === 5) {
       autocompletarDesdeCreamosID(true);
     }
-    if (columna === 16) {
+
+    // Detectar por nombre de columna (más robusto)
+    const headerHI = sheet.getRange(1, columna).getValue().toString().trim();
+
+    // Estado en Hoja de Interés
+    if (headerHI === 'Estado') {
+      if (val === 'Reprogramada') {
+        manejarReprogramadaEnHojaInteres(sheet, fila);
+        return;
+      }
       procesarCambioEstadoInteres(sheet, fila, val);
     }
+
+    // 2da Llamada - si selecciona Reprogramada, cambiar automáticamente Estado a No interesada/o
+    if (headerHI === '2da Llamada' && val === 'Reprogramada') {
+      const colEstado = obtenerMapaColumnas(sheet)['estado'];
+      if (colEstado !== undefined) {
+        sheet.getRange(fila, colEstado + 1).setValue('No interesada/o');
+      }
+    }
+
+    // ¿Tiene Hoja de Interés? (mantener la lógica original si existe)
     if (columna === 17 && (val === 'Sí' || val === 'No')) {
       procesarMarcaHojaInteres(sheet, fila, val);
     }
@@ -1863,7 +1881,7 @@ function alEditarTech(e) {
   if (hoja === 'Entrevistas') {
     const headerEditado = sheet.getRange(1, columna).getValue();
     if (headerEditado === 'Estado') {
-      if (val === '🔗 Abrir Formulario') {
+      if (val === 'Derivación a Programas' || val === '🔗 Abrir Formulario') {
         abrirFormularioKobo(sheet, fila, columna);
         return;
       }
@@ -1953,8 +1971,45 @@ function alEditarTech(e) {
 }
 
 /**
+ * Maneja la selección de "Reprogramada" en Estado de Hoja de Interés
+ * Pregunta si ya hizo seguimiento por mensaje y guarda el comentario
+ */
+function manejarReprogramadaEnHojaInteres(sheet, fila) {
+  const ui = SpreadsheetApp.getUi();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Pregunta inicial
+  const resp = ui.alert(
+    '📞 Reprogramar seguimiento',
+    '¿Ya hizo seguimiento por mensaje?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (resp !== ui.Button.YES) {
+    // Si dice No, solo marca como Reprogramada sin comentario
+    return;
+  }
+
+  // Pedir comentario
+  const comentario = ui.prompt('Escriba el comentario del seguimiento:');
+  if (!comentario) return;
+
+  // Guardar en Notas/Comentario
+  const colMap = obtenerMapaColumnas(sheet);
+  const colNotas = colMap['notas/comentario'] || colMap['notas'];
+  if (colNotas !== undefined) {
+    const notasActuales = sheet.getRange(fila, colNotas + 1).getValue().toString().trim();
+    const fecha = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    const nuevaNota = notasActuales ? notasActuales + ' | [' + fecha + '] ' + comentario : '[' + fecha + '] ' + comentario;
+    sheet.getRange(fila, colNotas + 1).setValue(nuevaNota);
+  }
+
+  ss.toast('✅ Seguimiento registrado', 'Reprogramada', 3);
+}
+
+/**
  * Procesa cambio de estado en Hoja de Interés
- * - "No interesado" → Copia a No Inscritx (conserva registro en Hoja de Interés)
+ * - "No interesada/o" → Copia a No Inscritx (conserva registro en Hoja de Interés)
  * - "Entrevista realizada" → Copia a Entrevistas (conserva registro en Hoja de Interés)
  */
 function procesarCambioEstadoInteres(sheet, fila, estado) {
@@ -1982,7 +2037,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   Logger.log('     Nivel Educativo encontrado: ' + getVal('Nivel Educativo'));
   Logger.log('     Zona encontrada: ' + getVal('Zona'));
 
-  if (estado === 'No interesado') {
+  if (estado === 'No interesada/o' || estado === 'No interesado') {
     const noInscritx = ss.getSheetByName('No Inscritx');
     const colMapNoInsc = obtenerMapaColumnas(noInscritx);
     const nuevaFila = obtenerPrimeraFilaVacia(noInscritx, 'C');
@@ -2089,7 +2144,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
   // "Próxima cohorte Programación/Alfa Digital" → igual que Aprobada pero con nota de programa
   const esProximaCohorte = resultado === 'Próxima cohorte Programación' || resultado === 'Próxima cohorte Alfa Digital';
 
-  if (resultado === 'Aprobada' || esProximaCohorte) {
+  if (resultado === 'Seleccionada/o' || resultado === 'Aprobada' || esProximaCohorte) {
     const interes = ss.getSheetByName('Hoja de Interés');
     const busqueda = creamosId ? buscarPorCreamosID(interes, creamosId) : null;
     const filaInteres = busqueda ? busqueda.fila : null;
@@ -4262,7 +4317,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       // Restaurar dropdown de Estado (columna P) para esta fila
       hojaInteres.getRange(nuevaFila, 16).setDataValidation(
         SpreadsheetApp.newDataValidation()
-          .requireValueInList(['Entrevista realizada', 'No interesado'])
+          .requireValueInList(['Entrevista realizada', 'No interesada/o'])
           .setAllowInvalid(false)
           .build()
       );
@@ -7259,7 +7314,7 @@ function repararDesplegableEntrevistasTech() {
     }
   });
 
-  const opciones = CONFIG_TECH.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', '🔗 Abrir Formulario']);
+  const opciones = CONFIG_TECH.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', 'Derivación a Programas']);
   entrevistas.getRange(2, colEstado, 499, 1).setDataValidation(
     SpreadsheetApp.newDataValidation().requireValueInList(opciones).setAllowInvalid(false).build()
   );
@@ -8959,7 +9014,7 @@ function activarMejorasEntrevistasTech() {
     const headers = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
     const colEstado = headers.indexOf('Estado') + 1; // 1-based, 0 si no existe
     if (colEstado > 0) {
-      const estadoOpciones = ['Aprobada', 'No asistió / No aprobó', 'Reprogramada', 'Próxima cohorte Programación', 'Próxima cohorte Alfa Digital', 'Derivar a Paso a Paso', '🔗 Abrir Formulario', 'Enviar a A y B'];
+      const estadoOpciones = ['Seleccionada/o', 'No asistió / No aprobó', 'Reprogramada', 'Próxima cohorte Programación', 'Próxima cohorte Alfa Digital', 'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a A y B'];
       entrevistas.getRange(2, colEstado, 499).setDataValidation(
         SpreadsheetApp.newDataValidation()
           .requireValueInList(estadoOpciones)
@@ -9040,6 +9095,85 @@ function activarTrasladosTech() {
     'ID_SPREADSHEET_AB: "PEGAR_ID_AQUI"\n\n' +
     'El ID está en la URL del Sheets de A y B:\n' +
     'docs.google.com/spreadsheets/d/[ESTE_ID]/edit',
+    ui.ButtonSet.OK
+  );
+}
+
+/**
+ * Instala SOLO los cambios nuevos (sin tocar datos ni formatos existentes):
+ * - Agrega columnas: 1ra Llamada, 2da Llamada, Notas/Comentario
+ * - Actualiza Hoja de Interés: Reprogramada + No interesada/o
+ * - Actualiza Entrevistas: Derivación a Programas + Seleccionada/o
+ */
+function instalarCambiosNuevosTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // 1. Agregar columnas a Hoja de Interés
+  const interes = ss.getSheetByName('Hoja de Interés');
+  if (interes) {
+    const lastCol = interes.getLastColumn() + 1;
+    interes.getRange(1, lastCol).setValue('1ra Llamada').setBackground('#f0f0f0').setFontWeight('bold');
+    interes.getRange(1, lastCol + 1).setValue('2da Llamada').setBackground('#f0f0f0').setFontWeight('bold');
+    interes.getRange(1, lastCol + 2).setValue('Notas/Comentario').setBackground('#fff9c4').setFontWeight('bold');
+
+    // Ocultar las columnas de llamadas
+    interes.hideColumns(lastCol);
+    interes.hideColumns(lastCol + 1);
+
+    // Dropdowns para 1ra y 2da llamada
+    interes.getRange(2, lastCol, 499).setDataValidation(
+      SpreadsheetApp.newDataValidation()
+        .requireValueInList(['Contestó', 'No contestó', 'Pendiente'])
+        .setAllowInvalid(true).build()
+    );
+    interes.getRange(2, lastCol + 1, 499).setDataValidation(
+      SpreadsheetApp.newDataValidation()
+        .requireValueInList(['Contestó', 'No contestó', 'Pendiente', 'Reprogramada'])
+        .setAllowInvalid(true).build()
+    );
+  }
+
+  // 2. Actualizar Estado en Hoja de Interés
+  interes.getRange('P2:P500').setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Entrevista realizada', 'No interesada/o', 'Reprogramada'])
+      .setAllowInvalid(false).build()
+  );
+
+  // 3. Actualizar Entrevistas
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (entrevistas) {
+    const headers = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+    const colEstado = headers.indexOf('Estado') + 1;
+    if (colEstado > 0) {
+      // Reemplazar opciones
+      const newOpciones = [
+        'Seleccionada/o',
+        'No asistió / No aprobó',
+        'Reprogramada',
+        'Próxima cohorte Programación',
+        'Próxima cohorte Alfa Digital',
+        'Derivar a Paso a Paso',
+        'Derivación a Programas',
+        'Enviar a A y B'
+      ];
+      entrevistas.getRange(2, colEstado, 499).setDataValidation(
+        SpreadsheetApp.newDataValidation()
+          .requireValueInList(newOpciones)
+          .setAllowInvalid(false).build()
+      );
+    }
+  }
+
+  ui.alert(
+    '✅ Cambios instalados',
+    '✓ Columnas de llamadas agregadas (ocultas)\n' +
+    '✓ "Reprogramada" disponible en Hoja de Interés\n' +
+    '✓ "No interesada/o" en lugar de "No interesado"\n' +
+    '✓ "Derivación a Programas" en Entrevistas\n' +
+    '✓ "Seleccionada/o" en lugar de "Aprobada"\n\n' +
+    'Los cambios están listos. No se modificaron datos existentes.',
     ui.ButtonSet.OK
   );
 }
