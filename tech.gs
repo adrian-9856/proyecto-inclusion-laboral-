@@ -13109,120 +13109,106 @@ function repararDashboardEstipendios() {
 // =====================================================================
 // ACTUALIZAR TODO — Un solo botón que aplica todos los cambios
 // =====================================================================
+function moverColumnaAntesDe_Tech(sheet, nombreCol, nombreDest) {
+  if (!sheet) return '⚠ Hoja no encontrada';
+  const hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const src = hdrs.findIndex(h => h.toString().trim() === nombreCol) + 1;
+  const dst = hdrs.findIndex(h => h.toString().trim() === nombreDest) + 1;
+  if (src <= 0) return '⚠ Columna "' + nombreCol + '" no encontrada';
+  if (dst <= 0) return '⚠ Columna "' + nombreDest + '" no encontrada';
+  if (src === dst - 1) return 'ℹ "' + nombreCol + '" ya está en la posición correcta';
+  const lastRow = sheet.getMaxRows();
+  sheet.insertColumnBefore(dst);
+  const srcActual = src >= dst ? src + 1 : src;
+  sheet.getRange(1, srcActual, lastRow, 1).copyTo(sheet.getRange(1, dst, lastRow, 1));
+  sheet.deleteColumn(srcActual);
+  return '✓ "' + nombreCol + '" movida antes de "' + nombreDest + '"';
+}
+
 function actualizarTodoTech() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
+  const errores = [];
+  const log = [];
 
   const confirmar = ui.alert(
     '🔄 ACTUALIZAR TODO',
-    'Esta función aplicará todos los cambios pendientes:\n\n' +
+    'Aplicará todos los cambios necesarios para dejar el sistema listo:\n\n' +
     '1. Reparar columnas (Entrevistas, Hoja de Interés)\n' +
-    '2. Instalar cambios nuevos (dropdowns, llamadas, reprogramada)\n' +
-    '3. Reconfigurar todas las validaciones\n\n' +
-    '⚠️ Los datos existentes NO se borran.\n\n' +
-    '¿Continuar?',
+    '2. Instalar columnas faltantes (1ra/2da Llamada, Notas)\n' +
+    '3. Reconfigurar todos los dropdowns\n\n' +
+    '⚠️ Los datos existentes NO se borran.\n¿Continuar?',
     ui.ButtonSet.YES_NO
   );
   if (confirmar !== ui.Button.YES) return;
 
-  ss.toast('Paso 1/3: Reparando columnas...', 'Actualizando', 10);
-  try { repararColumnasTech_silencioso(); } catch(e) { Logger.log('repararColumnas: ' + e); }
+  // ── Paso 1: Reparar columnas ──────────────────────────────────────────
+  ss.toast('Paso 1/3: Reparando columnas...', 'Actualizando', 15);
 
-  ss.toast('Paso 2/3: Instalando cambios nuevos...', 'Actualizando', 10);
-  try { instalarCambiosNuevosTech_silencioso(); } catch(e) { Logger.log('instalarCambios: ' + e); }
-
-  ss.toast('Paso 3/3: Reconfigurando validaciones...', 'Actualizando', 10);
-  try { configurarValidaciones(); } catch(e) { Logger.log('configurarValidaciones: ' + e); }
-
-  ss.toast('✅ Todo actualizado correctamente', 'Listo', 5);
-  ui.alert(
-    '✅ Actualización completa',
-    '✓ Columna "Calificación" eliminada de Entrevistas\n' +
-    '✓ "Notas/Comentario" reubicada entre Servicio y Estado\n' +
-    '✓ Dropdowns actualizados con las opciones correctas\n' +
-    '✓ Columnas 1ra/2da Llamada y Notas verificadas\n' +
-    '✓ Validaciones recalibradas en todas las hojas',
-    ui.ButtonSet.OK
-  );
-}
-
-function repararColumnasTech_silencioso() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-  const entrevistas = ss.getSheetByName('Entrevistas');
-  if (entrevistas) {
-    const hdrsEnt = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
-    const colCalif = hdrsEnt.indexOf('Calificación') + 1;
-    if (colCalif > 0) entrevistas.deleteColumn(colCalif);
-  }
-
-  const interes = ss.getSheetByName('Hoja de Interés');
-  if (interes) {
-    const hdrsInt = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
-    const idxEstado = hdrsInt.indexOf('Estado') + 1;
-    const idxNotas  = hdrsInt.indexOf('Notas/Comentario') + 1;
-    if (idxNotas > 0 && idxEstado > 0 && idxNotas !== idxEstado - 1) {
-      interes.moveColumns(interes.getRange(1, idxNotas, 1, 1), idxEstado);
+  // 1a. Entrevistas: eliminar "Calificación"
+  try {
+    const ent = ss.getSheetByName('Entrevistas');
+    if (ent) {
+      const hdrs = ent.getRange(1, 1, 1, ent.getLastColumn()).getValues()[0];
+      const col = hdrs.indexOf('Calificación') + 1;
+      if (col > 0) { ent.deleteColumn(col); log.push('✓ "Calificación" eliminada de Entrevistas'); }
+      else { log.push('ℹ "Calificación" no estaba en Entrevistas'); }
     }
-  }
-}
+  } catch(e) { errores.push('✗ Error eliminando Calificación: ' + e.message); }
 
-function instalarCambiosNuevosTech_silencioso() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  // 1b. Hoja de Interés: mover "Notas/Comentario" antes de "Estado"
+  try {
+    const res = moverColumnaAntesDe_Tech(ss.getSheetByName('Hoja de Interés'), 'Notas/Comentario', 'Estado');
+    log.push(res);
+  } catch(e) { errores.push('✗ Error moviendo Notas/Comentario: ' + e.message); }
 
-  const interes = ss.getSheetByName('Hoja de Interés');
-  if (interes) {
-    const hdrsInt = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
-    const ya1ra   = hdrsInt.some(h => h === '1ra Llamada');
-    const ya2da   = hdrsInt.some(h => h === '2da Llamada');
-    const yaNotas = hdrsInt.some(h => h === 'Notas/Comentario');
+  // ── Paso 2: Columnas faltantes en Hoja de Interés ────────────────────
+  ss.toast('Paso 2/3: Verificando columnas...', 'Actualizando', 15);
+  try {
+    const interes = ss.getSheetByName('Hoja de Interés');
+    if (interes) {
+      const hdrsInt = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
+      const ya1ra   = hdrsInt.some(h => h === '1ra Llamada');
+      const ya2da   = hdrsInt.some(h => h === '2da Llamada');
+      const yaNotas = hdrsInt.some(h => h === 'Notas/Comentario');
+      if (!ya1ra) {
+        const c = interes.getLastColumn() + 1;
+        interes.getRange(1, c).setValue('1ra Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
+        interes.getRange(2, c, 499).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente']).setAllowInvalid(true).build());
+        interes.hideColumns(c);
+        log.push('✓ Columna "1ra Llamada" agregada');
+      }
+      if (!ya2da) {
+        const c = interes.getLastColumn() + 1;
+        interes.getRange(1, c).setValue('2da Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
+        interes.getRange(2, c, 499).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente', 'Reprogramada']).setAllowInvalid(true).build());
+        interes.hideColumns(c);
+        log.push('✓ Columna "2da Llamada" agregada');
+      }
+      if (!yaNotas) {
+        const c = interes.getLastColumn() + 1;
+        interes.getRange(1, c).setValue('Notas/Comentario').setBackground('#fff9c4').setFontWeight('bold').setHorizontalAlignment('center');
+        interes.setColumnWidth(c, 250);
+        log.push('✓ Columna "Notas/Comentario" agregada');
+      }
+      if (ya1ra && ya2da && yaNotas) log.push('ℹ Todas las columnas ya existían');
+    }
+  } catch(e) { errores.push('✗ Error en columnas de Interés: ' + e.message); }
 
-    if (!ya1ra) {
-      const c1 = interes.getLastColumn() + 1;
-      interes.getRange(1, c1).setValue('1ra Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
-      interes.getRange(2, c1, 499).setDataValidation(
-        SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente']).setAllowInvalid(true).build()
-      );
-      interes.hideColumns(c1);
-    }
-    if (!ya2da) {
-      const c2 = interes.getLastColumn() + 1;
-      interes.getRange(1, c2).setValue('2da Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
-      interes.getRange(2, c2, 499).setDataValidation(
-        SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente', 'Reprogramada']).setAllowInvalid(true).build()
-      );
-      interes.hideColumns(c2);
-    }
-    if (!yaNotas) {
-      const cN = interes.getLastColumn() + 1;
-      interes.getRange(1, cN).setValue('Notas/Comentario').setBackground('#fff9c4').setFontWeight('bold').setHorizontalAlignment('center');
-      interes.setColumnWidth(cN, 250);
-    }
+  // ── Paso 3: Reconfigurar validaciones ─────────────────────────────────
+  ss.toast('Paso 3/3: Reconfigurando dropdowns...', 'Actualizando', 15);
+  try {
+    configurarValidaciones();
+    log.push('✓ Dropdowns actualizados en todas las hojas');
+  } catch(e) { errores.push('✗ Error en configurarValidaciones: ' + e.message); }
 
-    const hdrsAct = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
-    const idxEstado = hdrsAct.findIndex(h => h.toString().trim() === 'Estado');
-    if (idxEstado >= 0) {
-      interes.getRange(2, idxEstado + 1, 499, 1).setDataValidation(
-        SpreadsheetApp.newDataValidation()
-          .requireValueInList(['Entrevista agendada', 'Reprogramada', 'No interesada/o'])
-          .setAllowInvalid(true).build()
-      );
-    }
-  }
-
-  const entrevistas = ss.getSheetByName('Entrevistas');
-  if (entrevistas) {
-    const hdrs = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
-    const idxE = hdrs.findIndex(h => h.toString().trim() === 'Estado');
-    if (idxE >= 0) {
-      const opciones = CONFIG_TECH.RESULTADO_FINAL.concat([
-        'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a A y B'
-      ]);
-      entrevistas.getRange(2, idxE + 1, 499, 1).setDataValidation(
-        SpreadsheetApp.newDataValidation().requireValueInList(opciones).setAllowInvalid(true).build()
-      );
-    }
-  }
+  // ── Resultado ─────────────────────────────────────────────────────────
+  SpreadsheetApp.flush();
+  const titulo = errores.length > 0 ? '⚠️ Actualización completada con advertencias' : '✅ Actualización completada';
+  ui.alert(titulo,
+    (log.length > 0 ? log.join('\n') : '') +
+    (errores.length > 0 ? '\n\n⚠️ Errores:\n' + errores.join('\n') : ''),
+    ui.ButtonSet.OK);
 }
 
 // =====================================================================
