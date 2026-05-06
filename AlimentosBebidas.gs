@@ -138,11 +138,11 @@ const CONFIG_AB = {
   // Resultado Final de entrevista (simplificado)
   RESULTADO_FINAL: [
     'Seleccionada/o',
-    'No asistió / No aprobó',
+    'No seleccionada/o',
+    'No asistió',
     'Reprogramada',
     'Próxima cohorte Barismo',
-    'Próxima cohorte Gastronomía',
-    'Enviar a Tecnología'
+    'Próxima cohorte Gastronomía'
   ],
 
   // Estados de cohorte
@@ -247,6 +247,7 @@ function setupMenuAB() {
         .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
+        .addItem('🔧 Reparar Columnas (Entrevistas + Interés + Inscritx)', 'repararColumnasAB')
         .addSeparator()
         .addItem('👤 Agregar Responsable', 'agregarResponsable')
         .addItem('✅ Verificar Instalación', 'verificarInstalacion'))
@@ -1565,17 +1566,18 @@ function configurarValidaciones() {
     aplicarValidacionEnt('Zona', CONFIG_AB.ZONAS, true);
     aplicarValidacionEnt('Entrevistador', responsables, true);
 
-    // Estado: acepta valores anteriores (Aprobada, No asistió) para no romper datos viejos
+    // Estado: opciones limpias + valores viejos solo como datos válidos (allowInvalid)
     const colEstado = headersEnt.findIndex(h => h.toString().trim() === 'Estado');
     if (colEstado >= 0) {
       const opcionesEstado = CONFIG_AB.RESULTADO_FINAL.concat([
-        'Aprobada', 'No aprobada', 'No asistió',          // valores viejos (compat)
-        'Derivar a Paso a Paso', 'Derivación a Programas'
+        'Derivar a Paso a Paso',
+        'Derivación a Programas',
+        'Enviar a Tecnología'
       ]);
       entrevistas.getRange(2, colEstado + 1, 499, 1).setDataValidation(
         SpreadsheetApp.newDataValidation()
           .requireValueInList(opcionesEstado)
-          .setAllowInvalid(true)
+          .setAllowInvalid(true)    // datos viejos no muestran error pero no están en el menú
           .build()
       );
     }
@@ -1773,13 +1775,15 @@ function aplicarFormatos() {
     const reglaPendiente = SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('Pendiente').setBackground('#fff9c4').setRanges([rangoEstadoEnt]).build();
     const reglaNoAsistioNoAprobo = SpreadsheetApp.newConditionalFormatRule()
-      .whenTextContains('No asistió / No aprobó').setBackground('#ffcdd2').setRanges([rangoEstadoEnt]).build();
+      .whenTextContains('No seleccionada/o').setBackground('#ffcdd2').setRanges([rangoEstadoEnt]).build();
+    const reglaNoAsistio = SpreadsheetApp.newConditionalFormatRule()
+      .whenTextContains('No asistió').setBackground('#ffcdd2').setRanges([rangoEstadoEnt]).build();
     const reglaBarismo = SpreadsheetApp.newConditionalFormatRule()
       .whenTextContains('Próxima cohorte Barismo').setBackground('#bbdefb').setRanges([rangoEstadoEnt]).build();
     const reglaGastronomia = SpreadsheetApp.newConditionalFormatRule()
       .whenTextContains('Próxima cohorte Gastronomía').setBackground('#dcedc8').setRanges([rangoEstadoEnt]).build();
 
-    entrevistas.setConditionalFormatRules([reglaAprobada, reglaPendiente, reglaNoAsistioNoAprobo, reglaBarismo, reglaGastronomia]);
+    entrevistas.setConditionalFormatRules([reglaAprobada, reglaPendiente, reglaNoAsistioNoAprobo, reglaNoAsistio, reglaBarismo, reglaGastronomia]);
   }
 
   // Formato condicional para Cohortes - Cupo lleno (Inscritas >= Cupo Máximo)
@@ -2235,12 +2239,13 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     return;
   }
 
-  if (resultado === 'No asistió / No aprobó' || resultado === 'No aprobada' || resultado === 'No asistió') {
+  if (resultado === 'No seleccionada/o' || resultado === 'No asistió' ||
+      resultado === 'No asistió / No aprobó' || resultado === 'No aprobada') {
     const noInscritx = ss.getSheetByName('No Inscritx');
     const colMapNoInscritx = obtenerMapaColumnas(noInscritx);
     const nuevaFila = obtenerPrimeraFilaVacia(noInscritx, 'C');
 
-    const motivo = 'No asistió / No aprobó';
+    const motivo = resultado === 'No asistió' ? 'No asistió a entrevista' : 'No seleccionada/o';
 
     const numColsNoInsc = noInscritx.getLastColumn();
     const registro = new Array(numColsNoInsc).fill('');
@@ -7439,9 +7444,11 @@ function repararDesplegableEntrevistasAB() {
     }
   });
 
-  const opciones = CONFIG_AB.RESULTADO_FINAL.concat(['Derivar a Paso a Paso', 'Derivación a Programas']);
+  const opciones = CONFIG_AB.RESULTADO_FINAL.concat([
+    'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a Tecnología'
+  ]);
   entrevistas.getRange(2, colEstado, 499, 1).setDataValidation(
-    SpreadsheetApp.newDataValidation().requireValueInList(opciones).setAllowInvalid(false).build()
+    SpreadsheetApp.newDataValidation().requireValueInList(opciones).setAllowInvalid(true).build()
   );
 }
 
@@ -7734,8 +7741,9 @@ function contarEntrevistasPorEstado_(sheet, mes, anio) {
     if (isNaN(d.getTime()) || d.getMonth() + 1 !== mes || d.getFullYear() !== anio) return;
     res.total++;
     const est = (estados[i][0] || '').toString().trim();
-    if (est === 'Seleccionada/o' || est === 'Aprobada')    res.aprobada++;
-    else if (est === 'No asistió / No aprobó' || est === 'No aprobada' || est === 'No asistió') res.noAprobada++;
+    if (est === 'Seleccionada/o' || est === 'Aprobada')          res.aprobada++;
+    else if (est === 'No seleccionada/o' || est === 'No aprobada' || est === 'No asistió / No aprobó') res.noAprobada++;
+    else if (est === 'No asistió')                               res.noAsistio++;
     else if (est === 'Reprogramada')                        res.reprogramada++;
     else if (est === 'Derivar a Paso a Paso')               res.derivada++;
   });
@@ -9284,14 +9292,9 @@ function instalarCambiosNuevosAB() {
     const hdrs = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
     const idxE = hdrs.findIndex(h => h.toString().trim() === 'Estado');
     if (idxE >= 0) {
-      const opciones = [
-        'Seleccionada/o', 'Aprobada',
-        'No asistió / No aprobó', 'No aprobada', 'No asistió',
-        'Reprogramada',
-        'Próxima cohorte Barismo', 'Próxima cohorte Gastronomía',
-        'Derivar a Paso a Paso', 'Derivación a Programas',
-        'Enviar a Tecnología'
-      ];
+      const opciones = CONFIG_AB.RESULTADO_FINAL.concat([
+        'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a Tecnología'
+      ]);
       entrevistas.getRange(2, idxE + 1, 499, 1).setDataValidation(
         SpreadsheetApp.newDataValidation().requireValueInList(opciones).setAllowInvalid(true).build()
       );
@@ -13032,6 +13035,82 @@ function repararHojaEstipendios() {
     '• Filas vacías ya NO muestran "Atrasado"\n' +
     '• Columnas S–V (Mes/Año/Semana) eliminadas\n\n' +
     (filasReales.length > 0 ? filasReales.length + ' registros preservados.' : 'No había registros reales — hoja limpia lista para importar.'),
+    ui.ButtonSet.OK
+  );
+}
+
+// =====================================================================
+// REPARAR COLUMNAS — Elimina Calificación, reubica Notas/Comentario,
+// elimina Trasladar a Tecnología, mueve Fecha envío a Inscritx al inicio
+// =====================================================================
+function repararColumnasAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const log = [];
+
+  // ── 1. Entrevistas: eliminar columna "Calificación" ──────────────────
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (entrevistas) {
+    const hdrsEnt = entrevistas.getRange(1, 1, 1, entrevistas.getLastColumn()).getValues()[0];
+    const colCalif = hdrsEnt.indexOf('Calificación') + 1;
+    if (colCalif > 0) {
+      entrevistas.deleteColumn(colCalif);
+      log.push('✓ Columna "Calificación" eliminada de Entrevistas');
+    } else {
+      log.push('ℹ "Calificación" ya no existe en Entrevistas');
+    }
+  }
+
+  // ── 2. Hoja de Interés: mover "Notas/Comentario" entre O y P ─────────
+  const interes = ss.getSheetByName('Hoja de Interés');
+  if (interes) {
+    const hdrsInt = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
+    const idxEstado = hdrsInt.indexOf('Estado') + 1;
+    const idxNotas  = hdrsInt.indexOf('Notas/Comentario') + 1;
+    if (idxNotas > 0 && idxEstado > 0) {
+      if (idxNotas === idxEstado - 1) {
+        log.push('ℹ "Notas/Comentario" ya está entre Servicio y Estado');
+      } else {
+        interes.moveColumns(interes.getRange(1, idxNotas, 1, 1), idxEstado);
+        log.push('✓ "Notas/Comentario" movida entre Servicio/Formación y Estado');
+      }
+    } else if (idxNotas === 0) {
+      log.push('⚠ Columna "Notas/Comentario" no encontrada en Hoja de Interés');
+    }
+  }
+
+  // ── 3. Inscritx: eliminar columna "Trasladar a Tecnología" ───────────
+  const inscritx = ss.getSheetByName('Inscritx');
+  if (inscritx) {
+    const hdrsIns = inscritx.getRange(1, 1, 1, inscritx.getLastColumn()).getValues()[0];
+    const colTras = hdrsIns.indexOf('Trasladar a Tecnología') + 1;
+    if (colTras > 0) {
+      inscritx.deleteColumn(colTras);
+      log.push('✓ Columna "Trasladar a Tecnología" eliminada de Inscritx');
+    } else {
+      log.push('ℹ "Trasladar a Tecnología" ya no existe en Inscritx');
+    }
+
+    // ── 4. Inscritx: mover "Fecha envío a Inscritx" al inicio ────────────
+    const hdrsIns2 = inscritx.getRange(1, 1, 1, inscritx.getLastColumn()).getValues()[0];
+    const colFecha = hdrsIns2.indexOf('Fecha envío a Inscritx') + 1;
+    if (colFecha > 1) {
+      inscritx.moveColumns(inscritx.getRange(1, colFecha, 1, 1), 1);
+      log.push('✓ "Fecha envío a Inscritx" movida a la primera columna');
+    } else if (colFecha === 1) {
+      log.push('ℹ "Fecha envío a Inscritx" ya está en la primera columna');
+    } else {
+      log.push('⚠ Columna "Fecha envío a Inscritx" no encontrada en Inscritx');
+    }
+  }
+
+  // ── 5. Reconfigurar validaciones ──────────────────────────────────────
+  configurarValidaciones();
+  log.push('✓ Validaciones actualizadas');
+
+  ui.alert(
+    '✅ Reparación completada',
+    log.join('\n'),
     ui.ButtonSet.OK
   );
 }
