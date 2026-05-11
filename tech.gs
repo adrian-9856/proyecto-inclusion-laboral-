@@ -252,6 +252,7 @@ function setupMenuTech() {
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
         .addItem('🔧 Reparar Columnas (Entrevistas + Interés)', 'repararColumnasTech')
+        .addItem('📋 Reorganizar columnas Hoja de Interés', 'agregarYOrganizarColumnasLlamadas')
         .addSeparator()
         .addItem('👤 Agregar Responsable', 'agregarResponsable')
         .addItem('✅ Verificar Instalación', 'verificarInstalacion'))
