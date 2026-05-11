@@ -1695,6 +1695,18 @@ function configurarValidaciones() {
     );
   }
 
+  // === HOJA DE REPORTES MENSUALES ===
+  // Columnas: A-Mes/Año, B-Nuevos Registros, C-Entrevistas, D-Aprobadas, E-No Aprobadas, F-No Asistió,
+  //          G-Reprogramadas, H-Derivadas P.Paso, I-Total Inscritx, J-Graduadx Mes, K-Deserciones Mes,
+  //          L-Cohortes Activas, M-Tasa Conversión %, N-Titular de Impacto, O-Logros del Mes, P-Fecha Guardado
+  const reportesMensuales = ss.getSheetByName('Reportes Mensuales');
+  if (reportesMensuales) {
+    // Titular de Impacto (columna N) - debe ser uno de los responsables
+    reportesMensuales.getRange('N2:N500').setDataValidation(
+      SpreadsheetApp.newDataValidation().requireValueInList(responsables).setAllowInvalid(true).build()
+    );
+  }
+
   Logger.log('✅ Validaciones configuradas');
 }
 
@@ -7111,35 +7123,6 @@ function actualizarReportesAB() {
     }
     return true;
   } catch (e) { return false; }
-}
-
-/**
- * Re-aplica todas las fórmulas del Reporte sin borrar datos existentes.
- * Usar cuando el reporte muestra celdas vacías o datos incorrectos.
- */
-function repararFormulasReporte() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const reporte = ss.getSheetByName('Reporte');
-  if (!reporte) { ss.toast('❌ No existe la hoja Reporte', 'Error', 3); return; }
-
-  reporte.getRange('B5').setFormula("=IFERROR(COUNTA('Hoja de Interés'!E:E)-1,0)");
-  reporte.getRange('C5').setFormula("=IFERROR(COUNTIFS('Hoja de Interés'!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
-  reporte.getRange('B8').setFormula('=IFERROR(COUNTA(Entrevistas!D:D)-1,0)');
-  reporte.getRange('C8').setFormula('=IFERROR(COUNTIF(Entrevistas!N:N,""),0)');
-  reporte.getRange('B11').setFormula('=IFERROR(MAX(COUNTA(Inscritx!B:B)-1,SUM(IFERROR(VALUE(Cohortes!H2:H),0))),0)');
-  reporte.getRange('B17').setFormula('=IFERROR(COUNTA(Graduadx!D:D)-1,0)');
-  reporte.getRange('C17').setFormula("=IFERROR(COUNTIFS(Graduadx!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
-  reporte.getRange('B20').setFormula('=IFERROR(COUNTA(Retiradx!D:D)-1,0)');
-  reporte.getRange('C20').setFormula("=IFERROR(COUNTIFS(Retiradx!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
-  reporte.getRange('D20').setFormula('=IFERROR(IF((B17+B20)>0,ROUND(B20/(B17+B20)*100,1)&"%","0%"),"0%")');
-  reporte.getRange('B23').setFormula("=IFERROR(COUNTA('No Inscritx'!C:C)-1,0)");
-  reporte.getRange('C23').setFormula("=IFERROR(COUNTIFS('No Inscritx'!A:A,\">=\"&DATE(YEAR(TODAY()),MONTH(TODAY()),1)),0)");
-  reporte.getRange('B26').setFormula('=IFERROR(SUM(IFERROR(VALUE(B5),0),IFERROR(VALUE(B17),0),IFERROR(VALUE(B20),0),IFERROR(VALUE(B23),0)),0)');
-  reporte.getRange('B27').setFormula('=IFERROR(IF((B17+B20)>0,ROUND(B17/(B17+B20)*100,1)&"%","0%"),"0%")');
-  reporte.getRange('B28').setFormula('=IFERROR(SUM(IFERROR(VALUE(Cohortes!G2:G),0))-SUM(IFERROR(VALUE(Cohortes!H2:H),0))-SUM(IFERROR(VALUE(Cohortes!I2:I),0)),0)');
-  reporte.getRange('B2').setValue(new Date());
-
-  ss.toast('✅ Fórmulas del Reporte reparadas', 'Reporte', 4);
 }
 
 /**
