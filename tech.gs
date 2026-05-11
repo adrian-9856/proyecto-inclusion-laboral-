@@ -2175,131 +2175,121 @@ function abrirFlujoSeguimientoManual() {
 function flujoSeguimientoInterés(sheet, fila) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
-  const colMap = obtenerMapaColumnas(sheet);
-  const maxCol = sheet.getLastColumn();
-  const datos = sheet.getRange(fila, 1, 1, maxCol).getValues()[0];
+  const fecha = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
 
-  const col1raLlamada    = colMap['1ralllamada'];
-  const colComentario1ra = colMap['comentario1ralllamada'];
-  const colMensaje1ra    = colMap['mensajeenviado1ra'];
-  const col2daLlamada    = colMap['2dalllamada'];
-  const colComentario2da = colMap['comentario2dalllamada'];
-  const colEstado        = colMap['estado'];
-  const fecha            = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+  // ── Búsqueda robusta por nombre exacto de columna (no por clave normalizada) ──
+  const hdrsRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const colPor = (nombre) => hdrsRow.findIndex(h => h.toString().trim() === nombre) + 1; // retorna col 1-based, 0 = no encontrada
 
-  const clearEstado = () => {
-    if (colEstado !== undefined) sheet.getRange(fila, colEstado + 1).setValue('');
-  };
+  const cEst  = colPor('Estado');
+  const c1ra  = colPor('1ra Llamada');
+  const cCom1 = colPor('Comentario 1ra Llamada');
+  const cMsg1 = colPor('Mensaje Enviado 1ra');
+  const c2da  = colPor('2da Llamada');
+  const cCom2 = colPor('Comentario 2da Llamada');
 
-  const val1raLlamada = col1raLlamada !== undefined ? (datos[col1raLlamada] || '').toString().trim() : '';
-  const valMensaje1ra = colMensaje1ra !== undefined ? (datos[colMensaje1ra] || '').toString().trim() : '';
-  const val2daLlamada = col2daLlamada !== undefined ? (datos[col2daLlamada] || '').toString().trim() : '';
+  const setVal = (col, valor) => { if (col > 0) sheet.getRange(fila, col).setValue(valor); };
+  const getVal = (col) => col > 0 ? sheet.getRange(fila, col).getValue().toString().trim() : '';
+  const clearEstado = () => setVal(cEst, '');
+
+  // Si faltan las columnas clave, avisar y salir
+  if (c1ra === 0 || c2da === 0) {
+    ui.alert('⚠️ Columnas no encontradas',
+      'No se encontraron las columnas "1ra Llamada" o "2da Llamada".\nEjecuta: Menú → Herramientas → 📋 Reorganizar columnas Hoja de Interés',
+      ui.ButtonSet.OK);
+    clearEstado();
+    return;
+  }
+
+  const val1ra  = getVal(c1ra);
+  const valMsg1 = getVal(cMsg1);
+  const val2da  = getVal(c2da);
 
   // ═══════════════════════════════════════════════════════════════════════
-  // PRIMER CLIC: 1ra Llamada aún no registrada
+  // PRIMER CLIC: 1ra Llamada aún vacía
   // ═══════════════════════════════════════════════════════════════════════
-  if (val1raLlamada === '') {
-    // Botones: SÍ = Contestó | NO = No contestó | CANCELAR = Pendiente
+  if (val1ra === '') {
     const r1 = ui.alert(
       '📞 PASO 1 — 1ra Llamada',
-      'SÍ → Contestó\nNO → No contestó\nCANCELAR → Pendiente / cancelar',
+      'SÍ → Contestó\nNO → No contestó\nCANCELAR → cancelar',
       ui.ButtonSet.YES_NO_CANCEL
     );
+    if (r1 === ui.Button.CANCEL || r1 === ui.Button.CLOSE) { clearEstado(); return; }
 
-    let val1ra = '';
-    if      (r1 === ui.Button.YES)    val1ra = 'Contestó';
-    else if (r1 === ui.Button.NO)     val1ra = 'No contestó';
-    else if (r1 === ui.Button.CANCEL) { clearEstado(); return; }
-    else                              { clearEstado(); return; }
+    const resultado1 = r1 === ui.Button.YES ? 'Contestó' : 'No contestó';
+    setVal(c1ra, resultado1 + ' (' + fecha + ')');
 
-    // Guardar con fecha en columna 1ra Llamada
-    if (col1raLlamada !== undefined) {
-      sheet.getRange(fila, col1raLlamada + 1).setValue(val1ra + ' (' + fecha + ')');
-    }
-
-    // Si no contestó → pedir comentario
-    if (val1ra === 'No contestó') {
-      const rc = ui.prompt('📝 Comentario 1ra Llamada (opcional)', 'Ej: Teléfono apagado, no disponible...', ui.ButtonSet.OK_CANCEL);
+    if (resultado1 === 'No contestó') {
+      const rc = ui.prompt('📝 Comentario (opcional)', 'Ej: Teléfono apagado, no disponible...', ui.ButtonSet.OK_CANCEL);
       if (rc.getSelectedButton() !== ui.Button.CANCEL) {
         const nota = rc.getResponseText().trim();
-        if (nota !== '' && colComentario1ra !== undefined) {
-          sheet.getRange(fila, colComentario1ra + 1).setValue('[' + fecha + '] ' + nota);
-        }
+        if (nota) setVal(cCom1, '[' + fecha + '] ' + nota);
       }
     }
 
     clearEstado();
     SpreadsheetApp.flush();
     ui.alert('✅ 1ra Llamada registrada',
-      '📋 PRÓXIMOS PASOS:\n\n' +
-      '1. Escribe en "Mensaje Enviado 1ra" el texto que le enviaste por WhatsApp\n' +
-      '2. Vuelve a seleccionar "Entrevista agendada" en la columna Estado\n\n' +
+      '📋 PASOS A SEGUIR:\n\n' +
+      '1. Escribe en "Mensaje Enviado 1ra" el texto de WhatsApp que enviaste\n' +
+      '2. Vuelve a seleccionar "Entrevista agendada" en Estado\n\n' +
       'El sistema continuará con la 2da llamada.',
       ui.ButtonSet.OK);
     return;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // SEGUNDO CLIC: Verificar que Mensaje 1ra esté lleno
+  // SEGUNDO CLIC: Verificar mensaje enviado
   // ═══════════════════════════════════════════════════════════════════════
-  if (valMensaje1ra === '') {
+  if (valMsg1 === '') {
     ui.alert('⚠️ Falta el mensaje de WhatsApp',
-      'Antes de continuar escribe en la columna "Mensaje Enviado 1ra" el texto que enviaste.\n\nLuego vuelve a seleccionar "Entrevista agendada".',
+      'Escribe en "Mensaje Enviado 1ra" el texto que enviaste.\nLuego vuelve a seleccionar "Entrevista agendada".',
       ui.ButtonSet.OK);
     clearEstado();
     return;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // SEGUNDA LLAMADA: bloquear solo si ya fue procesada definitivamente
+  // SEGUNDA LLAMADA: bloquear solo si ya tiene resultado final
   // ═══════════════════════════════════════════════════════════════════════
-  const val2daBase = val2daLlamada.split('(')[0].trim().toLowerCase();
+  const val2daBase = val2da.split('(')[0].trim().toLowerCase();
   if (val2daBase === 'contestó' || val2daBase === 'no contestó') {
     ui.alert('ℹ️ Ya procesado', 'Esta persona ya tiene el resultado de la 2da llamada registrado.', ui.ButtonSet.OK);
     clearEstado();
     return;
   }
 
-  // Botones: SÍ = Contestó | NO = No contestó | CANCELAR = Reprogramada/Pendiente
   const r2 = ui.alert(
     '📞 PASO 2 — 2da Llamada',
-    'SÍ → Contestó (→ pasa a Entrevistas)\nNO → No contestó (→ pasa a No Inscritx)\nCANCELAR → Reprogramada / Pendiente',
+    'SÍ → Contestó  →  pasa a Entrevistas\nNO → No contestó  →  pasa a No Inscritx\nCANCELAR → Reprogramada / Pendiente',
     ui.ButtonSet.YES_NO_CANCEL
   );
 
   if (r2 === ui.Button.YES) {
-    // ✓ CONTESTÓ → ENTREVISTAS
-    if (col2daLlamada !== undefined) sheet.getRange(fila, col2daLlamada + 1).setValue('Contestó (' + fecha + ')');
+    setVal(c2da, 'Contestó (' + fecha + ')');
     SpreadsheetApp.flush();
     procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
-    ui.alert('✅ Enviada/o a Entrevistas', 'Contestó la 2da llamada → registrada/o en "Entrevistas".', ui.ButtonSet.OK);
+    ui.alert('✅ Enviada/o a Entrevistas', 'Contestó → registrada/o en "Entrevistas".', ui.ButtonSet.OK);
 
   } else if (r2 === ui.Button.NO) {
-    // ✗ NO CONTESTÓ → NO INSCRITX
-    if (col2daLlamada !== undefined) sheet.getRange(fila, col2daLlamada + 1).setValue('No contestó (' + fecha + ')');
-    const rc2 = ui.prompt('📝 Comentario 2da Llamada (opcional)', 'Ej: No contesta, número inválido...', ui.ButtonSet.OK_CANCEL);
+    setVal(c2da, 'No contestó (' + fecha + ')');
+    const rc2 = ui.prompt('📝 Comentario (opcional)', 'Ej: No contesta, número inválido...', ui.ButtonSet.OK_CANCEL);
     if (rc2.getSelectedButton() !== ui.Button.CANCEL) {
-      const nota2da = rc2.getResponseText().trim();
-      if (nota2da !== '' && colComentario2da !== undefined) {
-        sheet.getRange(fila, colComentario2da + 1).setValue('[' + fecha + '] ' + nota2da);
-      }
+      const nota2 = rc2.getResponseText().trim();
+      if (nota2) setVal(cCom2, '[' + fecha + '] ' + nota2);
     }
     SpreadsheetApp.flush();
     procesarCambioEstadoInteres(sheet, fila, 'No interesada/o');
     ui.alert('❌ Enviada/o a No Inscritx', 'No contestó ambas llamadas → registrada/o en "No Inscritx".', ui.ButtonSet.OK);
 
   } else if (r2 === ui.Button.CANCEL) {
-    // Reprogramada o Pendiente
-    const r3 = ui.alert(
-      '¿Cuál es el estado?',
-      'SÍ → Reprogramada (tiene nueva fecha)\nNO → Pendiente (sin fecha definida)',
-      ui.ButtonSet.YES_NO
-    );
-    const estado2da = r3 === ui.Button.YES ? 'Reprogramada' : 'Pendiente';
-    if (col2daLlamada !== undefined) sheet.getRange(fila, col2daLlamada + 1).setValue(estado2da + ' (' + fecha + ')');
+    const r3 = ui.alert('¿Cuál es el estado?',
+      'SÍ → Reprogramada\nNO → Pendiente', ui.ButtonSet.YES_NO);
+    const est2 = r3 === ui.Button.YES ? 'Reprogramada' : 'Pendiente';
+    setVal(c2da, est2 + ' (' + fecha + ')');
     clearEstado();
     SpreadsheetApp.flush();
-    ui.alert('🔄 ' + estado2da, 'Cuando intentes de nuevo, selecciona "Entrevista agendada" otra vez.', ui.ButtonSet.OK);
+    ui.alert('🔄 ' + est2, 'Selecciona "Entrevista agendada" otra vez cuando reintentes.', ui.ButtonSet.OK);
   } else {
     clearEstado();
   }
