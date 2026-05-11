@@ -245,6 +245,8 @@ function setupMenuTech() {
 
       // ========== HERRAMIENTAS ==========
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
+        .addItem('📞 Flujo Seguimiento Manual (Interés)', 'abrirFlujoSeguimientoManual')
+        .addSeparator()
         .addItem('🧹 Limpiar Cohortes Mal Nombradas', 'limpiarCohortesMalNombradasTech')
         .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
@@ -2077,6 +2079,9 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
 
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#e3f2fd');
     ss.toast('✅ Copiada a Entrevistas', 'Hoja de Interés', 4);
+
+    // Ejecutar flujo automático de seguimiento
+    flujoSeguimientoInterés(sheet, fila);
     return;
   }
 
@@ -2123,6 +2128,127 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#ffe0b2');
     ss.toast('✅ Registrada/o en No Inscritx', 'Hoja de Interés', 4);
   }
+}
+
+/**
+ * Abre el flujo de seguimiento manual desde el menú
+ * El usuario selecciona una fila en la Hoja de Interés
+ */
+function abrirFlujoSeguimientoManual() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  const ui = SpreadsheetApp.getUi();
+
+  if (sheet.getName() !== 'Hoja de Interés') {
+    ui.alert('❌ Error', 'Por favor, selecciona una fila en la hoja "Hoja de Interés"', ui.ButtonSet.OK);
+    return;
+  }
+
+  const fila = sheet.getActiveRange().getRow();
+  if (fila <= 1) {
+    ui.alert('❌ Error', 'Por favor, selecciona una fila de datos (no el encabezado)', ui.ButtonSet.OK);
+    return;
+  }
+
+  flujoSeguimientoInterés(sheet, fila);
+}
+
+/**
+ * Flujo automático de preguntas para seguimiento en Hoja de Interés
+ * Se ejecuta cuando se selecciona "Entrevista agendada"
+ */
+function flujoSeguimientoInterés(sheet, fila) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const colMap = obtenerMapaColumnas(sheet);
+
+  // Obtener índices de columnas
+  const col1raLlamada = colMap['1ralllamada'];
+  const col2daLlamada = colMap['2dalllamada'];
+  const col1raMensaje = colMap['1ramensaje'] || colMap['mensaje1ra'];
+  const col2daMensaje = colMap['2damensaje'] || colMap['mensaje2da'];
+
+  // PASO 1: ¿Llamaste en 1ra Llamada?
+  const respuesta1ra = ui.prompt(
+    '📞 PASO 1: PRIMERA LLAMADA',
+    '¿Llamaste?\n\nEscribe:\n• Contestó\n• No contestó\n• Pendiente',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta1ra.getSelectedButton() === ui.Button.CANCEL) return;
+
+  const val1ra = respuesta1ra.getResponseText().trim();
+  if (val1ra === '') {
+    ui.alert('❌ Campo requerido');
+    return;
+  }
+
+  // Guardar 1ra Llamada
+  if (col1raLlamada !== undefined) {
+    sheet.getRange(fila, col1raLlamada + 1).setValue(val1ra);
+  }
+
+  // PASO 2: ¿Enviaste mensaje en 1ra Llamada?
+  const respuesta1raMsj = ui.prompt(
+    '💬 PASO 2: MENSAJE (1ra Llamada)',
+    '¿Enviaste mensaje WhatsApp?\n\nEscribe:\n• Enviado\n• No enviado\n• (deja en blanco si N/A)',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (respuesta1raMsj.getSelectedButton() !== ui.Button.CANCEL) {
+    const val1raMsj = respuesta1raMsj.getResponseText().trim();
+    if (val1raMsj !== '' && col1raMensaje !== undefined) {
+      sheet.getRange(fila, col1raMensaje + 1).setValue(val1raMsj);
+    }
+  }
+
+  // PASO 3: Si no contestó en 1ra, preguntar 2da Llamada
+  if (val1ra.toLowerCase().includes('no contestó')) {
+    const respuesta2da = ui.prompt(
+      '📞 PASO 3: SEGUNDA LLAMADA',
+      '¿Llamaste nuevamente?\n\nEscribe:\n• Contestó\n• No contestó\n• Reprogramada\n• Pendiente',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (respuesta2da.getSelectedButton() !== ui.Button.CANCEL) {
+      const val2da = respuesta2da.getResponseText().trim();
+      if (val2da !== '' && col2daLlamada !== undefined) {
+        sheet.getRange(fila, col2daLlamada + 1).setValue(val2da);
+      }
+
+      // PASO 4: Mensaje en 2da Llamada
+      if (!val2da.toLowerCase().includes('pendiente')) {
+        const respuesta2daMsj = ui.prompt(
+          '💬 PASO 4: MENSAJE (2da Llamada)',
+          '¿Enviaste mensaje?\n\nEscribe:\n• Enviado\n• No enviado\n• (deja en blanco si N/A)',
+          ui.ButtonSet.OK_CANCEL
+        );
+
+        if (respuesta2daMsj.getSelectedButton() !== ui.Button.CANCEL) {
+          const val2daMsj = respuesta2daMsj.getResponseText().trim();
+          if (val2daMsj !== '' && col2daMensaje !== undefined) {
+            sheet.getRange(fila, col2daMensaje + 1).setValue(val2daMsj);
+          }
+        }
+      }
+    }
+  }
+
+  // PASO 5: ¿Fue a la entrevista?
+  const respuestaEntrevista = ui.alert(
+    '📋 PASO 5: RESULTADO ENTREVISTA',
+    '¿La persona fue a la entrevista agendada?',
+    ui.ButtonSet.YES_NO_CANCEL
+  );
+
+  if (respuestaEntrevista === ui.Button.YES) {
+    sheet.getRange(fila, colMap['estado'] + 1).setValue('Entrevista realizada');
+  } else if (respuestaEntrevista === ui.Button.NO) {
+    sheet.getRange(fila, colMap['estado'] + 1).setValue('No interesada/o');
+  }
+
+  SpreadsheetApp.flush();
+  ui.alert('✅ Flujo completado', 'Se registró toda la información del seguimiento.', ui.ButtonSet.OK);
 }
 
 /**
