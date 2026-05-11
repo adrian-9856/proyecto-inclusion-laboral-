@@ -13314,36 +13314,10 @@ function actualizarTodoAB() {
   } catch(e) { errores.push('✗ Error moviendo Fecha envío: ' + e.message); }
 
   // ── Paso 2: Columnas faltantes en Hoja de Interés ────────────────────
-  ss.toast('Paso 2/3: Verificando columnas...', 'Actualizando', 15);
+  ss.toast('Paso 2/3: Agregando columnas de seguimiento...', 'Actualizando', 15);
   try {
-    const interes = ss.getSheetByName('Hoja de Interés');
-    if (interes) {
-      const hdrsInt = interes.getRange(1, 1, 1, interes.getLastColumn()).getValues()[0];
-      const ya1ra   = hdrsInt.some(h => h === '1ra Llamada');
-      const ya2da   = hdrsInt.some(h => h === '2da Llamada');
-      const yaNotas = hdrsInt.some(h => h === 'Notas/Comentario');
-      if (!ya1ra) {
-        const c = interes.getLastColumn() + 1;
-        interes.getRange(1, c).setValue('1ra Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
-        interes.getRange(2, c, 499).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente']).setAllowInvalid(true).build());
-        interes.hideColumns(c);
-        log.push('✓ Columna "1ra Llamada" agregada');
-      }
-      if (!ya2da) {
-        const c = interes.getLastColumn() + 1;
-        interes.getRange(1, c).setValue('2da Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
-        interes.getRange(2, c, 499).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente', 'Reprogramada']).setAllowInvalid(true).build());
-        interes.hideColumns(c);
-        log.push('✓ Columna "2da Llamada" agregada');
-      }
-      if (!yaNotas) {
-        const c = interes.getLastColumn() + 1;
-        interes.getRange(1, c).setValue('Notas/Comentario').setBackground('#fff9c4').setFontWeight('bold').setHorizontalAlignment('center');
-        interes.setColumnWidth(c, 250);
-        log.push('✓ Columna "Notas/Comentario" agregada');
-      }
-      if (ya1ra && ya2da && yaNotas) log.push('ℹ Todas las columnas ya existían');
-    }
+    agregarYOrganizarColumnasLlamadas();
+    log.push('✓ Columnas de seguimiento (1ra/2da Llamada + Comentarios + Mensajes) agregadas');
   } catch(e) { errores.push('✗ Error en columnas de Interés: ' + e.message); }
 
   // ── Paso 3: Reconfigurar validaciones ─────────────────────────────────
