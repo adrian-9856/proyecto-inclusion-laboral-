@@ -2267,17 +2267,8 @@ function flujoSeguimientoInterés(sheet, fila) {
       sheet.getRange(fila, col2daLlamada + 1).setValue(val2da);
     }
 
-    // Casos:
-    if (val2da.toLowerCase().includes('contestó')) {
-      // ✓ CONTESTO EN 2DA → ENVIAR A ENTREVISTAS
-      if (colEstado !== undefined) {
-        sheet.getRange(fila, colEstado + 1).setValue('Entrevista realizada');
-      }
-      SpreadsheetApp.flush();
-      procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
-      ui.alert('✅ A Entrevistas', 'Copiada/o a la hoja de Entrevistas.', ui.ButtonSet.OK);
-
-    } else if (val2da.toLowerCase().includes('no contestó')) {
+    // Casos: (verificar "no contestó" ANTES que "contestó" para evitar falso positivo)
+    if (val2da.toLowerCase().includes('no contestó')) {
       // ✗ NO CONTESTO NI 1RA NI 2DA → NO INSCRITX
       const comentario2da = ui.prompt(
         '📝 NOTA: ¿Por qué no contestó?',
@@ -2298,6 +2289,15 @@ function flujoSeguimientoInterés(sheet, fila) {
       SpreadsheetApp.flush();
       procesarCambioEstadoInteres(sheet, fila, 'No interesada/o');
       ui.alert('❌ No Inscritx', 'No contestó ambas llamadas. Registrada/o en "No Inscritx".', ui.ButtonSet.OK);
+
+    } else if (val2da.toLowerCase().includes('contestó')) {
+      // ✓ CONTESTÓ EN 2DA → ENVIAR A ENTREVISTAS
+      if (colEstado !== undefined) {
+        sheet.getRange(fila, colEstado + 1).setValue('Entrevista realizada');
+      }
+      SpreadsheetApp.flush();
+      procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
+      ui.alert('✅ A Entrevistas', 'Copiada/o a la hoja de Entrevistas.', ui.ButtonSet.OK);
 
     } else if (val2da.toLowerCase().includes('reprogramada')) {
       // Reprogramada → esperar
