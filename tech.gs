@@ -13248,7 +13248,8 @@ function actualizarTodoTech() {
     '0. Instalar/verificar trigger de automatizaciones\n' +
     '1. Reparar columnas (Entrevistas, Hoja de Interés)\n' +
     '2. Instalar columnas faltantes (1ra/2da Llamada, Notas)\n' +
-    '3. Reconfigurar todos los dropdowns\n\n' +
+    '3. Reconfigurar todos los dropdowns\n' +
+    '4. Reparar y actualizar reportes\n\n' +
     '⚠️ Los datos existentes NO se borran.\n¿Continuar?',
     ui.ButtonSet.YES_NO
   );
@@ -13334,6 +13335,26 @@ function actualizarTodoTech() {
     configurarValidaciones();
     log.push('✓ Dropdowns actualizados en todas las hojas');
   } catch(e) { errores.push('✗ Error en configurarValidaciones: ' + e.message); }
+
+  // ── Paso 4: Reparar y actualizar reportes ─────────────────────────────
+  ss.toast('Paso 4/4: Actualizando reportes...', 'Actualizando', 15);
+  try {
+    // Reparar fórmulas del Reporte
+    repararFormulasReporte();
+    log.push('✓ Fórmulas del Reporte reparadas');
+  } catch(e) { errores.push('✗ Error reparando fórmulas del Reporte: ' + e.message); }
+
+  try {
+    // Reparar fórmulas de Cohortes
+    repararFormulasCohortes();
+    log.push('✓ Fórmulas de Cohortes reparadas');
+  } catch(e) { errores.push('✗ Error reparando fórmulas de Cohortes: ' + e.message); }
+
+  try {
+    // Actualizar Reportes Mensuales
+    asegurarEstructuraReportesMensualesTech();
+    log.push('✓ Estructura de Reportes Mensuales verificada');
+  } catch(e) { errores.push('✗ Error en Reportes Mensuales: ' + e.message); }
 
   // ── Resultado ─────────────────────────────────────────────────────────
   SpreadsheetApp.flush();
