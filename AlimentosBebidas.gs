@@ -2146,7 +2146,11 @@ function abrirFlujoSeguimientoManual() {
 
 /**
  * Flujo automático de preguntas para seguimiento en Hoja de Interés (AB)
- * Se ejecuta cuando se selecciona "Entrevista agendada"
+ * FLUJO CORRECTO:
+ * - Si NO CONTESTA ambas llamadas → "No interesada/o" (NO a Entrevistas)
+ * - Si CONTESTA una o ambas → PASO 5 (¿Vino?)
+ * - Si PASO 5 = NO VINO → "No interesada/o" + copiar a No Inscritx
+ * - Si PASO 5 = SÍ VINO → Copiar a Entrevistas
  */
 function flujoSeguimientoInterés(sheet, fila) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -2156,8 +2160,7 @@ function flujoSeguimientoInterés(sheet, fila) {
   // Obtener índices de columnas
   const col1raLlamada = colMap['1ralllamada'];
   const col2daLlamada = colMap['2dalllamada'];
-  const col1raMensaje = colMap['1ramensaje'] || colMap['mensaje1ra'];
-  const col2daMensaje = colMap['2damensaje'] || colMap['mensaje2da'];
+  const colEstado = colMap['estado'];
 
   // PASO 1: ¿Llamaste en 1ra Llamada?
   const respuesta1ra = ui.prompt(
@@ -2188,12 +2191,12 @@ function flujoSeguimientoInterés(sheet, fila) {
 
   if (respuesta1raMsj.getSelectedButton() !== ui.Button.CANCEL) {
     const val1raMsj = respuesta1raMsj.getResponseText().trim();
-    if (val1raMsj !== '' && col1raMensaje !== undefined) {
-      sheet.getRange(fila, col1raMensaje + 1).setValue(val1raMsj);
-    }
+    // Guardar si hay algo (opcional, solo si pone algo)
   }
 
-  // PASO 3: Si no contestó en 1ra, preguntar 2da Llamada
+  let contesto = false;
+
+  // PASO 3: Si NO contestó en 1ra, preguntar 2da Llamada
   if (val1ra.toLowerCase().includes('no contestó')) {
     const respuesta2da = ui.prompt(
       '📞 PASO 3: SEGUNDA LLAMADA',
@@ -2203,43 +2206,91 @@ function flujoSeguimientoInterés(sheet, fila) {
 
     if (respuesta2da.getSelectedButton() !== ui.Button.CANCEL) {
       const val2da = respuesta2da.getResponseText().trim();
-      if (val2da !== '' && col2daLlamada !== undefined) {
-        sheet.getRange(fila, col2daLlamada + 1).setValue(val2da);
-      }
+      if (val2da !== '') {
+        if (col2daLlamada !== undefined) {
+          sheet.getRange(fila, col2daLlamada + 1).setValue(val2da);
+        }
 
-      // PASO 4: Mensaje en 2da Llamada
-      if (!val2da.toLowerCase().includes('pendiente')) {
-        const respuesta2daMsj = ui.prompt(
-          '💬 PASO 4: MENSAJE (2da Llamada)',
-          '¿Enviaste mensaje?\n\nEscribe:\n• Enviado\n• No enviado\n• (deja en blanco si N/A)',
-          ui.ButtonSet.OK_CANCEL
-        );
+        // PASO 4: Mensaje en 2da Llamada
+        if (!val2da.toLowerCase().includes('pendiente') && !val2da.toLowerCase().includes('reprogramada')) {
+          const respuesta2daMsj = ui.prompt(
+            '💬 PASO 4: MENSAJE (2da Llamada)',
+            '¿Enviaste mensaje?\n\nEscribe:\n• Enviado\n• No enviado',
+            ui.ButtonSet.OK_CANCEL
+          );
+        }
 
-        if (respuesta2daMsj.getSelectedButton() !== ui.Button.CANCEL) {
-          const val2daMsj = respuesta2daMsj.getResponseText().trim();
-          if (val2daMsj !== '' && col2daMensaje !== undefined) {
-            sheet.getRange(fila, col2daMensaje + 1).setValue(val2daMsj);
+        // Verificar si contesto en 2da
+        if (val2da.toLowerCase().includes('contestó')) {
+          contesto = true;
+        } else if (val2da.toLowerCase().includes('reprogramada')) {
+          // Si dice Reprogramada en 2da, marcar Estado como Reprogramada y salir
+          if (colEstado !== undefined) {
+            sheet.getRange(fila, colEstado + 1).setValue('Reprogramada');
           }
+          SpreadsheetApp.flush();
+          ui.alert('✅ Registrado', 'Llamada reprogramada. Esperar próxima fecha.', ui.ButtonSet.OK);
+          return;
         }
       }
     }
+  } else if (val1ra.toLowerCase().includes('contestó')) {
+    contesto = true;
+  } else if (val1ra.toLowerCase().includes('pendiente')) {
+    // Si es pendiente, no continuar
+    if (colEstado !== undefined) {
+      sheet.getRange(fila, colEstado + 1).setValue('Pendiente');
+    }
+    SpreadsheetApp.flush();
+    ui.alert('✅ Registrado', 'Llamada pendiente. Intentar más tarde.', ui.ButtonSet.OK);
+    return;
   }
 
-  // PASO 5: ¿Fue a la entrevista?
-  const respuestaEntrevista = ui.alert(
-    '📋 PASO 5: RESULTADO ENTREVISTA',
-    '¿La persona fue a la entrevista agendada?',
+  // ═══════════════════════════════════════════════════════════════════════
+  // DECISIÓN CRÍTICA: Si NO contestó ambas llamadas → NO inscribir
+  // ═══════════════════════════════════════════════════════════════════════
+  if (!contesto) {
+    // NO CONTESTO NINGUNA → Marcar como No interesada/o y enviar a No Inscritx
+    if (colEstado !== undefined) {
+      sheet.getRange(fila, colEstado + 1).setValue('No interesada/o');
+    }
+    SpreadsheetApp.flush();
+
+    // Enviar a No Inscritx
+    procesarCambioEstadoInteres(sheet, fila, 'No interesada/o');
+
+    ui.alert('❌ No Inscritx', 'No contestó las llamadas. Registrada/o en "No Inscritx".', ui.ButtonSet.OK);
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Si llegamos aquí = CONTESTO al menos una llamada
+  // PASO 5: ¿Vino a la entrevista?
+  // ═══════════════════════════════════════════════════════════════════════
+  const respuestaVino = ui.alert(
+    '📋 PASO 5: ¿ASISTIÓ A LA ENTREVISTA?',
+    '¿La persona asistió a la entrevista agendada?',
     ui.ButtonSet.YES_NO_CANCEL
   );
 
-  if (respuestaEntrevista === ui.Button.YES) {
-    sheet.getRange(fila, colMap['estado'] + 1).setValue('Entrevista realizada');
-  } else if (respuestaEntrevista === ui.Button.NO) {
-    sheet.getRange(fila, colMap['estado'] + 1).setValue('No interesada/o');
-  }
+  if (respuestaVino === ui.Button.YES) {
+    // ✓ SÍ VINO → Copiar a Entrevistas
+    if (colEstado !== undefined) {
+      sheet.getRange(fila, colEstado + 1).setValue('Entrevista realizada');
+    }
+    SpreadsheetApp.flush();
+    procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
+    ui.alert('✅ A Entrevistas', 'Copiada/o a la hoja de Entrevistas para registro.', ui.ButtonSet.OK);
 
-  SpreadsheetApp.flush();
-  ui.alert('✅ Flujo completado', 'Se registró toda la información del seguimiento.', ui.ButtonSet.OK);
+  } else if (respuestaVino === ui.Button.NO) {
+    // ✗ NO VINO → Enviar a No Inscritx (NO a Entrevistas)
+    if (colEstado !== undefined) {
+      sheet.getRange(fila, colEstado + 1).setValue('No interesada/o');
+    }
+    SpreadsheetApp.flush();
+    procesarCambioEstadoInteres(sheet, fila, 'No interesada/o');
+    ui.alert('❌ No Inscritx', 'No asistió a la entrevista. Registrada/o en "No Inscritx".', ui.ButtonSet.OK);
+  }
 }
 
 /**
