@@ -2031,8 +2031,15 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   Logger.log('     Nivel Educativo encontrado: ' + getVal('Nivel Educativo'));
   Logger.log('     Zona encontrada: ' + getVal('Zona'));
 
-  // "Entrevista agendada" → copia a Entrevistas y marca azul
-  if (estado === 'Entrevista agendada' || estado === 'Entrevista realizada') {
+  // "Entrevista agendada" → lanzar flujo de llamadas (NO copiar a Entrevistas todavía)
+  // El flujo decide si va a Entrevistas (contestó) o No Inscritx (no contestó)
+  if (estado === 'Entrevista agendada') {
+    flujoSeguimientoInterés(sheet, fila);
+    return;
+  }
+
+  // "Entrevista realizada" → copiar a Entrevistas (llamado desde flujoSeguimientoInterés)
+  if (estado === 'Entrevista realizada') {
     const entrevistas = ss.getSheetByName('Entrevistas');
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
     const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, ['C', 'E']);
@@ -2071,9 +2078,6 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
 
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#e3f2fd');
     ss.toast('✅ Copiada a Entrevistas', 'Hoja de Interés', 4);
-
-    // Ejecutar flujo automático de seguimiento
-    flujoSeguimientoInterés(sheet, fila);
     return;
   }
 
@@ -2165,62 +2169,57 @@ function flujoSeguimientoInterés(sheet, fila) {
   const maxCol = sheet.getLastColumn();
   const datos = sheet.getRange(fila, 1, 1, maxCol).getValues()[0];
 
-  const col1raLlamada = colMap['1ralllamada'];
+  const col1raLlamada    = colMap['1ralllamada'];
   const colComentario1ra = colMap['comentario1ralllamada'];
-  const colMensaje1ra = colMap['mensajeenviado1ra'];
-  const col2daLlamada = colMap['2dalllamada'];
+  const colMensaje1ra    = colMap['mensajeenviado1ra'];
+  const col2daLlamada    = colMap['2dalllamada'];
   const colComentario2da = colMap['comentario2dalllamada'];
-  const colMensaje2da = colMap['mensajeenviado2da'];
-  const colEstado = colMap['estado'];
+  const colEstado        = colMap['estado'];
 
-  // Verificar si ya tiene 1ra Llamada registrada (para saber si es 1er o 2do clic)
-  const val1raLlamada = datos[col1raLlamada] || '';
-  const valMensaje1ra = datos[colMensaje1ra] || '';
-  const val2daLlamada = datos[col2daLlamada] || '';
+  // Helper: limpiar Estado para permitir que el trigger vuelva a dispararse
+  const clearEstado = () => {
+    if (colEstado !== undefined) sheet.getRange(fila, colEstado + 1).setValue('');
+  };
+
+  const val1raLlamada = col1raLlamada !== undefined ? (datos[col1raLlamada] || '').toString().trim() : '';
+  const valMensaje1ra = colMensaje1ra !== undefined ? (datos[colMensaje1ra] || '').toString().trim() : '';
+  const val2daLlamada = col2daLlamada !== undefined ? (datos[col2daLlamada] || '').toString().trim() : '';
 
   // ═══════════════════════════════════════════════════════════════════════
   // PRIMER CLIC: 1ra Llamada aún no registrada
   // ═══════════════════════════════════════════════════════════════════════
-  if (val1raLlamada === '' || val1raLlamada.toString().trim() === '') {
-    const respuesta1ra = ui.prompt(
+  if (val1raLlamada === '') {
+    const r1 = ui.prompt(
       '📞 PASO 1: ¿CONTESTÓ EN PRIMERA LLAMADA?',
-      'Escribe:\n• Contestó\n• No contestó\n• Pendiente',
+      'Opciones:\n• Contestó\n• No contestó\n• Pendiente',
       ui.ButtonSet.OK_CANCEL
     );
+    if (r1.getSelectedButton() === ui.Button.CANCEL) { clearEstado(); return; }
 
-    if (respuesta1ra.getSelectedButton() === ui.Button.CANCEL) return;
-
-    const val1ra = respuesta1ra.getResponseText().trim();
+    const val1ra = r1.getResponseText().trim();
     if (val1ra === '') {
-      ui.alert('❌ Campo requerido');
+      ui.alert('❌ Campo requerido', 'Escribe el resultado de la llamada.', ui.ButtonSet.OK);
+      clearEstado();
       return;
     }
 
-    // Guardar 1ra Llamada
-    if (col1raLlamada !== undefined) {
-      sheet.getRange(fila, col1raLlamada + 1).setValue(val1ra);
-    }
+    if (col1raLlamada !== undefined) sheet.getRange(fila, col1raLlamada + 1).setValue(val1ra);
 
-    // Si NO CONTESTÓ → pedir comentario/nota
     if (val1ra.toLowerCase().includes('no contestó')) {
-      const comentario = ui.prompt(
-        '📝 NOTA: ¿Por qué no contestó?',
-        'Escribe una nota breve sobre la llamada',
-        ui.ButtonSet.OK_CANCEL
-      );
-
-      if (comentario.getSelectedButton() !== ui.Button.CANCEL) {
-        const nota = comentario.getResponseText().trim();
-        if (nota !== '' && colComentario1ra !== undefined) {
-          sheet.getRange(fila, colComentario1ra + 1).setValue(nota);
-        }
+      const rc = ui.prompt('📝 Comentario 1ra Llamada', 'Escribe una nota breve (opcional):', ui.ButtonSet.OK_CANCEL);
+      if (rc.getSelectedButton() !== ui.Button.CANCEL) {
+        const nota = rc.getResponseText().trim();
+        if (nota !== '' && colComentario1ra !== undefined) sheet.getRange(fila, colComentario1ra + 1).setValue(nota);
       }
     }
 
+    clearEstado();
     SpreadsheetApp.flush();
-    ui.alert('✅ Registrado 1ra Llamada',
-      'Ahora rellena manualmente el campo "Mensaje Enviado 1ra".\n\n' +
-      'Después, vuelve a dar clic en "Entrevista agendada" para continuar.',
+    ui.alert('✅ 1ra Llamada registrada',
+      '📋 PASOS A SEGUIR:\n\n' +
+      '1. Rellena "Mensaje Enviado 1ra"\n' +
+      '2. Vuelve a seleccionar "Entrevista agendada" en Estado\n\n' +
+      'El sistema preguntará por la 2da llamada.',
       ui.ButtonSet.OK);
     return;
   }
@@ -2228,84 +2227,72 @@ function flujoSeguimientoInterés(sheet, fila) {
   // ═══════════════════════════════════════════════════════════════════════
   // SEGUNDO CLIC: Verificar que Mensaje 1ra esté lleno
   // ═══════════════════════════════════════════════════════════════════════
-  if (valMensaje1ra === '' || valMensaje1ra.toString().trim() === '') {
-    ui.alert('⚠️ Campo requerido',
-      'Primero rellena "Mensaje Enviado 1ra" con lo que enviaste a la persona.',
+  if (valMensaje1ra === '') {
+    ui.alert('⚠️ Falta el mensaje',
+      'Rellena "Mensaje Enviado 1ra" y luego vuelve a seleccionar "Entrevista agendada".',
       ui.ButtonSet.OK);
+    clearEstado();
     return;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // SEGUNDA LLAMADA: Preguntar resultado
+  // SEGUNDA LLAMADA: solo bloquear si ya hay resultado final
   // ═══════════════════════════════════════════════════════════════════════
-  if (val2daLlamada === '' || val2daLlamada.toString().trim() === '') {
-    const respuesta2da = ui.prompt(
-      '📞 PASO 2: ¿CONTESTÓ EN SEGUNDA LLAMADA?',
-      'Escribe:\n• Contestó\n• No contestó\n• Reprogramada\n• Pendiente',
-      ui.ButtonSet.OK_CANCEL
-    );
+  const val2daLower = val2daLlamada.toLowerCase();
+  const val2daEsFinal = val2daLower === 'contestó' || val2daLower === 'no contestó';
+  if (val2daEsFinal) {
+    ui.alert('ℹ️ Ya procesado', 'Esta persona ya tiene el resultado de la 2da llamada registrado.', ui.ButtonSet.OK);
+    clearEstado();
+    return;
+  }
 
-    if (respuesta2da.getSelectedButton() === ui.Button.CANCEL) return;
+  const r2 = ui.prompt(
+    '📞 PASO 2: ¿CONTESTÓ EN SEGUNDA LLAMADA?',
+    'Opciones:\n• Contestó\n• No contestó\n• Reprogramada\n• Pendiente',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (r2.getSelectedButton() === ui.Button.CANCEL) { clearEstado(); return; }
 
-    const val2da = respuesta2da.getResponseText().trim();
-    if (val2da === '') {
-      ui.alert('❌ Campo requerido');
-      return;
+  const val2da = r2.getResponseText().trim();
+  if (val2da === '') {
+    ui.alert('❌ Campo requerido', 'Escribe el resultado de la llamada.', ui.ButtonSet.OK);
+    clearEstado();
+    return;
+  }
+
+  if (col2daLlamada !== undefined) sheet.getRange(fila, col2daLlamada + 1).setValue(val2da);
+
+  const val2daP = val2da.toLowerCase();
+
+  // Verificar "no contestó" PRIMERO para evitar falso positivo con "contestó"
+  if (val2daP.includes('no contestó')) {
+    const rc2 = ui.prompt('📝 Comentario 2da Llamada', 'Escribe una nota breve (opcional):', ui.ButtonSet.OK_CANCEL);
+    if (rc2.getSelectedButton() !== ui.Button.CANCEL) {
+      const nota2da = rc2.getResponseText().trim();
+      if (nota2da !== '' && colComentario2da !== undefined) sheet.getRange(fila, colComentario2da + 1).setValue(nota2da);
     }
+    SpreadsheetApp.flush();
+    procesarCambioEstadoInteres(sheet, fila, 'No interesada/o');
+    ui.alert('❌ No Inscritx', 'No contestó ambas llamadas → registrada/o en "No Inscritx".', ui.ButtonSet.OK);
 
-    // Guardar 2da Llamada
-    if (col2daLlamada !== undefined) {
-      sheet.getRange(fila, col2daLlamada + 1).setValue(val2da);
-    }
+  } else if (val2daP.includes('contestó')) {
+    SpreadsheetApp.flush();
+    procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
+    ui.alert('✅ A Entrevistas', 'Contestó → copiada/o a la hoja de Entrevistas.', ui.ButtonSet.OK);
 
-    // Casos: (verificar "no contestó" ANTES que "contestó" para evitar falso positivo)
-    if (val2da.toLowerCase().includes('no contestó')) {
-      // ✗ NO CONTESTO NI 1RA NI 2DA → NO INSCRITX
-      const comentario2da = ui.prompt(
-        '📝 NOTA: ¿Por qué no contestó?',
-        'Escribe una nota breve',
-        ui.ButtonSet.OK_CANCEL
-      );
+  } else if (val2daP.includes('reprogramada')) {
+    clearEstado();
+    SpreadsheetApp.flush();
+    ui.alert('🔄 Reprogramada', 'Cuando intentes de nuevo, vuelve a seleccionar "Entrevista agendada".', ui.ButtonSet.OK);
 
-      if (comentario2da.getSelectedButton() !== ui.Button.CANCEL) {
-        const nota2da = comentario2da.getResponseText().trim();
-        if (nota2da !== '' && colComentario2da !== undefined) {
-          sheet.getRange(fila, colComentario2da + 1).setValue(nota2da);
-        }
-      }
+  } else if (val2daP.includes('pendiente')) {
+    clearEstado();
+    SpreadsheetApp.flush();
+    ui.alert('⏳ Pendiente', 'Cuando intentes de nuevo, vuelve a seleccionar "Entrevista agendada".', ui.ButtonSet.OK);
 
-      if (colEstado !== undefined) {
-        sheet.getRange(fila, colEstado + 1).setValue('No interesada/o');
-      }
-      SpreadsheetApp.flush();
-      procesarCambioEstadoInteres(sheet, fila, 'No interesada/o');
-      ui.alert('❌ No Inscritx', 'No contestó ambas llamadas. Registrada/o en "No Inscritx".', ui.ButtonSet.OK);
-
-    } else if (val2da.toLowerCase().includes('contestó')) {
-      // ✓ CONTESTÓ EN 2DA → ENVIAR A ENTREVISTAS
-      if (colEstado !== undefined) {
-        sheet.getRange(fila, colEstado + 1).setValue('Entrevista realizada');
-      }
-      SpreadsheetApp.flush();
-      procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
-      ui.alert('✅ A Entrevistas', 'Copiada/o a la hoja de Entrevistas.', ui.ButtonSet.OK);
-
-    } else if (val2da.toLowerCase().includes('reprogramada')) {
-      // Reprogramada → esperar
-      if (colEstado !== undefined) {
-        sheet.getRange(fila, colEstado + 1).setValue('Reprogramada');
-      }
-      SpreadsheetApp.flush();
-      ui.alert('✅ Reprogramada', 'Llamada reprogramada. Esperar próxima fecha.', ui.ButtonSet.OK);
-
-    } else if (val2da.toLowerCase().includes('pendiente')) {
-      // Pendiente → esperar
-      if (colEstado !== undefined) {
-        sheet.getRange(fila, colEstado + 1).setValue('Pendiente');
-      }
-      SpreadsheetApp.flush();
-      ui.alert('✅ Pendiente', 'Llamada pendiente. Intentar más tarde.', ui.ButtonSet.OK);
-    }
+  } else {
+    ui.alert('⚠️ Opción no reconocida', 'Escribe: Contestó, No contestó, Reprogramada o Pendiente.', ui.ButtonSet.OK);
+    clearEstado();
   }
 }
 
