@@ -13403,7 +13403,6 @@ function agregarYOrganizarColumnasLlamadas() {
   const sheet = ss.getSheetByName('Hoja de Interés');
   if (!sheet) return;
 
-  const COLOR_LLAMADAS = '#cfd8dc'; // Azul grisáceo claro, igual para todas
   const ORDEN = [
     '1ra Llamada',
     'Comentario 1ra Llamada',
@@ -13417,29 +13416,26 @@ function agregarYOrganizarColumnasLlamadas() {
   let hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   ORDEN.forEach(nombre => {
     if (!hdrs.some(h => h.toString().trim() === nombre)) {
-      const newCol = sheet.getLastColumn() + 1;
-      sheet.getRange(1, newCol).setValue(nombre);
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(nombre);
       hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     }
   });
 
-  // ── Paso 2: Reordenar para que queden juntas y en el orden correcto ──
-  // Buscar la posición del grupo y moverlas secuencialmente
+  // ── Paso 2: Moverlas DESPUÉS de "Estado", en orden correcto ─────────
   for (let i = 0; i < ORDEN.length; i++) {
     hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const posActual = hdrs.findIndex(h => h.toString().trim() === ORDEN[i]) + 1;
     if (posActual === 0) continue;
 
-    // ¿Dónde debería estar? Justo después de la anterior del grupo
     let posDestino;
     if (i === 0) {
-      // Primera del grupo: buscar posición de "Estado" y poner antes
+      // Primera: justo DESPUÉS de "Estado"
       const posEstado = hdrs.findIndex(h => h.toString().trim() === 'Estado') + 1;
-      posDestino = posEstado > 0 ? posEstado : sheet.getLastColumn();
+      posDestino = posEstado > 0 ? posEstado + 1 : sheet.getLastColumn();
     } else {
       // Las demás: justo después de la anterior del grupo
-      const hdrsRef = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-      const posAnterior = hdrsRef.findIndex(h => h.toString().trim() === ORDEN[i - 1]) + 1;
+      const posAnterior = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+        .findIndex(h => h.toString().trim() === ORDEN[i - 1]) + 1;
       posDestino = posAnterior + 1;
     }
 
@@ -13448,31 +13444,27 @@ function agregarYOrganizarColumnasLlamadas() {
     }
   }
 
-  // ── Paso 3: Aplicar mismo color y estilo a las 6 columnas ───────────
+  // ── Paso 3: Estilo limpio — sin colores, encabezado en negrita ───────
   hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const lastRow = Math.max(sheet.getLastRow(), 2);
   ORDEN.forEach(nombre => {
     const col = hdrs.findIndex(h => h.toString().trim() === nombre) + 1;
     if (col === 0) return;
 
-    // Encabezado
+    // Encabezado: sin color de fondo, solo negrita
     sheet.getRange(1, col)
-      .setBackground(COLOR_LLAMADAS)
+      .setBackground(null)
       .setFontWeight('bold')
       .setHorizontalAlignment('center')
       .setFontColor('#000000');
 
-    // Cuerpo de la columna
-    sheet.getRange(2, col, lastRow - 1, 1).setBackground('#eceff1');
+    // Cuerpo: sin color de fondo
+    sheet.getRange(2, col, lastRow - 1, 1).setBackground(null);
 
     // Ancho de columna
-    if (nombre.includes('Comentario') || nombre.includes('Mensaje')) {
-      sheet.setColumnWidth(col, 180);
-    } else {
-      sheet.setColumnWidth(col, 130);
-    }
+    sheet.setColumnWidth(col, nombre.includes('Comentario') || nombre.includes('Mensaje') ? 180 : 130);
 
-    // Validaciones para las columnas de Llamada
+    // Validaciones para 1ra y 2da Llamada
     if (nombre === '1ra Llamada') {
       sheet.getRange(2, col, 499, 1).setDataValidation(
         SpreadsheetApp.newDataValidation()
@@ -13489,6 +13481,7 @@ function agregarYOrganizarColumnasLlamadas() {
   });
 
   SpreadsheetApp.flush();
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Columnas organizadas después de "Estado"', 'Hoja de Interés', 4);
 }
 
 // =====================================================================
