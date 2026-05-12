@@ -2243,6 +2243,38 @@ function flujoSeguimientoInterés(sheet, fila) {
     const resultado1 = r1 === ui.Button.YES ? 'Contestó' : 'No contestó';
     setVal(c1ra, resultado1 + ' (' + fecha + ')');
 
+    // ══════════════════════════════════════════════════════════════════════
+    // Si CONTESTÓ → va directo a Entrevistas (sin necesidad de mensaje)
+    // ══════════════════════════════════════════════════════════════════════
+    if (resultado1 === 'Contestó') {
+      SpreadsheetApp.flush();
+      const r1b = ui.alert(
+        '✅ Contestó en 1ra Llamada',
+        'SÍ → Agendar Entrevista\nNO → Continuar a 2da Llamada',
+        ui.ButtonSet.YES_NO
+      );
+
+      if (r1b === ui.Button.YES) {
+        procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
+        clearEstado();
+        ui.alert('✅ Enviada/o a Entrevistas', 'Agendada/o en Entrevistas automáticamente.', ui.ButtonSet.OK);
+        return;
+      } else {
+        // Continuar a 2da Llamada (necesita mensaje)
+        clearEstado();
+        SpreadsheetApp.flush();
+        ui.alert('📋 CONTINUAR CON 2da LLAMADA:\n\n' +
+          '1. Escribe en "Mensaje Enviado 1ra" el texto enviado\n' +
+          '2. Vuelve a seleccionar "Entrevista agendada"\n\n' +
+          'Sistema continuará con 2da Llamada.',
+          ui.ButtonSet.OK);
+        return;
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Si NO CONTESTÓ → necesita mensaje para 2da Llamada
+    // ══════════════════════════════════════════════════════════════════════
     if (resultado1 === 'No contestó') {
       const rc = ui.prompt('📝 Comentario (opcional)', 'Ej: Teléfono apagado, no disponible...', ui.ButtonSet.OK_CANCEL);
       if (rc.getSelectedButton() !== ui.Button.CANCEL) {
@@ -2253,11 +2285,10 @@ function flujoSeguimientoInterés(sheet, fila) {
 
     clearEstado();
     SpreadsheetApp.flush();
-    ui.alert('✅ 1ra Llamada registrada',
-      '📋 PASOS A SEGUIR:\n\n' +
-      '1. Escribe en "Mensaje Enviado 1ra" el texto de WhatsApp que enviaste\n' +
+    ui.alert('📋 PASOS A SEGUIR:\n\n' +
+      '1. Escribe en "Mensaje Enviado 1ra" el texto de WhatsApp enviado\n' +
       '2. Vuelve a seleccionar "Entrevista agendada" en Estado\n\n' +
-      'El sistema continuará con la 2da llamada.',
+      'Sistema continuará con la 2da Llamada.',
       ui.ButtonSet.OK);
     return;
   }
