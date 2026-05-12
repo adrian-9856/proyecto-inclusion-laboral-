@@ -8907,22 +8907,20 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
     return false;
   }
 
-  // Construir mapas de búsqueda
-  const mapPorCreamosId = new Map();
-  const mapPorDpi = new Map();
-  const mapPorNombre = new Map();
+  // Construir arrays para búsqueda fuzzy
+  const filasDirectorio = [];
 
   for (let i = 1; i < datosDirectorio.length; i++) {
     const f = datosDirectorio[i];
     const nombre    = colMapDir.nombre >= 0 && f[colMapDir.nombre] ? f[colMapDir.nombre].toString().trim() : '';
     const creamosId = colMapDir.creamosId >= 0 && f[colMapDir.creamosId] ? f[colMapDir.creamosId].toString().trim() : '';
     const dpi       = colMapDir.dpi >= 0 && f[colMapDir.dpi] ? f[colMapDir.dpi].toString().trim() : '';
-    if (creamosId) mapPorCreamosId.set(creamosId.toUpperCase(), f);
-    if (dpi)       mapPorDpi.set(dpi, f);
-    if (nombre)    mapPorNombre.set(nombre.toLowerCase(), f);
+    if (creamosId || dpi || nombre) {
+      filasDirectorio.push({ nombre, creamosId, dpi, fila: f });
+    }
   }
 
-  Logger.log('📚 Directorio cargado: ' + mapPorCreamosId.size + ' Creamos IDs, ' + mapPorDpi.size + ' DPIs, ' + mapPorNombre.size + ' Nombres');
+  Logger.log('📚 Directorio cargado: ' + filasDirectorio.length + ' registros');
 
   // Leer la fila actual
   const maxCol = Math.max(
@@ -8950,38 +8948,73 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
 
   Logger.log('   Buscando: cId="' + cId + '", dpi="' + dpi + '", nom="' + nom + '"');
 
-  // Buscar en directorio: CreamosID → DPI → Nombre
+  // Buscar en directorio: CreamosID (exacto) → DPI (exacto) → Nombre (fuzzy)
   let filaDir = null;
+  let metodo = '';
+
+  // 1. Buscar por Creamos ID exacto
   if (cId) {
-    Logger.log('   → Buscando por Creamos ID: ' + cId.toUpperCase());
-    filaDir = mapPorCreamosId.get(cId.toUpperCase()) || null;
-    if (filaDir) Logger.log('   ✓ Encontrado por Creamos ID');
+    Logger.log('   → Buscando por Creamos ID (exacto): ' + cId);
+    filaDir = filasDirectorio.find(r => normalizarBusqueda(r.creamosId) === normalizarBusqueda(cId));
+    if (filaDir) {
+      Logger.log('   ✓ Encontrado por Creamos ID exacto');
+      metodo = 'Creamos ID exacto';
+    }
   }
+
+  // 2. Buscar por DPI exacto
   if (!filaDir && dpi) {
-    Logger.log('   → Buscando por DPI: ' + dpi);
-    filaDir = mapPorDpi.get(dpi) || null;
-    if (filaDir) Logger.log('   ✓ Encontrado por DPI');
+    Logger.log('   → Buscando por DPI (exacto): ' + dpi);
+    filaDir = filasDirectorio.find(r => r.dpi === dpi);
+    if (filaDir) {
+      Logger.log('   ✓ Encontrado por DPI exacto');
+      metodo = 'DPI exacto';
+    }
   }
+
+  // 3. Buscar por Nombre con FUZZY MATCHING (tolerancia a errores)
   if (!filaDir && nom) {
-    Logger.log('   → Buscando por Nombre: ' + nom.toLowerCase());
-    filaDir = mapPorNombre.get(nom.toLowerCase()) || null;
-    if (filaDir) Logger.log('   ✓ Encontrado por Nombre');
+    Logger.log('   → Buscando por Nombre (fuzzy): ' + nom);
+    let mejorCoincidencia = null;
+    let mejorSimilitud = 0;
+
+    for (let registro of filasDirectorio) {
+      const sim = similitud(nom, registro.nombre);
+      Logger.log('     • "' + nom + '" vs "' + registro.nombre + '" → ' + sim.toFixed(0) + '%');
+      if (sim > mejorSimilitud) {
+        mejorSimilitud = sim;
+        mejorCoincidencia = registro;
+      }
+    }
+
+    // Si similitud >= 75%, aceptar coincidencia
+    if (mejorSimilitud >= 75) {
+      filaDir = mejorCoincidencia;
+      Logger.log('   ✓ Encontrado por Nombre fuzzy (' + mejorSimilitud.toFixed(0) + '% similar)');
+      metodo = 'Nombre fuzzy (' + mejorSimilitud.toFixed(0) + '%)';
+    } else {
+      Logger.log('⚠️ Mejor coincidencia solo ' + mejorSimilitud.toFixed(0) + '% similar (necesita ≥75%)');
+    }
   }
 
   if (!filaDir) {
-    Logger.log('⚠️ No encontrado en directorio. Creamos IDs disponibles: ' + Array.from(mapPorCreamosId.keys()).slice(0, 10).join(', '));
+    const idsAvailable = filasDirectorio.map(r => r.creamosId).filter(x => x).slice(0, 5).join(', ');
+    Logger.log('⚠️ No encontrado. IDs disponibles: ' + idsAvailable);
     return false;
   }
 
-  // *** NUEVO: Extraer datos del directorio usando detección automática ***
-  const nombreDir  = colMapDir.nombre >= 0 && filaDir[colMapDir.nombre] ? filaDir[colMapDir.nombre].toString().trim() : '';
-  const cIdDir     = colMapDir.creamosId >= 0 && filaDir[colMapDir.creamosId] ? filaDir[colMapDir.creamosId].toString().trim() : '';
-  const edadDir    = colMapDir.edad >= 0 && filaDir[colMapDir.edad] ? filaDir[colMapDir.edad].toString().trim() : '';
-  const dpiDir     = colMapDir.dpi >= 0 && filaDir[colMapDir.dpi] ? filaDir[colMapDir.dpi].toString().trim() : '';
-  const nivelEducativoDir = colMapDir.nivelEducativo >= 0 && filaDir[colMapDir.nivelEducativo] ? filaDir[colMapDir.nivelEducativo].toString().trim() : '';
-  const zonaDir    = colMapDir.zona >= 0 && filaDir[colMapDir.zona] ? filaDir[colMapDir.zona].toString().trim() : '';
+  Logger.log('   📍 Método: ' + metodo);
 
-  Logger.log('   Datos del directorio: nombre="' + nombreDir + '", edad="' + edadDir + '", zona="' + zonaDir + '"');
+  // Extraer datos del directorio usando detección automática
+  const filaDatos = filaDir.fila;
+  const nombreDir  = colMapDir.nombre >= 0 && filaDatos[colMapDir.nombre] ? filaDatos[colMapDir.nombre].toString().trim() : '';
+  const cIdDir     = colMapDir.creamosId >= 0 && filaDatos[colMapDir.creamosId] ? filaDatos[colMapDir.creamosId].toString().trim() : '';
+  const edadDir    = colMapDir.edad >= 0 && filaDatos[colMapDir.edad] ? filaDatos[colMapDir.edad].toString().trim() : '';
+  const dpiDir     = colMapDir.dpi >= 0 && filaDatos[colMapDir.dpi] ? filaDatos[colMapDir.dpi].toString().trim() : '';
+  const nivelEducativoDir = colMapDir.nivelEducativo >= 0 && filaDatos[colMapDir.nivelEducativo] ? filaDatos[colMapDir.nivelEducativo].toString().trim() : '';
+  const zonaDir    = colMapDir.zona >= 0 && filaDatos[colMapDir.zona] ? filaDatos[colMapDir.zona].toString().trim() : '';
+
+  Logger.log('   Datos encontrados: nombre="' + nombreDir + '", edad="' + edadDir + '", zona="' + zonaDir + '"');
 
   let actualizado = false;
 
@@ -10344,6 +10377,78 @@ function mapearColumnasParaAutocompletar(hoja) {
     nivelEducativo: buscar(['Nivel Educativo', 'Grado', 'Estudios', 'Escolaridad', 'Escuela']),
     zona: buscar(['Zona', 'Ubicación'])
   };
+}
+
+/**
+ * Normaliza string para búsqueda: quita tildes, espacios extras, minúsculas
+ * "María José" → "maria jose"
+ * "JUAN" → "juan"
+ */
+function normalizarBusqueda(texto) {
+  if (!texto) return '';
+  const map = {
+    'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+    'Á': 'a', 'É': 'e', 'Í': 'i', 'Ó': 'o', 'Ú': 'u',
+    'ñ': 'n', 'Ñ': 'n'
+  };
+  return texto
+    .toLowerCase()
+    .replace(/[áéíóúÁÉÍÓÚñÑ]/g, ch => map[ch] || ch)
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Calcula similitud entre dos strings (0-100)
+ * Usa distancia de Levenshtein simplificada
+ */
+function similitud(s1, s2) {
+  s1 = normalizarBusqueda(s1);
+  s2 = normalizarBusqueda(s2);
+
+  if (s1 === s2) return 100;
+  if (s1.length === 0 || s2.length === 0) return 0;
+
+  // Búsqueda por prefijo: 80 puntos si uno empieza con el otro
+  if (s1.startsWith(s2) || s2.startsWith(s1)) return 80;
+
+  // Búsqueda por contenedor: 60 puntos si uno contiene el otro
+  if (s1.includes(s2) || s2.includes(s1)) return 60;
+
+  // Distancia de Levenshtein básica
+  const longer = s1.length > s2.length ? s1 : s2;
+  const shorter = s1.length > s2.length ? s2 : s1;
+
+  if (longer.length === 0) return 100;
+
+  const editDistance = levenshtein(longer, shorter);
+  const similarity = (1 - editDistance / longer.length) * 100;
+
+  return Math.max(0, similarity);
+}
+
+/**
+ * Calcula distancia de Levenshtein entre dos strings
+ */
+function levenshtein(s1, s2) {
+  const costs = [];
+  for (let i = 0; i <= s1.length; i++) {
+    let lastValue = i;
+    for (let j = 0; j <= s2.length; j++) {
+      if (i === 0) {
+        costs[j] = j;
+      } else if (j > 0) {
+        let newValue = costs[j - 1];
+        if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+          newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+        }
+        costs[j - 1] = lastValue;
+        lastValue = newValue;
+      }
+    }
+    if (i > 0) costs[s2.length] = lastValue;
+  }
+  return costs[s2.length];
 }
 
 /**
