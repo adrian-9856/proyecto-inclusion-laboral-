@@ -2049,9 +2049,25 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
 
   // "Entrevista realizada" → copiar a Entrevistas (llamado desde flujoSeguimientoInterés)
   if (estado === 'Entrevista realizada') {
+    Logger.log('🔍 PROCESO: Copiando a Entrevistas...');
+
+    if (!creamosId || !nombreCompleto) {
+      Logger.log('⚠️ ERROR: Falta creamosId (' + creamosId + ') o nombreCompleto (' + nombreCompleto + ')');
+      SpreadsheetApp.getUi().alert('⚠️ Error: Falta información crítica (Creamos ID o Nombre).\n\nVerifica que esos campos tengan datos.');
+      return;
+    }
+
     const entrevistas = ss.getSheetByName('Entrevistas');
+    if (!entrevistas) {
+      Logger.log('⚠️ ERROR: No existe hoja "Entrevistas"');
+      SpreadsheetApp.getUi().alert('⚠️ Error: No se encuentra la hoja "Entrevistas".');
+      return;
+    }
+
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
     const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, ['C', 'E']);
+
+    Logger.log('   → nuevaFila = ' + nuevaFila);
 
     const numColsEnt = entrevistas.getLastColumn();
     const registro = new Array(numColsEnt).fill('');
@@ -2071,22 +2087,30 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     for (let [header, valor] of Object.entries(mapping)) {
       const norm = header.toLowerCase().replace(/[^a-z0-9]/g, '');
       const targetIdx = colMapEntrevistas[norm];
-      if (targetIdx !== undefined) registro[targetIdx] = valor;
+      if (targetIdx !== undefined) {
+        registro[targetIdx] = valor;
+        Logger.log('   ✓ ' + header + ' → idx ' + targetIdx);
+      } else {
+        Logger.log('   ✗ ' + header + ' NOT FOUND in colMap');
+      }
     }
 
     try {
       entrevistas.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
+      Logger.log('   ✅ Fila escrita en Entrevistas (fila ' + nuevaFila + ')');
       SpreadsheetApp.flush();
     } catch (e) {
       Logger.log('⚠️ ERROR CRÍTICO escribiendo en Entrevistas (tech): ' + e.message);
-      SpreadsheetApp.getUi().alert('⚠️ Error al guardar en Entrevistas. Por favor inténtalo nuevamente.\n\nDetalle: ' + e.message);
+      SpreadsheetApp.getUi().alert('⚠️ Error al guardar en Entrevistas.\n\nDetalle: ' + e.message);
       return;
     }
 
     autocompletarFilaDesdeDirectorio(entrevistas, nuevaFila, mapearColumnasParaAutocompletar(entrevistas));
+    Logger.log('   ✅ Autocompletada fila en Entrevistas');
 
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#e3f2fd');
     ss.toast('✅ Copiada a Entrevistas', 'Hoja de Interés', 4);
+    Logger.log('✅ COMPLETADO: ' + nombreCompleto + ' enviada/o a Entrevistas');
     return;
   }
 
