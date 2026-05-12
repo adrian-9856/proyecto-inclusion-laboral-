@@ -7302,12 +7302,15 @@ function actualizarReportesTech() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const reporte = ss.getSheetByName('Reporte');
     if (reporte) {
-      // Auto-reparar fórmulas si alguna celda clave está vacía o es un número sin fórmula
-      const b5 = reporte.getRange('B5').getFormula();
-      if (!b5 || !b5.includes('COUNTA')) {
-        repararFormulasReporte();
+      // Detectar si el reporte tiene el layout nuevo (A5:B5 merged con texto, A6:B6 con fórmula)
+      const a6formula = reporte.getRange('A6').getFormula();
+      const esLayoutNuevo = a6formula && a6formula.includes('COUNTIFS');
+      if (!esLayoutNuevo) {
+        // Layout viejo o corrupto → reconstruir desde cero
+        redisenarReporteTech();
       } else {
-        reporte.getRange('B2').setValue(new Date());
+        // Solo actualizar timestamp
+        reporte.getRange('D2').setFormula('=TEXT(NOW(),"DD/MM/YYYY HH:MM")');
       }
       SpreadsheetApp.flush();
     }
@@ -7483,21 +7486,8 @@ function redisenarReporteTech() {
     .setValue('Generado automáticamente  ·  Sistema Inclusión Laboral Creamos Guatemala')
     .setFontColor('#9e9e9e').setFontSize(8).setFontStyle('italic').setHorizontalAlignment('center');
 
-  // ── FILAS 24-30: trazabilidad de métricas ────────────────────────────────
-  sheet.getRange('A24:F24').merge().setValue('🧭 TRAZABILIDAD DE MÉTRICAS (ORIGEN DE DATOS)')
-    .setBackground('#eceff1').setFontColor('#263238').setFontWeight('bold')
-    .setFontSize(10).setHorizontalAlignment('left');
-  const traceRows = [
-    ['Métrica', 'Hoja origen', 'Regla de cálculo', '', '', ''],
-    ['Interesadas (Este Mes)', 'Hoja de Interés', 'Fecha en el mes actual (columna A)', '', '', ''],
-    ['Entrevistadas (Este Mes)', 'Entrevistas', 'Fecha entrevista en el mes actual', '', '', ''],
-    ['Inscritx (Este Mes)', 'Inscritx', 'Fecha envío a Inscritx en el mes actual (col M)', '', '', ''],
-    ['Aprobadas (Este Mes)', 'Entrevistas', 'Estado = Aprobada en el mes actual', '', '', '']
-  ];
-  sheet.getRange(25, 1, traceRows.length, 6).setValues(traceRows);
-  sheet.getRange('A25:C25').setFontWeight('bold').setBackground('#f5f5f5');
-  sheet.getRange('A26:C29').setFontSize(9).setBackground('#fafafa');
-  sheet.getRange('A25:C29').setBorder(true, true, true, true, true, true, '#cfd8dc', SpreadsheetApp.BorderStyle.SOLID);
+  // Limpiar filas extra por si quedaron datos de versión anterior
+  sheet.getRange('A24:F50').clearContent().clearFormat();
 
   sheet.setFrozenRows(2);
   ss.toast('✅ Reporte rediseñado', 'Reporte', 4);
@@ -7539,7 +7529,6 @@ function instalarTodoLoNuevoTech() {
     asegurarEstructuraReportesMensualesTech();
     asegurarColumnaFechaEnvioInscritxTech();
     redisenarReporteTech();
-    repararFormulasReporte();
     repararFormulasCohortes();
     configurarValidaciones();
     repararDesplegableEntrevistasTech();
@@ -9409,27 +9398,16 @@ function enviarEmailListaGraduadx(nombreCohorte, listaGraduadx) {
 // =====================================================================
 
 function repararFormulasReporte() {
+  // Esta función se mantiene por compatibilidad.
+  // El reporte nuevo usa celdas combinadas (merged) — no se tocan celdas individuales.
+  // Para reconstruir el reporte completo usa redisenarReporteTech().
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const reporte = ss.getSheetByName('Reporte');
   if (!reporte) return;
 
-  // B28: Participantes activas en cohortes (antes era =B11, que solo mostraba Inscritx)
-  reporte.getRange('B28').setFormula(
-    '=IFERROR(SUM(IFERROR(VALUE(Cohortes!G2:G),0))' +
-    '-SUM(IFERROR(VALUE(Cohortes!H2:H),0))' +
-    '-SUM(IFERROR(VALUE(Cohortes!I2:I),0)),0)'
-  );
-
-  // B26: Total personas atendidas (incluye todas las etapas activas + históricas)
-  reporte.getRange('B26').setFormula('=IFERROR(SUM(IFERROR(VALUE(B5),0),IFERROR(VALUE(B8),0),IFERROR(VALUE(B11),0),IFERROR(VALUE(B28),0),IFERROR(VALUE(B17),0),IFERROR(VALUE(B20),0),IFERROR(VALUE(B23),0)),0)');
-
-  // C8: Entrevistas pendientes (solo filas con nombre Y sin resultado — evita contar celdas vacías)
-  reporte.getRange('C8').setFormula('=IFERROR(COUNTIFS(Entrevistas!D:D,"<>",Entrevistas!I:I,""),0)');
-
-  // Limpiar residuos de fórmulas viejas fuera del dashboard (sin tocar trazabilidad 24-30)
-  reporte.getRange('A31:F40').clearContent();
-
-  Logger.log('✅ Fórmulas del Reporte reparadas');
+  // Solo limpiar contenido residual fuera del dashboard (filas 24 en adelante)
+  reporte.getRange('A24:F50').clearContent().clearFormat();
+  Logger.log('✅ Residuos del Reporte limpiados');
 }
 
 /**

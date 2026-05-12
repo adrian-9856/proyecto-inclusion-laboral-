@@ -7387,12 +7387,13 @@ function actualizarReportesAB() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const reporte = ss.getSheetByName('Reporte');
     if (reporte) {
-      // Auto-reparar fórmulas si alguna celda clave está vacía o es un número sin fórmula
-      const b5 = reporte.getRange('B5').getFormula();
-      if (!b5 || !b5.includes('COUNTA')) {
-        repararFormulasReporte();
+      // Detectar si el reporte tiene el layout nuevo (A6:B6 merged con fórmula COUNTIFS)
+      const a6formula = reporte.getRange('A6').getFormula();
+      const esLayoutNuevo = a6formula && a6formula.includes('COUNTIFS');
+      if (!esLayoutNuevo) {
+        redisenarReporteAB();
       } else {
-        reporte.getRange('B2').setValue(new Date());
+        reporte.getRange('D2').setFormula('=TEXT(NOW(),"DD/MM/YYYY HH:MM")');
       }
       SpreadsheetApp.flush();
     }
@@ -7601,26 +7602,8 @@ function redisenarReporteAB() {
     .setValue('Generado automáticamente  ·  Sistema Inclusión Laboral Creamos Guatemala')
     .setFontColor('#9e9e9e').setFontSize(8).setFontStyle('italic').setHorizontalAlignment('center');
 
-  // ── FILAS 24-30: trazabilidad de métricas ────────────────────────────────
-  sheet.getRange('A24:F24').merge().setValue('🧭 TRAZABILIDAD DE MÉTRICAS (ORIGEN DE DATOS)')
-    .setBackground('#eceff1').setFontColor('#263238').setFontWeight('bold')
-    .setFontSize(10).setHorizontalAlignment('left');
-  const traceRows = [
-    ['Métrica', 'Valor actual', 'Hoja origen', 'Regla de cálculo', '', ''],
-    ['Interesadas (Este Año)', '', 'Hoja de Interés', 'Fecha en año actual (columna A)', '', ''],
-    ['Entrevistadas', '', 'Entrevistas', 'Conteo de registros con nombre', '', ''],
-    ['Inscritx (Este Mes)', '', 'Inscritx', 'Fecha envío a Inscritx en el mes actual (col M)', '', ''],
-    ['Aprobadas (Este Mes)', '', 'Entrevistas', 'Estado = Aprobada en el mes actual', '', '']
-  ];
-  sheet.getRange(25, 1, traceRows.length, 6).setValues(traceRows);
-  sheet.getRange('B26').setFormula(f.interesMes);
-  sheet.getRange('B27').setFormula(f.entrevMes);
-  sheet.getRange('B28').setFormula(f.inscMes);
-  sheet.getRange('B29').setFormula(f.aprobMes);
-  sheet.getRange('A25:D25').setFontWeight('bold').setBackground('#f5f5f5');
-  sheet.getRange('A26:D29').setFontSize(9).setBackground('#fafafa');
-  sheet.getRange('A25:D29').setBorder(true, true, true, true, true, true, '#cfd8dc', SpreadsheetApp.BorderStyle.SOLID);
-  sheet.getRange('B26:B29').setNumberFormat('0');
+  // Limpiar filas extra por si quedaron datos de versión anterior
+  sheet.getRange('A24:F50').clearContent().clearFormat();
 
   sheet.setFrozenRows(2);
   ss.toast('✅ Reporte rediseñado', 'Reporte', 4);
@@ -7667,7 +7650,6 @@ function instalarTodoLoNuevoAB() {
     asegurarEstructuraReportesMensualesAB();
     asegurarColumnaFechaEnvioInscritxAB();
     redisenarReporteAB();
-    repararFormulasReporte();
     repararFormulasCohortes();
     configurarValidaciones();
     repararDesplegableEntrevistasAB();
