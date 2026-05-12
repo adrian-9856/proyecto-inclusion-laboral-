@@ -8937,24 +8937,6 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
 
   return actualizado;
 }
-    sheet.getRange(numFila, colMap.dpi + 1).setValue(dpiDir);
-    actualizado = true;
-  }
-  if (colMap.edad >= 0 && !ed && edadDir) {
-    sheet.getRange(numFila, colMap.edad + 1).setValue(edadDir);
-    actualizado = true;
-  }
-  if (colMap.nivelEducativo >= 0 && !nvl && nivelEducativoDir) {
-    sheet.getRange(numFila, colMap.nivelEducativo + 1).setValue(normalizarNivelEducativo(nivelEducativoDir));
-    actualizado = true;
-  }
-  if (colMap.zona >= 0 && !zn && zonaDir) {
-    sheet.getRange(numFila, colMap.zona + 1).setValue(zonaDir);
-    actualizado = true;
-  }
-
-  return actualizado;
-}
 
 /**
  * Actualiza datos faltantes desde el directorio CREAMOS ID en TODAS las hojas.
