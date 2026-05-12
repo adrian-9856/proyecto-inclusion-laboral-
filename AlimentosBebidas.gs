@@ -2043,53 +2043,70 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   if (estado === 'Entrevista realizada') {
     Logger.log('🔍 PROCESO: Copiando a Entrevistas...');
 
-    // PASO 1: Si existe Creamos ID pero falta Nombre, autocompletar desde directorio
-    if (creamosId && !nombreCompleto) {
-      Logger.log('   📚 Buscando en directorio por Creamos ID: ' + creamosId);
-      const colMapInteres = obtenerMapaColumnas(sheet);
+    // PASO 1: Autocompletar datos faltantes desde directorio SIEMPRE
+    if (creamosId || nombreCompleto) {
+      Logger.log('   📚 Autocompletando desde directorio...');
       autocompletarFilaDesdeDirectorio(sheet, fila, colMapInteres);
       SpreadsheetApp.flush();
+    }
 
-      // Re-leer los datos después del autocompletado
-      const datosActualizados = sheet.getRange(fila, 1, 1, maxCol).getValues()[0];
-      const nombreActualizado = getVal('Nombre Completo');
-      Logger.log('   ✓ Nombre actualizado: ' + nombreActualizado);
-      if (!nombreActualizado) {
-        Logger.log('⚠️ ERROR: Aún falta Nombre Completo después de autocompletar');
-        SpreadsheetApp.getUi().alert('⚠️ Error: No se encontró el nombre en el directorio.\n\nVerifica que el "Creamos ID" sea correcto.');
-        return;
-      }
-    } else if (!creamosId || !nombreCompleto) {
-      Logger.log('⚠️ ERROR: Falta creamosId (' + creamosId + ') o nombreCompleto (' + nombreCompleto + ')');
-      SpreadsheetApp.getUi().alert('⚠️ Error: Falta información crítica (Creamos ID o Nombre).\n\nVerifica que esos campos tengan datos.');
+    // PASO 2: Re-leer datos frescos desde la hoja (post-autocompletado)
+    const datosActualizados = sheet.getRange(fila, 1, 1, maxCol).getValues()[0];
+    const getValFresh = (nombre) => {
+      const norm = nombre.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const idx = colMapInteres[norm];
+      let val = idx !== undefined ? datosActualizados[idx] : '';
+      if (norm === 'niveleducativo') return normalizarNivelEducativo(val);
+      return val ? val.toString().trim() : '';
+    };
+
+    const creamosIdFinal   = getValFresh('Creamos ID');
+    const nombreFinal      = getValFresh('Nombre Completo');
+    const dpiFinal         = getValFresh('DPI');
+    const generoFinal      = getValFresh('Género');
+    const edadFinal        = getValFresh('Edad');
+    const telefonoFinal    = getValFresh('Teléfono');
+    const nivelFinal       = getValFresh('Nivel Educativo');
+    const zonaFinal        = getValFresh('Zona');
+
+    Logger.log('   Datos finales: nombre="' + nombreFinal + '", cId="' + creamosIdFinal + '", zona="' + zonaFinal + '"');
+
+    // Verificar que al menos existe nombre o Creamos ID
+    if (!creamosIdFinal && !nombreFinal) {
+      Logger.log('⚠️ ERROR: Falta Creamos ID Y Nombre — no se puede copiar');
+      SpreadsheetApp.getUi().alert('⚠️ Falta información\n\nNecesita al menos "Creamos ID" o "Nombre Completo" para copiar a Entrevistas.');
+      return;
+    }
+
+    if (!nombreFinal) {
+      Logger.log('⚠️ ERROR: No se encontró el nombre en el directorio para ID: ' + creamosIdFinal);
+      SpreadsheetApp.getUi().alert('⚠️ No se encontró el nombre\n\nEl Creamos ID "' + creamosIdFinal + '" no está en el directorio.\nVerifica que el ID sea correcto.');
       return;
     }
 
     const entrevistas = ss.getSheetByName('Entrevistas');
     if (!entrevistas) {
-      Logger.log('⚠️ ERROR: No existe hoja "Entrevistas"');
-      SpreadsheetApp.getUi().alert('⚠️ Error: No se encuentra la hoja "Entrevistas".');
+      SpreadsheetApp.getUi().alert('⚠️ No se encuentra la hoja "Entrevistas".');
       return;
     }
 
     const colMapEntrevistas = obtenerMapaColumnas(entrevistas);
     const nuevaFila = obtenerPrimeraFilaVacia(entrevistas, ['C', 'E']);
-
-    Logger.log('   → nuevaFila = ' + nuevaFila);
+    Logger.log('   → Escribiendo en Entrevistas fila ' + nuevaFila);
 
     const numColsEnt = entrevistas.getLastColumn();
     const registro = new Array(numColsEnt).fill('');
 
     const mapping = {
       'Fecha Entrevista': new Date(),
-      'Creamos ID': creamosId,
-      'DPI': getVal('DPI'),
-      'Nombre Completo': nombreCompleto,
-      'Género': getVal('Género'),
-      'Edad': getVal('Edad'),
-      'Teléfono': getVal('Teléfono'),
-      'Nivel Educativo': getVal('Nivel Educativo'),
-      'Zona': getVal('Zona')
+      'Creamos ID':       creamosIdFinal,
+      'DPI':              dpiFinal,
+      'Nombre Completo':  nombreFinal,
+      'Género':           generoFinal,
+      'Edad':             edadFinal,
+      'Teléfono':         telefonoFinal,
+      'Nivel Educativo':  nivelFinal,
+      'Zona':             zonaFinal
     };
 
     for (let [header, valor] of Object.entries(mapping)) {
@@ -2097,28 +2114,29 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
       const targetIdx = colMapEntrevistas[norm];
       if (targetIdx !== undefined) {
         registro[targetIdx] = valor;
-        Logger.log('   ✓ ' + header + ' → idx ' + targetIdx);
+        Logger.log('   ✓ ' + header + ' = "' + valor + '"');
       } else {
-        Logger.log('   ✗ ' + header + ' NOT FOUND in colMap');
+        Logger.log('   ✗ Columna "' + header + '" no encontrada en Entrevistas');
       }
     }
 
     try {
       entrevistas.getRange(nuevaFila, 1, 1, registro.length).setValues([registro]);
-      Logger.log('   ✅ Fila escrita en Entrevistas (fila ' + nuevaFila + ')');
       SpreadsheetApp.flush();
+      Logger.log('   ✅ Fila escrita en Entrevistas');
     } catch (e) {
-      Logger.log('⚠️ ERROR CRÍTICO escribiendo en Entrevistas (AB): ' + e.message);
-      SpreadsheetApp.getUi().alert('⚠️ Error al guardar en Entrevistas.\n\nDetalle: ' + e.message);
+      Logger.log('⚠️ ERROR escribiendo en Entrevistas: ' + e.message);
+      SpreadsheetApp.getUi().alert('⚠️ Error al guardar en Entrevistas.\n\n' + e.message);
       return;
     }
 
+    // Autocompletar la fila recién agregada en Entrevistas con datos del directorio
     autocompletarFilaDesdeDirectorio(entrevistas, nuevaFila, mapearColumnasParaAutocompletar(entrevistas));
     Logger.log('   ✅ Autocompletada fila en Entrevistas');
 
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#e3f2fd');
-    ss.toast('✅ Copiada a Entrevistas', 'Hoja de Interés', 4);
-    Logger.log('✅ COMPLETADO: ' + nombreCompleto + ' enviada/o a Entrevistas');
+    ss.toast('✅ ' + nombreFinal + ' → Entrevistas', 'Hoja de Interés', 5);
+    Logger.log('✅ COMPLETADO: ' + nombreFinal + ' enviada/o a Entrevistas');
     return;
   }
 
