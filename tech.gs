@@ -208,7 +208,9 @@ function setupMenuTech() {
       // ========== ACCIONES PRINCIPALES ==========
       .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
       .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboTech')
-      .addItem('🔁 Actualizar desde CREAMOS ID', 'actualizarTodosDesdeDirectorio')
+      .addItem('🔁 Actualizar desde CREAMOS ID (manual)', 'actualizarTodosDesdeDirectorio')
+      .addItem('⏰ Activar auto-actualización CREAMOS ID (c/hora)', 'instalarTriggerAutoDirectorio')
+      .addItem('🛑 Desactivar auto-actualización CREAMOS ID', 'desinstalarTriggerAutoDirectorio')
       .addSeparator()
 
       // ========== DATOS (IMPORTAR/ACTUALIZAR) ==========
@@ -8943,8 +8945,8 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
 
 /**
  * Actualiza datos faltantes desde el directorio CREAMOS ID en TODAS las hojas.
- * Solo rellena celdas vacías — no borra ni sobreescribe nada existente.
- * silencioso=true  → solo Logger.log (para llamadas automáticas)
+ * Usa fuzzy matching para nombres con errores ortográficos o acentos.
+ * silencioso=true  → solo Logger.log (para triggers automáticos)
  * silencioso=false → muestra resumen en pantalla (botón del menú)
  */
 function actualizarTodosDesdeDirectorio(silencioso) {
@@ -8961,121 +8963,134 @@ function actualizarTodosDesdeDirectorio(silencioso) {
 
   const datosDirectorio = hojaDirectorio.getDataRange().getValues();
   if (datosDirectorio.length < 2) {
-    if (!silencioso) ui.alert('ℹ️ Directorio vacío',
-      'Importa los datos desde Salesforce primero.',
-      ui.ButtonSet.OK);
+    if (!silencioso) ui.alert('ℹ️ Directorio vacío', 'Importa los datos desde Salesforce primero.', ui.ButtonSet.OK);
     return;
   }
 
-  // *** NUEVO: Detectar columnas del directorio automáticamente ***
   const colMapDir = detectarColumnasDirectorio();
   if (!colMapDir) {
-    if (!silencioso) ui.alert('⚠️ Error en estructura del Directorio',
-      'No se pudieron detectar las columnas del Directorio CREAMOS ID.',
-      ui.ButtonSet.OK);
+    if (!silencioso) ui.alert('⚠️ Error en directorio', 'No se detectaron columnas del Directorio CREAMOS ID.', ui.ButtonSet.OK);
     return;
   }
 
-  // Construir mapas de búsqueda
-  const mapPorCreamosId = new Map();
-  const mapPorDpi = new Map();
-  const mapPorNombre = new Map();
-
+  // Construir lista para fuzzy matching (igual que autocompletarFilaDesdeDirectorio)
+  const filasDirectorio = [];
   for (let i = 1; i < datosDirectorio.length; i++) {
     const f = datosDirectorio[i];
-    const nombre   = colMapDir.nombre >= 0 && f[colMapDir.nombre] ? f[colMapDir.nombre].toString().trim() : '';
+    const nombre    = colMapDir.nombre    >= 0 && f[colMapDir.nombre]    ? f[colMapDir.nombre].toString().trim()    : '';
     const creamosId = colMapDir.creamosId >= 0 && f[colMapDir.creamosId] ? f[colMapDir.creamosId].toString().trim() : '';
-    const dpi       = colMapDir.dpi >= 0 && f[colMapDir.dpi] ? f[colMapDir.dpi].toString().trim() : '';
-    if (creamosId) mapPorCreamosId.set(creamosId.toUpperCase(), f);
-    if (dpi)       mapPorDpi.set(dpi, f);
-    if (nombre)    mapPorNombre.set(nombre.toLowerCase(), f);
+    const dpi       = colMapDir.dpi       >= 0 && f[colMapDir.dpi]       ? f[colMapDir.dpi].toString().trim()       : '';
+    if (creamosId || dpi || nombre) filasDirectorio.push({ nombre, creamosId, dpi, fila: f });
+  }
+
+  Logger.log('📚 Directorio cargado: ' + filasDirectorio.length + ' registros');
+
+  /**
+   * Busca una fila en el directorio usando: CreamosID exacto → DPI exacto → Nombre fuzzy
+   */
+  function buscarEnDirectorio(cId, dpi, nom) {
+    let encontrado = null;
+
+    if (cId) {
+      encontrado = filasDirectorio.find(r => normalizarBusqueda(r.creamosId) === normalizarBusqueda(cId)) || null;
+      if (encontrado) return encontrado;
+    }
+    if (dpi) {
+      encontrado = filasDirectorio.find(r => r.dpi === dpi) || null;
+      if (encontrado) return encontrado;
+    }
+    if (nom) {
+      let mejorSim = 0, mejorReg = null;
+      for (const r of filasDirectorio) {
+        const sim = similitud(nom, r.nombre);
+        if (sim > mejorSim) { mejorSim = sim; mejorReg = r; }
+      }
+      if (mejorSim >= 75) return mejorReg;
+    }
+    return null;
   }
 
   /**
-   * Recorre una hoja y rellena celdas vacías desde el directorio.
-   * colMap (números de columna 0-indexados):
-   *   creamosId, dpi, nombre, edad, nivelEducativo, zona  → -1 si esa columna no existe en la hoja
+   * Recorre una hoja completa y rellena celdas vacías desde el directorio.
+   * Detecta automáticamente las columnas por nombre de encabezado.
    */
-  function completarHoja(sheet, colMap) {
+  function completarHoja(sheet) {
     if (!sheet) return 0;
-    const datos = sheet.getDataRange().getValues();
+
+    const encabezados = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const colIdx = {};
+    encabezados.forEach((h, i) => {
+      const k = h.toString().trim().toLowerCase().replace(/\s+/g, '');
+      colIdx[k] = i;
+    });
+
+    const getColi = (...claves) => {
+      for (const k of claves) if (colIdx[k] !== undefined) return colIdx[k];
+      return -1;
+    };
+
+    const iCId  = getColi('creamosid', 'creamos id');
+    const iDpi  = getColi('dpi', 'numerodedpi', 'numero de dpi');
+    const iNom  = getColi('nombrecompleto', 'nombre completo', 'nombre');
+    const iEd   = getColi('edad', 'age');
+    const iNvl  = getColi('niveleducativo', 'nivel educativo');
+    const iZona = getColi('zona');
+
+    if (iCId < 0 && iNom < 0) return 0;  // hoja sin columnas relevantes
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return 0;
+
+    const datos = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
     let actualizados = 0;
 
-    for (let i = 1; i < datos.length; i++) {
+    for (let i = 0; i < datos.length; i++) {
       const fila = datos[i];
+      const cId  = iCId  >= 0 ? (fila[iCId]  || '').toString().trim() : '';
+      const dpi  = iDpi  >= 0 ? (fila[iDpi]  || '').toString().trim() : '';
+      const nom  = iNom  >= 0 ? (fila[iNom]  || '').toString().trim() : '';
 
-      const cId = colMap.creamosId >= 0 ? (fila[colMap.creamosId] || '').toString().trim() : '';
-      const dpi = colMap.dpi      >= 0 ? (fila[colMap.dpi]      || '').toString().trim() : '';
-      const nom = colMap.nombre   >= 0 ? (fila[colMap.nombre]   || '').toString().trim() : '';
-      const ed  = colMap.edad     >= 0 ? (fila[colMap.edad]     || '').toString().trim() : '';
-      const nvl = colMap.nivelEducativo >= 0 ? (fila[colMap.nivelEducativo] || '').toString().trim() : '';
-      const zn  = colMap.zona     >= 0 ? (fila[colMap.zona]     || '').toString().trim() : '';
+      if (!cId && !dpi && !nom) continue;  // fila vacía
 
-      // Fila completamente vacía → saltar
-      if (!cId && !dpi && !nom) continue;
+      const reg = buscarEnDirectorio(cId, dpi, nom);
+      if (!reg) continue;
 
-      // ⚠️ CORRECCIÓN CRÍTICA: Evitar sobrescritura de datos existentes
-      // Si la fila ya tiene CreamosID, SOLO buscar por CreamosID (no por nombre/DPI)
-      // Esto evita que una persona con ID completo sea sobrescrita por otra persona con el mismo nombre
-      let filaDir = null;
+      const filaDatos  = reg.fila;
+      const nombreDir  = reg.nombre;
+      const cIdDir     = reg.creamosId;
+      const dpiDir     = reg.dpi;
+      const edadDir    = colMapDir.edad >= 0 && filaDatos[colMapDir.edad] ? filaDatos[colMapDir.edad].toString().trim() : '';
+      const nivelDir   = colMapDir.nivelEducativo >= 0 && filaDatos[colMapDir.nivelEducativo] ? filaDatos[colMapDir.nivelEducativo].toString().trim() : '';
+      const zonaDir    = colMapDir.zona >= 0 && filaDatos[colMapDir.zona] ? filaDatos[colMapDir.zona].toString().trim() : '';
 
-      if (cId) {
-        // Si tiene CreamosID → buscar SOLO por CreamosID
-        filaDir = mapPorCreamosId.get(cId.toUpperCase()) || null;
-        // NO buscar por otros criterios si hay CreamosID
-      } else {
-        // Si NO tiene CreamosID → buscar por DPI o Nombre
-        if (dpi) filaDir = mapPorDpi.get(dpi) || null;
-        if (!filaDir && nom) filaDir = mapPorNombre.get(nom.toLowerCase()) || null;
-      }
+      const filaNum = i + 2;  // +2 porque empezamos en fila 2 y i es 0-based
+      let cambio = false;
 
-      if (!filaDir) continue;
+      if (iNom  >= 0 && !nom  && nombreDir)  { sheet.getRange(filaNum, iNom  + 1).setValue(nombreDir);  cambio = true; }
+      if (iCId  >= 0 && !cId  && cIdDir)     { sheet.getRange(filaNum, iCId  + 1).setValue(cIdDir);     cambio = true; }
+      if (iDpi  >= 0 && !dpi  && dpiDir)     { sheet.getRange(filaNum, iDpi  + 1).setValue(dpiDir);     cambio = true; }
+      if (iEd   >= 0 && !(fila[iEd]   || '').toString().trim() && edadDir)  { sheet.getRange(filaNum, iEd  + 1).setValue(edadDir);  cambio = true; }
+      if (iNvl  >= 0 && !(fila[iNvl]  || '').toString().trim() && nivelDir)  { sheet.getRange(filaNum, iNvl + 1).setValue(normalizarNivelEducativo(nivelDir)); cambio = true; }
+      if (iZona >= 0 && !(fila[iZona] || '').toString().trim() && zonaDir)  { sheet.getRange(filaNum, iZona+ 1).setValue(zonaDir);  cambio = true; }
 
-      const nombreDir  = colMapDir.nombre >= 0 && filaDir[colMapDir.nombre] ? filaDir[colMapDir.nombre].toString().trim() : '';
-      const cIdDir     = colMapDir.creamosId >= 0 && filaDir[colMapDir.creamosId] ? filaDir[colMapDir.creamosId].toString().trim() : '';
-      const edadDir    = colMapDir.edad >= 0 && filaDir[colMapDir.edad] ? filaDir[colMapDir.edad].toString().trim() : '';
-      const dpiDir     = colMapDir.dpi >= 0 && filaDir[colMapDir.dpi] ? filaDir[colMapDir.dpi].toString().trim() : '';
-      const nivelEducativoDir = colMapDir.nivelEducativo >= 0 && filaDir[colMapDir.nivelEducativo] ? filaDir[colMapDir.nivelEducativo].toString().trim() : '';
-      const zonaDir    = colMapDir.zona >= 0 && filaDir[colMapDir.zona] ? filaDir[colMapDir.zona].toString().trim() : '';
-
-      const filaNum = i + 1;
-      let actualizado = false;
-
-      if (colMap.nombre   >= 0 && !nom && nombreDir) { sheet.getRange(filaNum, colMap.nombre   + 1).setValue(nombreDir);  actualizado = true; }
-      if (colMap.creamosId >= 0 && !cId && cIdDir)  { sheet.getRange(filaNum, colMap.creamosId + 1).setValue(cIdDir);     actualizado = true; }
-      if (colMap.dpi      >= 0 && !dpi && dpiDir)   { sheet.getRange(filaNum, colMap.dpi      + 1).setValue(dpiDir);      actualizado = true; }
-      if (colMap.edad     >= 0 && !ed  && edadDir)  { sheet.getRange(filaNum, colMap.edad     + 1).setValue(edadDir);     actualizado = true; }
-      if (colMap.nivelEducativo >= 0 && !nvl && nivelEducativoDir) { sheet.getRange(filaNum, colMap.nivelEducativo + 1).setValue(nivelEducativoDir); actualizado = true; }
-      if (colMap.zona     >= 0 && !zn  && zonaDir)  { sheet.getRange(filaNum, colMap.zona     + 1).setValue(zonaDir);     actualizado = true; }
-
-      if (actualizado) actualizados++;
+      if (cambio) actualizados++;
     }
+
     return actualizados;
   }
 
+  // ── Recorrer todas las hojas relevantes ──
+  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx'];
   let total = 0;
 
-  // Hoja de Interés: C[2]=CreamosID, D[3]=DPI, E[4]=Nombre, G[6]=Edad, I[8]=NivelEducativo, J[9]=Zona
-  ss.toast('🔄 Actualizando Hoja de Interés...', 'Actualizando', 4);
-  total += completarHoja(ss.getSheetByName('Hoja de Interés'),
-    { creamosId: 2, dpi: 3, nombre: 4, edad: 6, nivelEducativo: 8, zona: 9 });
+  for (const nombreHoja of hojas) {
+    if (!silencioso) ss.toast('🔄 Actualizando ' + nombreHoja + '...', 'Directorio', 3);
+    const n = completarHoja(ss.getSheetByName(nombreHoja));
+    Logger.log('   ' + nombreHoja + ': ' + n + ' celdas actualizadas');
+    total += n;
+  }
 
-  // Entrevistas: C[2]=CreamosID, D[3]=DPI, E[4]=Nombre, G[6]=Edad, I[8]=NivelEducativo, J[9]=Zona
-  ss.toast('🔄 Actualizando Entrevistas...', 'Actualizando', 4);
-  total += completarHoja(ss.getSheetByName('Entrevistas'),
-    { creamosId: 2, dpi: 3, nombre: 4, edad: 6, nivelEducativo: 8, zona: 9 });
-
-  // Inscritx: B[1]=CreamosID, C[2]=DPI, D[3]=Nombre, F[5]=Edad, H[7]=NivelEducativo, I[8]=Zona
-  ss.toast('🔄 Actualizando Inscritx...', 'Actualizando', 4);
-  total += completarHoja(ss.getSheetByName('Inscritx'),
-    { creamosId: 1, dpi: 2, nombre: 3, edad: 5, nivelEducativo: 7, zona: 8 });
-
-  // No Inscritx: B[1]=CreamosID, C[2]=Nombre (sin DPI, Edad, Nivel Educativo, ni Zona)
-  ss.toast('🔄 Actualizando No Inscritx...', 'Actualizando', 4);
-  total += completarHoja(ss.getSheetByName('No Inscritx'),
-    { creamosId: 1, dpi: -1, nombre: 2, edad: -1, nivelEducativo: -1, zona: -1 });
-
-  // Hojas individuales de cada cohorte: C[2]=CreamosID, D[3]=DPI, E[4]=Nombre, G[6]=Edad, I[8]=NivelEducativo, J[9]=Zona
+  // También actualizar hojas de cohortes
   const cohortesSheet = ss.getSheetByName('Cohortes');
   if (cohortesSheet) {
     const datosCohortes = cohortesSheet.getDataRange().getValues();
@@ -9084,16 +9099,53 @@ function actualizarTodosDesdeDirectorio(silencioso) {
       if (!nombreCohorte) continue;
       const hojaCohorte = ss.getSheetByName(nombreCohorte);
       if (!hojaCohorte) continue;
-      ss.toast('🔄 Actualizando cohorte "' + nombreCohorte + '"...', 'Actualizando', 4);
-      total += completarHoja(hojaCohorte, { creamosId: 2, dpi: 3, nombre: 4, edad: 6, nivelEducativo: 8, zona: 9 });
+      if (!silencioso) ss.toast('🔄 Actualizando cohorte "' + nombreCohorte + '"...', 'Directorio', 3);
+      const n = completarHoja(hojaCohorte);
+      Logger.log('   Cohorte "' + nombreCohorte + '": ' + n + ' celdas actualizadas');
+      total += n;
     }
   }
 
-  const mensaje = '✅ Actualización completa\n\n' +
-    '📝 Celdas rellenadas: ' + total + '\n\n' +
-    '(Solo se rellenaron celdas vacías, no se borró nada)';
-  if (!silencioso) ui.alert('Actualizar Todo desde CREAMOS ID', mensaje, ui.ButtonSet.OK);
-  Logger.log(mensaje);
+  const msg = '✅ Actualización completa: ' + total + ' celdas rellenadas';
+  if (!silencioso) ui.alert('Actualizar desde CREAMOS ID', msg + '\n\n(Solo se rellenaron celdas vacías, no se borró nada)', ui.ButtonSet.OK);
+  Logger.log(msg);
+}
+
+/**
+ * Instala trigger para actualizar directorio automáticamente cada hora
+ */
+function instalarTriggerAutoDirectorio() {
+  // Eliminar trigger anterior si existe
+  desinstalarTriggerAutoDirectorio();
+
+  ScriptApp.newTrigger('autoActualizarDirectorio')
+    .timeBased()
+    .everyHours(1)
+    .create();
+
+  SpreadsheetApp.getUi().alert(
+    '✅ Auto-actualización activada',
+    'El directorio se actualizará automáticamente cada hora.',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+}
+
+/**
+ * Elimina el trigger de auto-actualización de directorio
+ */
+function desinstalarTriggerAutoDirectorio() {
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'autoActualizarDirectorio')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+}
+
+/**
+ * Función llamada por el trigger automático (silenciosa)
+ */
+function autoActualizarDirectorio() {
+  Logger.log('⏰ Auto-actualización de directorio iniciada: ' + new Date());
+  actualizarTodosDesdeDirectorio(true);
+  Logger.log('⏰ Auto-actualización de directorio completada');
 }
 
 // =====================================================================
