@@ -2229,7 +2229,8 @@ function flujoSeguimientoInterés(sheet, fila) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // SEGUNDO CLIC: Verificar mensaje enviado
+  // SEGUNDO CLIC: Verificar si 1ra Llamada fue "Contestó"
+  // Si sí → va directo a Entrevistas. Si no → continúa a 2da Llamada
   // ═══════════════════════════════════════════════════════════════════════
   if (valMsg1 === '') {
     ui.alert('⚠️ Falta el mensaje de WhatsApp',
@@ -2239,9 +2240,19 @@ function flujoSeguimientoInterés(sheet, fila) {
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // SEGUNDA LLAMADA: bloquear solo si ya tiene resultado final
-  // ═══════════════════════════════════════════════════════════════════════
+  const val1raBase = val1ra.split('(')[0].trim().toLowerCase();
+
+  // Si 1ra Llamada = "Contestó" → va directo a Entrevistas
+  if (val1raBase === 'contestó') {
+    procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
+    clearEstado();
+    ui.alert('✅ Enviada/o a Entrevistas',
+      '1ra Llamada CONTESTÓ ✅\n\nRegistrada/o en "Entrevistas" automáticamente.',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  // Si 1ra Llamada = "No contestó" → continúa a 2da Llamada
   const val2daBase = val2da.split('(')[0].trim().toLowerCase();
   if (val2daBase === 'contestó' || val2daBase === 'no contestó') {
     ui.alert('ℹ️ Ya procesado', 'Esta persona ya tiene el resultado de la 2da llamada registrado.', ui.ButtonSet.OK);
@@ -2259,7 +2270,7 @@ function flujoSeguimientoInterés(sheet, fila) {
     setVal(c2da, 'Contestó (' + fecha + ')');
     SpreadsheetApp.flush();
     procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
-    ui.alert('✅ Enviada/o a Entrevistas', 'Contestó → registrada/o en "Entrevistas".', ui.ButtonSet.OK);
+    ui.alert('✅ Enviada/o a Entrevistas', 'Contestó en 2da llamada → registrada/o en "Entrevistas".', ui.ButtonSet.OK);
 
   } else if (r2 === ui.Button.NO) {
     setVal(c2da, 'No contestó (' + fecha + ')');
