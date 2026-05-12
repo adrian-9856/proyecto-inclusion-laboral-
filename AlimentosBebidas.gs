@@ -211,6 +211,7 @@ function setupMenuAB() {
       .addItem('🔁 Actualizar desde CREAMOS ID (manual)', 'actualizarTodosDesdeDirectorio')
       .addItem('⏰ Activar auto-actualización CREAMOS ID (c/hora)', 'instalarTriggerAutoDirectorio')
       .addItem('🛑 Desactivar auto-actualización CREAMOS ID', 'desinstalarTriggerAutoDirectorio')
+      .addItem('🔍 Diagnosticar qué IDs se encuentran', 'diagnosticoAutocompletado')
       .addSeparator()
 
       // ========== DATOS (IMPORTAR/ACTUALIZAR) ==========
@@ -9117,22 +9118,65 @@ function actualizarTodosDesdeDirectorio(silencioso) {
   Logger.log('📚 Directorio cargado: ' + filasDirectorio.length + ' registros');
 
   function buscarEnDirectorio(cId, dpi, nom) {
+    // ─ NIVEL 1: Creamos ID exacto (normalizado) ─
     if (cId) {
-      const r = filasDirectorio.find(r => normalizarBusqueda(r.creamosId) === normalizarBusqueda(cId));
-      if (r) return r;
+      const cIdNorm = normalizarBusqueda(cId);
+      const r = filasDirectorio.find(r => normalizarBusqueda(r.creamosId) === cIdNorm);
+      if (r) {
+        Logger.log('     ✓ Encontrado por CREAMOS ID exacto');
+        return r;
+      }
     }
+
+    // ─ NIVEL 2: Creamos ID por PREFIJO ─
+    if (cId && cId.length >= 3) {
+      const cIdPrefix = normalizarBusqueda(cId).substring(0, 3);
+      const r = filasDirectorio.find(r => normalizarBusqueda(r.creamosId).startsWith(cIdPrefix));
+      if (r) {
+        Logger.log('     ✓ Encontrado por CREAMOS ID prefijo: ' + cIdPrefix);
+        return r;
+      }
+    }
+
+    // ─ NIVEL 3: DPI exacto ─
     if (dpi) {
       const r = filasDirectorio.find(r => r.dpi === dpi);
-      if (r) return r;
+      if (r) {
+        Logger.log('     ✓ Encontrado por DPI exacto');
+        return r;
+      }
     }
+
+    // ─ NIVEL 4: Nombre FUZZY (70%+) ─
     if (nom) {
       let mejorSim = 0, mejorReg = null;
       for (const r of filasDirectorio) {
         const sim = similitud(nom, r.nombre);
         if (sim > mejorSim) { mejorSim = sim; mejorReg = r; }
       }
-      if (mejorSim >= 75) return mejorReg;
+      if (mejorSim >= 70) {
+        Logger.log('     ✓ Encontrado por Nombre fuzzy (' + mejorSim.toFixed(0) + '% similar)');
+        return mejorReg;
+      }
+      if (mejorReg) Logger.log('     ℹ️ Mejor por nombre: "' + mejorReg.nombre + '" (' + mejorSim.toFixed(0) + '%)');
     }
+
+    // ─ NIVEL 5: Búsqueda por APELLIDOS PARCIALES ─
+    if (nom && nom.length > 3) {
+      const palabrasNom = nom.split(/\s+/).filter(p => p.length > 2);
+      for (const palabra of palabrasNom) {
+        const palabraNorm = normalizarBusqueda(palabra);
+        for (const r of filasDirectorio) {
+          const nomDirNorm = normalizarBusqueda(r.nombre);
+          if (nomDirNorm.includes(palabraNorm) && similitud(palabra, r.nombre) >= 60) {
+            Logger.log('     ✓ Encontrado por apellido/palabra parcial: "' + palabra + '"');
+            return r;
+          }
+        }
+      }
+    }
+
+    Logger.log('     ⚠️ NO ENCONTRADO. Búsqueda completada en 5 niveles sin coincidencias.');
     return null;
   }
 
@@ -9246,6 +9290,97 @@ function autoActualizarDirectorio() {
   Logger.log('⏰ Auto-actualización de directorio iniciada: ' + new Date());
   actualizarTodosDesdeDirectorio(true);
   Logger.log('⏰ Auto-actualización de directorio completada');
+}
+
+/**
+ * Diagnóstico: Muestra exactamente qué Creamos IDs se encontraron y cuáles NO en el directorio
+ */
+function diagnosticoAutocompletado() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const sheet = ss.getSheetByName('Hoja de Interés');
+
+  if (!sheet) {
+    ui.alert('❌ No se encontró "Hoja de Interés"');
+    return;
+  }
+
+  const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_AB);
+  if (!hojaDirectorio) {
+    ui.alert('❌ Directorio no encontrado');
+    return;
+  }
+
+  const datosDirectorio = hojaDirectorio.getDataRange().getValues();
+  const colMapDir = detectarColumnasDirectorio();
+
+  const filasDir = [];
+  for (let i = 1; i < datosDirectorio.length; i++) {
+    const f = datosDirectorio[i];
+    const nombre    = colMapDir.nombre >= 0 && f[colMapDir.nombre] ? f[colMapDir.nombre].toString().trim() : '';
+    const creamosId = colMapDir.creamosId >= 0 && f[colMapDir.creamosId] ? f[colMapDir.creamosId].toString().trim() : '';
+    if (creamosId || nombre) filasDir.push({ nombre, creamosId });
+  }
+
+  Logger.log('🔍 DIAGNÓSTICO DE AUTOCOMPLETADO');
+  Logger.log('📚 Directorio: ' + filasDir.length + ' registros');
+
+  const encabezados = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const colIdx = {};
+  encabezados.forEach((h, i) => {
+    const k = h.toString().trim().toLowerCase().replace(/\s+/g, '');
+    colIdx[k] = i;
+  });
+
+  const iCId = colIdx['creamosid'] || colIdx['creamos id'] || -1;
+  const iNom = colIdx['nombrecompleto'] || colIdx['nombre completo'] || colIdx['nombre'] || -1;
+
+  if (iCId < 0) {
+    ui.alert('❌ No se encontró columna "Creamos ID" en Hoja de Interés');
+    return;
+  }
+
+  const datos = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+  let encontrados = 0, noEncontrados = 0;
+  const problemáticos = [];
+
+  for (let i = 0; i < datos.length; i++) {
+    const cId = iCId >= 0 ? (datos[i][iCId] || '').toString().trim() : '';
+    const nom = iNom >= 0 ? (datos[i][iNom] || '').toString().trim() : '';
+
+    if (!cId) continue;
+
+    const encontrado = filasDir.find(r => normalizarBusqueda(r.creamosId) === normalizarBusqueda(cId));
+
+    if (encontrado) {
+      encontrados++;
+      Logger.log('✓ Fila ' + (i+2) + ': "' + cId + '" → "' + encontrado.nombre + '" (OK)');
+    } else {
+      noEncontrados++;
+      problemáticos.push({
+        fila: i + 2,
+        cId: cId,
+        nom: nom,
+        similar: filasDir
+          .map(r => ({ id: r.creamosId, sim: similitud(cId, r.creamosId) }))
+          .sort((a, b) => b.sim - a.sim)
+          .slice(0, 2)
+      });
+      Logger.log('✗ Fila ' + (i+2) + ': "' + cId + '" NO ENCONTRADO');
+    }
+  }
+
+  const msg =
+    '📊 RESULTADO DEL DIAGNÓSTICO\n\n' +
+    'Encontrados: ' + encontrados + ' ✓\n' +
+    'NO encontrados: ' + noEncontrados + ' ✗\n\n' +
+    (noEncontrados > 0 ? 'IDs PROBLEMÁTICOS:\n' + problemáticos.slice(0, 5).map(p =>
+      'Fila ' + p.fila + ': "' + p.cId + '"\n' +
+      '  Similares: ' + p.similar.map(s => s.id + ' (' + s.sim.toFixed(0) + '%)').join(', ')
+    ).join('\n') + '\n\n' : '') +
+    'Ver logs para detalles completos.';
+
+  ui.alert('Diagnóstico de Autocompletado', msg, ui.ButtonSet.OK);
 }
 
 // =====================================================================
