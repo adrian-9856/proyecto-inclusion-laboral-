@@ -2043,7 +2043,23 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
   if (estado === 'Entrevista realizada') {
     Logger.log('🔍 PROCESO: Copiando a Entrevistas...');
 
-    if (!creamosId || !nombreCompleto) {
+    // PASO 1: Si existe Creamos ID pero falta Nombre, autocompletar desde directorio
+    if (creamosId && !nombreCompleto) {
+      Logger.log('   📚 Buscando en directorio por Creamos ID: ' + creamosId);
+      const colMapInteres = obtenerMapaColumnas(sheet);
+      autocompletarFilaDesdeDirectorio(sheet, fila, colMapInteres);
+      SpreadsheetApp.flush();
+
+      // Re-leer los datos después del autocompletado
+      const datosActualizados = sheet.getRange(fila, 1, 1, maxCol).getValues()[0];
+      const nombreActualizado = getVal('Nombre Completo');
+      Logger.log('   ✓ Nombre actualizado: ' + nombreActualizado);
+      if (!nombreActualizado) {
+        Logger.log('⚠️ ERROR: Aún falta Nombre Completo después de autocompletar');
+        SpreadsheetApp.getUi().alert('⚠️ Error: No se encontró el nombre en el directorio.\n\nVerifica que el "Creamos ID" sea correcto.');
+        return;
+      }
+    } else if (!creamosId || !nombreCompleto) {
       Logger.log('⚠️ ERROR: Falta creamosId (' + creamosId + ') o nombreCompleto (' + nombreCompleto + ')');
       SpreadsheetApp.getUi().alert('⚠️ Error: Falta información crítica (Creamos ID o Nombre).\n\nVerifica que esos campos tengan datos.');
       return;
