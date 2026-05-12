@@ -8961,22 +8961,24 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
   const fila = sheet.getRange(numFila, 1, 1, maxCol).getValues()[0];
 
   const cId = colMap.creamosId >= 0 ? (fila[colMap.creamosId] || '').toString().trim() : '';
+  const esPlaceholderCId = cId.startsWith('⚠️') || cId.toLowerCase().includes('salesforce');
+  const cIdSearch = esPlaceholderCId ? '' : cId;
   const dpi = colMap.dpi >= 0 ? (fila[colMap.dpi] || '').toString().trim() : '';
   const nom = colMap.nombre >= 0 ? (fila[colMap.nombre] || '').toString().trim() : '';
   const ed  = colMap.edad >= 0 ? (fila[colMap.edad] || '').toString().trim() : '';
   const nvl = colMap.nivelEducativo >= 0 ? (fila[colMap.nivelEducativo] || '').toString().trim() : '';
   const zn  = colMap.zona >= 0 ? (fila[colMap.zona] || '').toString().trim() : '';
 
-  Logger.log('   Buscando: cId="' + cId + '", dpi="' + dpi + '", nom="' + nom + '"');
+  Logger.log('   Buscando: cId="' + (esPlaceholderCId ? '(placeholder)' : cId) + '", dpi="' + dpi + '", nom="' + nom + '"');
 
   // Buscar en directorio: CreamosID (exacto) → DPI (exacto) → Nombre (fuzzy)
   let filaDir = null;
   let metodo = '';
 
-  // 1. Buscar por Creamos ID exacto
-  if (cId) {
-    Logger.log('   → Buscando por Creamos ID (exacto): ' + cId);
-    filaDir = filasDirectorio.find(r => normalizarBusqueda(r.creamosId) === normalizarBusqueda(cId));
+  // 1. Buscar por Creamos ID exacto (se omite si es placeholder "⚠️ Crear en Salesforce")
+  if (cIdSearch) {
+    Logger.log('   → Buscando por Creamos ID (exacto): ' + cIdSearch);
+    filaDir = filasDirectorio.find(r => normalizarBusqueda(r.creamosId) === normalizarBusqueda(cIdSearch));
     if (filaDir) {
       Logger.log('   ✓ Encontrado por Creamos ID exacto');
       metodo = 'Creamos ID exacto';
@@ -9048,7 +9050,7 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
     Logger.log('   ✓ Nombre actualizado: ' + nombreDir);
     actualizado = true;
   }
-  if (colMap.creamosId >= 0 && !cId && cIdDir) {
+  if (colMap.creamosId >= 0 && (!cId || esPlaceholderCId) && cIdDir) {
     sheet.getRange(numFila, colMap.creamosId + 1).setValue(cIdDir);
     actualizado = true;
   }
@@ -9213,12 +9215,14 @@ function actualizarTodosDesdeDirectorio(silencioso) {
     for (let i = 0; i < datos.length; i++) {
       const fila = datos[i];
       const cId  = iCId  >= 0 ? (fila[iCId]  || '').toString().trim() : '';
+      const esPlaceholder = cId.startsWith('⚠️') || cId.toLowerCase().includes('salesforce');
+      const cIdSearch = esPlaceholder ? '' : cId;
       const dpi  = iDpi  >= 0 ? (fila[iDpi]  || '').toString().trim() : '';
       const nom  = iNom  >= 0 ? (fila[iNom]  || '').toString().trim() : '';
 
-      if (!cId && !dpi && !nom) continue;
+      if (!cIdSearch && !dpi && !nom) continue;
 
-      const reg = buscarEnDirectorio(cId, dpi, nom);
+      const reg = buscarEnDirectorio(cIdSearch, dpi, nom);
       if (!reg) continue;
 
       const filaDatos  = reg.fila;
@@ -9233,7 +9237,7 @@ function actualizarTodosDesdeDirectorio(silencioso) {
       let cambio = false;
 
       if (iNom  >= 0 && !nom  && nombreDir)  { sheet.getRange(filaNum, iNom  + 1).setValue(nombreDir);  cambio = true; }
-      if (iCId  >= 0 && !cId  && cIdDir)     { sheet.getRange(filaNum, iCId  + 1).setValue(cIdDir);     cambio = true; }
+      if (iCId  >= 0 && (!cId || esPlaceholder) && cIdDir) { sheet.getRange(filaNum, iCId  + 1).setValue(cIdDir);     cambio = true; }
       if (iDpi  >= 0 && !dpi  && dpiDir)     { sheet.getRange(filaNum, iDpi  + 1).setValue(dpiDir);     cambio = true; }
       if (iEd   >= 0 && !(fila[iEd]   || '').toString().trim() && edadDir)  { sheet.getRange(filaNum, iEd  + 1).setValue(edadDir);  cambio = true; }
       if (iNvl  >= 0 && !(fila[iNvl]  || '').toString().trim() && nivelDir)  { sheet.getRange(filaNum, iNvl + 1).setValue(normalizarNivelEducativo(nivelDir)); cambio = true; }
