@@ -205,22 +205,25 @@ function setupMenuTech() {
       // ========== ACTUALIZAR TODO ==========
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodoTech')
       .addSeparator()
-      // ========== ACCIONES PRINCIPALES ==========
-      .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
-      .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboTech')
-      .addItem('🔁 Actualizar desde CREAMOS ID (manual)', 'actualizarTodosDesdeDirectorio')
-      .addItem('⏰ Activar auto-actualización CREAMOS ID (c/hora)', 'instalarTriggerAutoDirectorio')
-      .addItem('🛑 Desactivar auto-actualización CREAMOS ID', 'desinstalarTriggerAutoDirectorio')
-      .addItem('🔍 Diagnosticar qué IDs se encuentran', 'diagnosticoAutocompletado')
-      .addSeparator()
 
       // ========== DATOS (IMPORTAR/ACTUALIZAR) ==========
       .addSubMenu(ui.createMenu('📥 Datos')
+        .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
+        .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboTech')
         .addItem('🔄 Actualizar Todas las Notas', 'actualizarNotasDesdeKoboTech')
         .addItem('📝 Importar Entrevistas', 'importarEntrevistasDesdeKobo')
         .addSeparator()
         .addItem('⏰ Activar Auto-Importación (c/10 min)', 'instalarTriggersImportacionAuto')
         .addItem('🛑 Desactivar Auto-Importación', 'desinstalarTriggersImportacionAuto'))
+      .addSeparator()
+
+      // ========== DIRECTORIO CREAMOS ID ==========
+      .addSubMenu(ui.createMenu('🗂️ Directorio CREAMOS ID')
+        .addItem('🔁 Actualizar desde directorio (manual)', 'actualizarTodosDesdeDirectorio')
+        .addItem('🔍 Diagnosticar IDs', 'diagnosticoAutocompletado')
+        .addSeparator()
+        .addItem('⏰ Activar actualización automática (c/hora)', 'instalarTriggerAutoDirectorio')
+        .addItem('🛑 Desactivar actualización automática', 'desinstalarTriggerAutoDirectorio'))
       .addSeparator()
 
       // ========== COHORTES ==========
@@ -9134,7 +9137,7 @@ function actualizarTodosDesdeDirectorio(silencioso) {
   }
 
   // ── Recorrer todas las hojas relevantes ──
-  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx'];
+  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx', 'Retiradx', 'Graduadx', 'Lista Definitiva'];
   let total = 0;
 
   for (const nombreHoja of hojas) {

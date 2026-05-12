@@ -205,23 +205,26 @@ function setupMenuAB() {
       // ========== ACTUALIZAR TODO ==========
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodoAB')
       .addSeparator()
-      // ========== ACCIONES PRINCIPALES ==========
-      .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
-      .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboAB')
-      .addItem('🔁 Actualizar desde CREAMOS ID (manual)', 'actualizarTodosDesdeDirectorio')
-      .addItem('⏰ Activar auto-actualización CREAMOS ID (c/hora)', 'instalarTriggerAutoDirectorio')
-      .addItem('🛑 Desactivar auto-actualización CREAMOS ID', 'desinstalarTriggerAutoDirectorio')
-      .addItem('🔍 Diagnosticar qué IDs se encuentran', 'diagnosticoAutocompletado')
-      .addSeparator()
 
       // ========== DATOS (IMPORTAR/ACTUALIZAR) ==========
       .addSubMenu(ui.createMenu('📥 Datos')
+        .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
+        .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboAB')
         .addItem('🔄 Actualizar Todas las Notas', 'actualizarNotasDesdeKoboAB')
         .addItem('📝 Importar Entrevistas', 'importarEntrevistasDesdeKobo')
         .addItem('💰 Importar Estipendios', 'importarEstipendiosDesdeKobo')
         .addSeparator()
         .addItem('⏰ Activar Auto-Importación (c/10 min)', 'instalarTriggersImportacionAutoAB')
         .addItem('🛑 Desactivar Auto-Importación', 'desinstalarTriggersImportacionAutoAB'))
+      .addSeparator()
+
+      // ========== DIRECTORIO CREAMOS ID ==========
+      .addSubMenu(ui.createMenu('🗂️ Directorio CREAMOS ID')
+        .addItem('🔁 Actualizar desde directorio (manual)', 'actualizarTodosDesdeDirectorio')
+        .addItem('🔍 Diagnosticar IDs', 'diagnosticoAutocompletado')
+        .addSeparator()
+        .addItem('⏰ Activar actualización automática (c/hora)', 'instalarTriggerAutoDirectorio')
+        .addItem('🛑 Desactivar actualización automática', 'desinstalarTriggerAutoDirectorio'))
       .addSeparator()
 
       // ========== COHORTES ==========
@@ -9248,7 +9251,7 @@ function actualizarTodosDesdeDirectorio(silencioso) {
     return actualizados;
   }
 
-  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx'];
+  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx', 'Retiradx', 'Graduadx', 'Lista Definitiva'];
   let total = 0;
 
   for (const nombreHoja of hojas) {
