@@ -7343,6 +7343,23 @@ function redisenarReporteTech() {
   sheet.hideColumns(26);
   const monthStart = '">="&DATE(YEAR($Z$1),MONTH($Z$1),1)';
   const monthEnd = '"<="&EOMONTH($Z$1,0)';
+
+  // Detectar columna de "Fecha envío a Inscritx" dinámicamente
+  let inscFechaCol = 'A';
+  const inscSheet = ss.getSheetByName('Inscritx');
+  if (inscSheet && inscSheet.getLastColumn() > 0) {
+    const inscHdrs = inscSheet.getRange(1, 1, 1, inscSheet.getLastColumn()).getValues()[0];
+    const idx = inscHdrs.findIndex(h => {
+      const n = (h || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,'');
+      return n.includes('fechaenvio') || n.includes('envioainscritx');
+    });
+    if (idx >= 0) {
+      const colNum = idx + 1;
+      inscFechaCol = colNum <= 26 ? String.fromCharCode(64 + colNum)
+        : String.fromCharCode(64 + Math.floor((colNum-1)/26)) + String.fromCharCode(65 + (colNum-1)%26);
+    }
+  }
+
   const f = {
     interesTotal : '=IFERROR(COUNTA(\'Hoja de Interés\'!E:E)-1,0)',
     interesAnioActual : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,">="&DATE(YEAR(TODAY()),1,1),\'Hoja de Interés\'!A:A,"<"&DATE(YEAR(TODAY())+1,1,1)),0)',
@@ -7350,7 +7367,7 @@ function redisenarReporteTech() {
     interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + monthStart + ',\'Hoja de Interés\'!A:A,' + monthEnd + '),0)',
     entrevTotal  : '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)',
     entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!A:A,"<>"),0)',
-    inscMes      : '=IFERROR(COUNTIFS(Inscritx!M:M,' + monthStart + ',Inscritx!M:M,' + monthEnd + '),0)',
+    inscMes      : '=IFERROR(COUNTIFS(Inscritx!' + inscFechaCol + ':' + inscFechaCol + ',' + monthStart + ',Inscritx!' + inscFechaCol + ':' + inscFechaCol + ',' + monthEnd + '),0)',
     inscTotal    : '=IFERROR(MAX(COUNTA(Inscritx!B:B)-1,SUM(IFERROR(VALUE(Cohortes!H2:H),0))),0)',
     gradTotal    : '=IFERROR(COUNTA(Graduadx!D:D)-1,0)',
     gradMes      : '=IFERROR(COUNTIFS(Graduadx!A:A,' + monthStart + ',Graduadx!A:A,' + monthEnd + '),0)',
