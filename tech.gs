@@ -8891,12 +8891,15 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
 
   Logger.log('   📍 Método: ' + metodo);
 
-  // Extraer datos del directorio usando detección automática
+  // Extraer datos DIRECTAMENTE del directorio (sin re-procesar)
+  // Esto preserva acentos y caracteres especiales
+  const nombreDir          = filaDir.nombre || '';
+  const cIdDir             = filaDir.creamosId || '';
+  const dpiDir             = filaDir.dpi || '';
+
+  // Para otros datos (edad, zona, nivel educativo), extraer de filaDatos
   const filaDatos = filaDir.fila;
-  const nombreDir  = colMapDir.nombre >= 0 && filaDatos[colMapDir.nombre] ? filaDatos[colMapDir.nombre].toString().trim() : '';
-  const cIdDir     = colMapDir.creamosId >= 0 && filaDatos[colMapDir.creamosId] ? filaDatos[colMapDir.creamosId].toString().trim() : '';
   const edadDir    = colMapDir.edad >= 0 && filaDatos[colMapDir.edad] ? filaDatos[colMapDir.edad].toString().trim() : '';
-  const dpiDir     = colMapDir.dpi >= 0 && filaDatos[colMapDir.dpi] ? filaDatos[colMapDir.dpi].toString().trim() : '';
   const nivelEducativoDir = colMapDir.nivelEducativo >= 0 && filaDatos[colMapDir.nivelEducativo] ? filaDatos[colMapDir.nivelEducativo].toString().trim() : '';
   const zonaDir    = colMapDir.zona >= 0 && filaDatos[colMapDir.zona] ? filaDatos[colMapDir.zona].toString().trim() : '';
 
