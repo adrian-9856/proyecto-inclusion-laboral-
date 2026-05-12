@@ -8756,14 +8756,23 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
   const hojaDirectorio = ss.getSheetByName(NOMBRE_HOJA_CREAMOS_ID_TECH);
 
   // Si no existe el directorio, no hacer nada
-  if (!hojaDirectorio) return false;
+  if (!hojaDirectorio) {
+    Logger.log('⚠️ Directorio no encontrado: ' + NOMBRE_HOJA_CREAMOS_ID_TECH);
+    return false;
+  }
 
   const datosDirectorio = hojaDirectorio.getDataRange().getValues();
-  if (datosDirectorio.length < 2) return false;
+  if (datosDirectorio.length < 2) {
+    Logger.log('⚠️ Directorio vacío');
+    return false;
+  }
 
   // *** NUEVO: Detectar columnas del directorio automáticamente ***
   const colMapDir = detectarColumnasDirectorio();
-  if (!colMapDir) return false;
+  if (!colMapDir) {
+    Logger.log('⚠️ No se pudieron detectar columnas del directorio');
+    return false;
+  }
 
   // Construir mapas de búsqueda
   const mapPorCreamosId = new Map();
@@ -8780,6 +8789,8 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
     if (nombre)    mapPorNombre.set(nombre.toLowerCase(), f);
   }
 
+  Logger.log('📚 Directorio cargado: ' + mapPorCreamosId.size + ' Creamos IDs, ' + mapPorDpi.size + ' DPIs, ' + mapPorNombre.size + ' Nombres');
+
   // Leer la fila actual
   const maxCol = Math.max(
     colMap.creamosId >= 0 ? colMap.creamosId + 1 : 0,
@@ -8790,7 +8801,10 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
     colMap.zona >= 0 ? colMap.zona + 1 : 0
   );
 
-  if (maxCol === 0) return false;
+  if (maxCol === 0) {
+    Logger.log('⚠️ No se encontraron columnas relevantes en la hoja');
+    return false;
+  }
 
   const fila = sheet.getRange(numFila, 1, 1, maxCol).getValues()[0];
 
@@ -8801,13 +8815,30 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
   const nvl = colMap.nivelEducativo >= 0 ? (fila[colMap.nivelEducativo] || '').toString().trim() : '';
   const zn  = colMap.zona >= 0 ? (fila[colMap.zona] || '').toString().trim() : '';
 
+  Logger.log('   Buscando: cId="' + cId + '", dpi="' + dpi + '", nom="' + nom + '"');
+
   // Buscar en directorio: CreamosID → DPI → Nombre
   let filaDir = null;
-  if (cId) filaDir = mapPorCreamosId.get(cId.toUpperCase()) || null;
-  if (!filaDir && dpi) filaDir = mapPorDpi.get(dpi) || null;
-  if (!filaDir && nom) filaDir = mapPorNombre.get(nom.toLowerCase()) || null;
+  if (cId) {
+    Logger.log('   → Buscando por Creamos ID: ' + cId.toUpperCase());
+    filaDir = mapPorCreamosId.get(cId.toUpperCase()) || null;
+    if (filaDir) Logger.log('   ✓ Encontrado por Creamos ID');
+  }
+  if (!filaDir && dpi) {
+    Logger.log('   → Buscando por DPI: ' + dpi);
+    filaDir = mapPorDpi.get(dpi) || null;
+    if (filaDir) Logger.log('   ✓ Encontrado por DPI');
+  }
+  if (!filaDir && nom) {
+    Logger.log('   → Buscando por Nombre: ' + nom.toLowerCase());
+    filaDir = mapPorNombre.get(nom.toLowerCase()) || null;
+    if (filaDir) Logger.log('   ✓ Encontrado por Nombre');
+  }
 
-  if (!filaDir) return false;
+  if (!filaDir) {
+    Logger.log('⚠️ No encontrado en directorio. Creamos IDs disponibles: ' + Array.from(mapPorCreamosId.keys()).slice(0, 10).join(', '));
+    return false;
+  }
 
   // *** NUEVO: Extraer datos del directorio usando detección automática ***
   const nombreDir  = colMapDir.nombre >= 0 && filaDir[colMapDir.nombre] ? filaDir[colMapDir.nombre].toString().trim() : '';
@@ -8817,11 +8848,14 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
   const nivelEducativoDir = colMapDir.nivelEducativo >= 0 && filaDir[colMapDir.nivelEducativo] ? filaDir[colMapDir.nivelEducativo].toString().trim() : '';
   const zonaDir    = colMapDir.zona >= 0 && filaDir[colMapDir.zona] ? filaDir[colMapDir.zona].toString().trim() : '';
 
+  Logger.log('   Datos del directorio: nombre="' + nombreDir + '", edad="' + edadDir + '", zona="' + zonaDir + '"');
+
   let actualizado = false;
 
   // Rellenar solo los campos vacíos
   if (colMap.nombre >= 0 && !nom && nombreDir) {
     sheet.getRange(numFila, colMap.nombre + 1).setValue(nombreDir);
+    Logger.log('   ✓ Nombre actualizado: ' + nombreDir);
     actualizado = true;
   }
   if (colMap.creamosId >= 0 && !cId && cIdDir) {
@@ -8829,6 +8863,28 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
     actualizado = true;
   }
   if (colMap.dpi >= 0 && !dpi && dpiDir) {
+    sheet.getRange(numFila, colMap.dpi + 1).setValue(dpiDir);
+    Logger.log('   ✓ DPI actualizado: ' + dpiDir);
+    actualizado = true;
+  }
+  if (colMap.edad >= 0 && !ed && edadDir) {
+    sheet.getRange(numFila, colMap.edad + 1).setValue(edadDir);
+    Logger.log('   ✓ Edad actualizada: ' + edadDir);
+    actualizado = true;
+  }
+  if (colMap.nivelEducativo >= 0 && !nvl && nivelEducativoDir) {
+    sheet.getRange(numFila, colMap.nivelEducativo + 1).setValue(nivelEducativoDir);
+    Logger.log('   ✓ Nivel Educativo actualizado: ' + nivelEducativoDir);
+    actualizado = true;
+  }
+  if (colMap.zona >= 0 && !zn && zonaDir) {
+    sheet.getRange(numFila, colMap.zona + 1).setValue(zonaDir);
+    Logger.log('   ✓ Zona actualizada: ' + zonaDir);
+    actualizado = true;
+  }
+
+  return actualizado;
+}
     sheet.getRange(numFila, colMap.dpi + 1).setValue(dpiDir);
     actualizado = true;
   }
