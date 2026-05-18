@@ -7648,23 +7648,7 @@ function mejorarYRepararReportesAB() {
 }
 
 function asegurarColumnaFechaEnvioInscritxAB() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Inscritx');
-  if (!sheet) return;
-
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const norm = h => (h || '').toString().toLowerCase().replace(/[^a-z0-9]/g,'');
-  const existeIdx = headers.findIndex(h => norm(h) === 'fechaenvioainscritx');
-  if (existeIdx >= 0) return; // Ya existe
-
-  // Crear la columna al final
-  const newCol = sheet.getLastColumn() + 1;
-  sheet.getRange(1, newCol).setValue('Fecha envío a Inscritx')
-    .setFontWeight('bold')
-    .setBackground('#90caf9');
-  sheet.getRange(2, newCol, Math.max(1, sheet.getMaxRows() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
-
-  SpreadsheetApp.getUi().alert('✅ Columna creada', 'Se agregó "Fecha envío a Inscritx" en columna ' + String.fromCharCode(64 + newCol), SpreadsheetApp.getUi().ButtonSet.OK);
+  repararColumnaFechaInscritxTech(); // misma lógica, misma hoja Inscritx
 }
 
 function instalarTodoLoNuevoAB() {
@@ -10529,17 +10513,17 @@ function obtenerMapaColumnas(hoja) {
   if (!hoja) return {};
   const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
   const mapa = {};
+  const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
   headers.forEach((header, index) => {
     if (header !== undefined && header !== null) {
       const original = header.toString().trim();
       const normalizado = original.toLowerCase();
-      const superNormalizado = normalizado.replace(/[^a-z0-9]/g, '');
-      
-      // Guardar con nombre original
+      const sinTildes = quitarTildes(normalizado);
+      const superNormalizado = sinTildes.replace(/[^a-z0-9]/g, '');
+
       mapa[original] = index;
-      // Guardar con nombre normalizado (lowercase + trim)
       if (!mapa[normalizado]) mapa[normalizado] = index;
-      // Guardar con nombre super normalizado (solo caracteres alfa)
+      if (!mapa[sinTildes]) mapa[sinTildes] = index;
       if (!mapa[superNormalizado]) mapa[superNormalizado] = index;
     }
   });

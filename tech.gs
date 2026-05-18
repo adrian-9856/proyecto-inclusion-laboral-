@@ -7527,23 +7527,68 @@ function mejorarYRepararReportes() {
 }
 
 function asegurarColumnaFechaEnvioInscritxTech() {
+  repararColumnaFechaInscritxTech();
+}
+
+function repararColumnaFechaInscritxTech() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Inscritx');
-  if (!sheet) return;
+  const ui = SpreadsheetApp.getUi();
+  if (!sheet) { ui.alert('❌', 'No existe la hoja Inscritx', ui.ButtonSet.OK); return; }
+
+  const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const norm = h => quitarTildes((h || '').toString().toLowerCase()).replace(/[^a-z0-9]/g, '');
 
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const norm = h => (h || '').toString().toLowerCase().replace(/[^a-z0-9]/g,'');
-  const existeIdx = headers.findIndex(h => norm(h) === 'fechaenvioainscritx');
-  if (existeIdx >= 0) return; // Ya existe
+  const indices = headers.reduce((acc, h, i) => {
+    if (norm(h) === 'fechaenvioainscritx') acc.push(i);
+    return acc;
+  }, []);
 
-  // Crear la columna al final
-  const newCol = sheet.getLastColumn() + 1;
-  sheet.getRange(1, newCol).setValue('Fecha envío a Inscritx')
-    .setFontWeight('bold')
-    .setBackground('#90caf9');
-  sheet.getRange(2, newCol, Math.max(1, sheet.getMaxRows() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
+  const log = [];
 
-  SpreadsheetApp.getUi().alert('✅ Columna creada', 'Se agregó "Fecha envío a Inscritx" en columna ' + String.fromCharCode(64 + newCol), SpreadsheetApp.getUi().ButtonSet.OK);
+  if (indices.length === 0) {
+    // No existe: crear en columna A
+    sheet.insertColumnBefore(1);
+    sheet.getRange(1, 1).setValue('Fecha envío a Inscritx').setFontWeight('bold').setBackground('#90caf9');
+    sheet.getRange(2, 1, Math.max(1, sheet.getLastRow() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
+    log.push('✅ Columna "Fecha envío a Inscritx" creada en columna A');
+
+  } else if (indices.length === 1) {
+    // Existe solo una — asegurarse que tiene el formato correcto
+    const col = indices[0] + 1;
+    sheet.getRange(1, col).setFontWeight('bold').setBackground('#90caf9');
+    sheet.getRange(2, col, Math.max(1, sheet.getLastRow() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
+    log.push('✅ Columna ya existía en columna ' + String.fromCharCode(64 + col) + ' — formato aplicado');
+
+  } else {
+    // Hay duplicados: quedarse con la que tenga más datos, eliminar las demás
+    const lastRow = sheet.getLastRow();
+    let mejorIdx = indices[0];
+    let mejorDatos = 0;
+    for (const idx of indices) {
+      const vals = sheet.getRange(2, idx + 1, Math.max(1, lastRow - 1), 1).getValues();
+      const llenas = vals.filter(r => r[0] !== '').length;
+      if (llenas > mejorDatos) { mejorDatos = llenas; mejorIdx = idx; }
+    }
+
+    // Eliminar las columnas duplicadas de derecha a izquierda
+    const aEliminar = indices.filter(i => i !== mejorIdx).sort((a, b) => b - a);
+    for (const idx of aEliminar) {
+      sheet.deleteColumn(idx + 1);
+      log.push('🗑️ Eliminada columna duplicada ' + (idx + 1));
+    }
+
+    // Asegurar formato en la columna buena (recalcular posición tras eliminar)
+    const posicion = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+      .findIndex(h => norm(h) === 'fechaenvioainscritx') + 1;
+    sheet.getRange(1, posicion).setFontWeight('bold').setBackground('#90caf9');
+    sheet.getRange(2, posicion, Math.max(1, sheet.getLastRow() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
+    log.push('✅ Columna definitiva en posición ' + String.fromCharCode(64 + posicion));
+  }
+
+  SpreadsheetApp.flush();
+  ui.alert('✅ Reparación completada', log.join('\n'), ui.ButtonSet.OK);
 }
 
 function instalarTodoLoNuevoTech() {
@@ -10532,17 +10577,18 @@ function obtenerMapaColumnas(hoja) {
   if (!hoja) return {};
   const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
   const mapa = {};
+  // Normaliza tildes: "envío" → "envio", "ó" → "o", etc.
+  const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
   headers.forEach((header, index) => {
     if (header !== undefined && header !== null) {
       const original = header.toString().trim();
       const normalizado = original.toLowerCase();
-      const superNormalizado = normalizado.replace(/[^a-z0-9]/g, '');
-      
-      // Guardar con nombre original
+      const sinTildes = quitarTildes(normalizado);
+      const superNormalizado = sinTildes.replace(/[^a-z0-9]/g, '');
+
       mapa[original] = index;
-      // Guardar con nombre normalizado (lowercase + trim)
       if (!mapa[normalizado]) mapa[normalizado] = index;
-      // Guardar con nombre super normalizado (solo caracteres alfa)
+      if (!mapa[sinTildes]) mapa[sinTildes] = index;
       if (!mapa[superNormalizado]) mapa[superNormalizado] = index;
     }
   });
