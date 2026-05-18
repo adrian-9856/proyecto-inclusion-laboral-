@@ -7539,55 +7539,84 @@ function rellenarFechasInscritxFaltantesTech() {
 
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   const colFecha = headers.findIndex(h => norm(h) === 'fechaenvioainscritx');
-  if (colFecha < 0) {
-    ui.alert('❌', 'No se encontró la columna "Fecha envío a Inscritx". Primero usa "Agregar/Reparar Fecha en Inscritx".', ui.ButtonSet.OK);
+  const colCreamosId = headers.findIndex(h => norm(h) === 'creamosid');
+
+  if (colFecha < 0 || colCreamosId < 0) {
+    ui.alert('❌', 'No se encontraron las columnas necesarias (Creamos ID, Fecha envío)', ui.ButtonSet.OK);
     return;
   }
 
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) { ui.alert('ℹ️', 'No hay participantes en Inscritx', ui.ButtonSet.OK); return; }
 
-  const fechas = sheet.getRange(2, colFecha + 1, lastRow - 1, 1).getValues();
-  const sinFecha = fechas.filter(r => !r[0]).length;
+  const entrevistas = ss.getSheetByName('Entrevistas');
+  if (!entrevistas) { ui.alert('❌', 'No existe la hoja Entrevistas', ui.ButtonSet.OK); return; }
 
-  if (sinFecha === 0) {
-    ui.alert('✅', 'Todas las filas ya tienen fecha. No hay nada que rellenar.', ui.ButtonSet.OK);
-    return;
-  }
+  const dataEnt = entrevistas.getDataRange().getValues();
+  const hdrsEnt = dataEnt[0];
+  const colEntCreamosId = hdrsEnt.findIndex(h => norm(h) === 'creamosid');
+  const colEntFecha = hdrsEnt.findIndex(h => norm(h).includes('fechaentrevista') || norm(h).includes('fecha'));
 
-  const resp = ui.prompt(
-    '📅 Rellenar fechas faltantes',
-    sinFecha + ' participantes no tienen fecha de envío a Inscritx.\n\n' +
-    'Escribe la fecha a usar (formato: DD/MM/AAAA)\n' +
-    'O deja vacío para usar HOY (' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy') + '):',
-    ui.ButtonSet.OK_CANCEL
-  );
-
-  if (resp.getSelectedButton() !== ui.Button.OK) return;
-
-  let fecha;
-  const textoFecha = resp.getResponseText().trim();
-  if (!textoFecha) {
-    fecha = new Date();
-  } else {
-    const partes = textoFecha.split('/');
-    if (partes.length !== 3) { ui.alert('❌', 'Formato incorrecto. Usa DD/MM/AAAA', ui.ButtonSet.OK); return; }
-    fecha = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
-    if (isNaN(fecha.getTime())) { ui.alert('❌', 'Fecha inválida', ui.ButtonSet.OK); return; }
-  }
-
-  let rellenas = 0;
-  for (let i = 0; i < fechas.length; i++) {
-    if (!fechas[i][0]) {
-      sheet.getRange(i + 2, colFecha + 1).setValue(fecha).setNumberFormat('dd/mm/yyyy');
-      rellenas++;
+  const mapEntrevistas = new Map();
+  if (colEntCreamosId >= 0 && colEntFecha >= 0) {
+    for (let i = 1; i < dataEnt.length; i++) {
+      const id = (dataEnt[i][colEntCreamosId] || '').toString().trim();
+      const fecha = dataEnt[i][colEntFecha];
+      if (id && fecha) mapEntrevistas.set(id, fecha);
     }
   }
 
+  const datos = sheet.getDataRange().getValues();
+  let rellenas = 0;
+  let sinCorrespondencia = 0;
+
+  for (let i = 1; i < datos.length; i++) {
+    const id = (datos[i][colCreamosId] || '').toString().trim();
+    const fechaActual = datos[i][colFecha];
+
+    if (!fechaActual && id) {
+      const fechaEnt = mapEntrevistas.get(id);
+      if (fechaEnt) {
+        sheet.getRange(i + 1, colFecha + 1).setValue(fechaEnt).setNumberFormat('dd/mm/yyyy');
+        rellenas++;
+      } else {
+        sinCorrespondencia++;
+      }
+    }
+  }
+
+  if (sinCorrespondencia > 0) {
+    const resp = ui.alert(
+      '⚠️ Hay ' + sinCorrespondencia + ' participantes sin fecha en Entrevistas',
+      '✅ ' + rellenas + ' fechas llenadas desde Entrevistas.\n\n' +
+      sinCorrespondencia + ' participantes no tienen entrevista registrada.\n\n' +
+      '¿Qué hacer?\n' +
+      '- "Hoy" → Usa fecha de hoy para los restantes\n' +
+      '- "Dejar" → Deja los blancos (manualmente después)\n' +
+      '- "Cancelar" → Sin cambios',
+      ui.ButtonSet.YES_NO_CANCEL
+    );
+
+    if (resp === ui.Button.YES) {
+      const hoy = new Date();
+      for (let i = 1; i < datos.length; i++) {
+        const id = (datos[i][colCreamosId] || '').toString().trim();
+        const fechaActual = datos[i][colFecha];
+        if (!fechaActual && id && !mapEntrevistas.has(id)) {
+          sheet.getRange(i + 1, colFecha + 1).setValue(hoy).setNumberFormat('dd/mm/yyyy');
+        }
+      }
+      ui.alert('✅ Completado', rellenas + ' del historial de Entrevistas + ' + sinCorrespondencia + ' de hoy.\n' +
+        'Total: ' + (rellenas + sinCorrespondencia) + ' fechas añadidas.', ui.ButtonSet.OK);
+    } else if (resp === ui.Button.NO) {
+      ui.alert('ℹ️', rellenas + ' fechas rellenadas desde Entrevistas. Los demás quedan en blanco.', ui.ButtonSet.OK);
+    }
+  } else {
+    SpreadsheetApp.flush();
+    ui.alert('✅ Listo', 'Todas las ' + rellenas + ' fechas se llenaron desde Entrevistas.', ui.ButtonSet.OK);
+  }
+
   SpreadsheetApp.flush();
-  ui.alert('✅ Fechas rellenadas', rellenas + ' participantes ahora tienen fecha: ' +
-    Utilities.formatDate(fecha, Session.getScriptTimeZone(), 'dd/MM/yyyy') +
-    '\n\nPuedes cambiar fechas individuales haciendo clic en cada celda.', ui.ButtonSet.OK);
 }
 
 function mostrarMenuReportesAutomaticos() {
