@@ -7647,8 +7647,64 @@ function mejorarYRepararReportesAB() {
     ui.ButtonSet.OK);
 }
 
+function repararColumnaFechaInscritxAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Inscritx');
+  const ui = SpreadsheetApp.getUi();
+  if (!sheet) { ui.alert('❌', 'No existe la hoja Inscritx', ui.ButtonSet.OK); return; }
+
+  const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const norm = h => quitarTildes((h || '').toString().toLowerCase()).replace(/[^a-z0-9]/g, '');
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const indices = headers.reduce((acc, h, i) => {
+    if (norm(h) === 'fechaenvioainscritx') acc.push(i);
+    return acc;
+  }, []);
+
+  const log = [];
+
+  if (indices.length === 0) {
+    sheet.insertColumnBefore(1);
+    sheet.getRange(1, 1).setValue('Fecha envío a Inscritx').setFontWeight('bold').setBackground('#90caf9');
+    sheet.getRange(2, 1, Math.max(1, sheet.getLastRow() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
+    log.push('✅ Columna "Fecha envío a Inscritx" creada en columna A');
+
+  } else if (indices.length === 1) {
+    const col = indices[0] + 1;
+    sheet.getRange(1, col).setFontWeight('bold').setBackground('#90caf9');
+    sheet.getRange(2, col, Math.max(1, sheet.getLastRow() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
+    log.push('✅ Columna ya existía en columna ' + String.fromCharCode(64 + col) + ' — formato aplicado');
+
+  } else {
+    const lastRow = sheet.getLastRow();
+    let mejorIdx = indices[0];
+    let mejorDatos = 0;
+    for (const idx of indices) {
+      const vals = sheet.getRange(2, idx + 1, Math.max(1, lastRow - 1), 1).getValues();
+      const llenas = vals.filter(r => r[0] !== '').length;
+      if (llenas > mejorDatos) { mejorDatos = llenas; mejorIdx = idx; }
+    }
+
+    const aEliminar = indices.filter(i => i !== mejorIdx).sort((a, b) => b - a);
+    for (const idx of aEliminar) {
+      sheet.deleteColumn(idx + 1);
+      log.push('🗑️ Eliminada columna duplicada ' + (idx + 1));
+    }
+
+    const posicion = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+      .findIndex(h => norm(h) === 'fechaenvioainscritx') + 1;
+    sheet.getRange(1, posicion).setFontWeight('bold').setBackground('#90caf9');
+    sheet.getRange(2, posicion, Math.max(1, sheet.getLastRow() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
+    log.push('✅ Columna definitiva en posición ' + String.fromCharCode(64 + posicion));
+  }
+
+  SpreadsheetApp.flush();
+  ui.alert('✅ Reparación completada', log.join('\n'), ui.ButtonSet.OK);
+}
+
 function asegurarColumnaFechaEnvioInscritxAB() {
-  repararColumnaFechaInscritxTech(); // misma lógica, misma hoja Inscritx
+  repararColumnaFechaInscritxAB();
 }
 
 function instalarTodoLoNuevoAB() {
