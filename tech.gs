@@ -244,6 +244,9 @@ function setupMenuTech() {
         .addItem('📊 Guardar Mensual (Manual)', 'guardarReporteMensualAutomatico')
         .addItem('📅 Generar Mes Anterior...', 'generarReporteMensualPorMesTech')
         .addItem('💾 PowerBI Export', 'crearHojaPowerBIExport')
+        .addItem('🔄 Actualizar PowerBI Export', 'actualizarPowerBIExport')
+        .addItem('⏰ Activar actualización automática PowerBI', 'instalarTriggerPowerBIExport')
+        .addItem('🛑 Desactivar actualización automática PowerBI', 'desinstalarTriggerPowerBIExport')
         .addSeparator()
         .addItem('⏰ Activar Reportes Automáticos', 'instalarTriggersReportesMensuales')
         .addItem('🛑 Desactivar Reportes Automáticos', 'desinstalarTriggersReportesMensuales'))
@@ -13968,4 +13971,158 @@ function repararColumnasTech() {
     log.join('\n'),
     ui.ButtonSet.OK
   );
+}
+
+/**
+ * =====================================================================
+ * EXPORTACIÓN POWERBI — Consolida datos para Power BI
+ * =====================================================================
+ */
+function crearHojaPowerBIExport() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('PowerBI_Export');
+  if (!sheet) {
+    sheet = ss.insertSheet('PowerBI_Export');
+    sheet.getRange('A1:O1').setValues([[
+      'Creamos ID', 'Nombre Completo', 'DPI', 'Teléfono', 'Edad', 'Género',
+      'Zona', 'Nivel Educativo', 'Fecha Interés', 'Fecha Entrevista',
+      'Fecha Inscripción', 'Fecha Graduación', 'Fecha Retiro', 'Responsable', 'Cohorte'
+    ]]);
+    sheet.getRange('A1:O1').setFontWeight('bold').setBackground('#1565c0').setFontColor('white');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function actualizarPowerBIExport() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  try {
+    const sheet = crearHojaPowerBIExport();
+    sheet.getRange(2, 1, Math.max(1, sheet.getLastRow() - 1), 15).clearContent();
+
+    const hojaInteres = ss.getSheetByName('Hoja de Interés');
+    const hojaEntrevistas = ss.getSheetByName('Entrevistas');
+    const hojaInscritx = ss.getSheetByName('Inscritx');
+    const hojaGraduadx = ss.getSheetByName('Graduadx');
+    const hojaRetiradx = ss.getSheetByName('Retiradx');
+
+    const datosInteres = hojaInteres ? hojaInteres.getDataRange().getValues() : [];
+    const datosEntrev = hojaEntrevistas ? hojaEntrevistas.getDataRange().getValues() : [];
+    const datosInscritx = hojaInscritx ? hojaInscritx.getDataRange().getValues() : [];
+    const datosGraduadx = hojaGraduadx ? hojaGraduadx.getDataRange().getValues() : [];
+    const datosRetiradx = hojaRetiradx ? hojaRetiradx.getDataRange().getValues() : [];
+
+    const buscarColumnaPor = (datos, nombres) => {
+      if (!datos[0]) return -1;
+      const norm = n => (n || '').toString().toLowerCase().replace(/[^a-z0-9]/g,'');
+      return datos[0].findIndex(h => nombres.some(nombre => norm(h) === norm(nombre)));
+    };
+
+    const colMap = {
+      interes: {
+        id: buscarColumnaPor(datosInteres, ['Creamos ID', 'CREAMOS ID']),
+        nombre: buscarColumnaPor(datosInteres, ['Nombre Completo']),
+        dpi: buscarColumnaPor(datosInteres, ['DPI']),
+        tel: buscarColumnaPor(datosInteres, ['Teléfono']),
+        edad: buscarColumnaPor(datosInteres, ['Edad']),
+        genero: buscarColumnaPor(datosInteres, ['Género']),
+        zona: buscarColumnaPor(datosInteres, ['Zona']),
+        nivel: buscarColumnaPor(datosInteres, ['Nivel Educativo']),
+        fecha: buscarColumnaPor(datosInteres, ['Fecha registro', 'Fecha']),
+        notas: buscarColumnaPor(datosInteres, ['Notas'])
+      },
+      entrev: { id: buscarColumnaPor(datosEntrev, ['Creamos ID']), fecha: buscarColumnaPor(datosEntrev, ['Fecha entrevista', 'Fecha']) },
+      inscritx: { id: buscarColumnaPor(datosInscritx, ['Creamos ID']), fecha: buscarColumnaPor(datosInscritx, ['Fecha envío a Inscritx', 'Fecha']), cohorte: buscarColumnaPor(datosInscritx, ['Cohorte', 'COHORTE']) },
+      graduadx: { id: buscarColumnaPor(datosGraduadx, ['Creamos ID']), fecha: buscarColumnaPor(datosGraduadx, ['Fecha', 'Fecha graduación']) },
+      retiradx: { id: buscarColumnaPor(datosRetiradx, ['Creamos ID']), fecha: buscarColumnaPor(datosRetiradx, ['Fecha', 'Fecha retiro']) }
+    };
+
+    const filas = [];
+    for (let i = 1; i < datosInteres.length; i++) {
+      const cId = datosInteres[i][colMap.interes.id] || '';
+      if (!cId) continue;
+      const fila = [
+        cId,
+        datosInteres[i][colMap.interes.nombre] || '',
+        datosInteres[i][colMap.interes.dpi] || '',
+        datosInteres[i][colMap.interes.tel] || '',
+        datosInteres[i][colMap.interes.edad] || '',
+        datosInteres[i][colMap.interes.genero] || '',
+        datosInteres[i][colMap.interes.zona] || '',
+        datosInteres[i][colMap.interes.nivel] || '',
+        datosInteres[i][colMap.interes.fecha] || '',
+        '',  // Fecha entrevista
+        '',  // Fecha inscripción
+        '',  // Fecha graduación
+        '',  // Fecha retiro
+        '',  // Responsable
+        ''   // Cohorte
+      ];
+
+      // Buscar en otras hojas
+      if (datosEntrev.length > 1) for (let j = 1; j < datosEntrev.length; j++) {
+        if (datosEntrev[j][colMap.entrev.id] === cId) { fila[9] = datosEntrev[j][colMap.entrev.fecha] || ''; break; }
+      }
+      if (datosInscritx.length > 1) for (let j = 1; j < datosInscritx.length; j++) {
+        if (datosInscritx[j][colMap.inscritx.id] === cId) {
+          fila[10] = datosInscritx[j][colMap.inscritx.fecha] || '';
+          fila[14] = datosInscritx[j][colMap.inscritx.cohorte] || '';
+          break;
+        }
+      }
+      if (datosGraduadx.length > 1) for (let j = 1; j < datosGraduadx.length; j++) {
+        if (datosGraduadx[j][colMap.graduadx.id] === cId) { fila[11] = datosGraduadx[j][colMap.graduadx.fecha] || ''; break; }
+      }
+      if (datosRetiradx.length > 1) for (let j = 1; j < datosRetiradx.length; j++) {
+        if (datosRetiradx[j][colMap.retiradx.id] === cId) { fila[12] = datosRetiradx[j][colMap.retiradx.fecha] || ''; break; }
+      }
+
+      filas.push(fila);
+    }
+
+    if (filas.length > 0) {
+      sheet.getRange(2, 1, filas.length, 15).setValues(filas);
+    }
+
+    SpreadsheetApp.flush();
+    ui.alert('✅ PowerBI_Export actualizado', 'Se consolidaron ' + filas.length + ' registros', ui.ButtonSet.OK);
+    Logger.log('✅ PowerBI_Export: ' + filas.length + ' filas actualizadas');
+  } catch (e) {
+    Logger.log('❌ Error en PowerBI_Export: ' + e.message);
+    ui.alert('❌ Error', 'No se pudo actualizar PowerBI_Export: ' + e.message, ui.ButtonSet.OK);
+  }
+}
+
+function instalarTriggerPowerBIExport() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    desinstalarTriggerPowerBIExport();
+    ScriptApp.newTrigger('autoActualizarPowerBIExport')
+      .timeBased()
+      .atHour(2)
+      .everyDays(1)
+      .create();
+    ui.alert('✅ Trigger instalado', 'PowerBI_Export se actualizará diariamente a las 2 AM', ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('❌ Error', 'No se pudo instalar el trigger: ' + e.message, ui.ButtonSet.OK);
+  }
+}
+
+function desinstalarTriggerPowerBIExport() {
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === 'autoActualizarPowerBIExport') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+}
+
+function autoActualizarPowerBIExport() {
+  try {
+    actualizarPowerBIExport();
+    Logger.log('✅ PowerBI_Export actualizado automáticamente a ' + new Date());
+  } catch (e) {
+    Logger.log('❌ Error en actualización automática: ' + e.message);
+  }
 }
