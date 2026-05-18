@@ -263,6 +263,7 @@ function setupMenuAB() {
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
         .addItem('🔧 Reparar Columnas (Entrevistas + Interés + Inscritx)', 'repararColumnasAB')
         .addItem('📋 Reorganizar columnas Hoja de Interés', 'agregarYOrganizarColumnasLlamadas')
+        .addItem('📅 Agregar columna Fecha en Inscritx', 'asegurarColumnaFechaEnvioInscritxAB')
         .addSeparator()
         .addItem('👤 Agregar Responsable', 'agregarResponsable')
         .addItem('✅ Verificar Instalación', 'verificarInstalacion'))
@@ -7652,14 +7653,18 @@ function asegurarColumnaFechaEnvioInscritxAB() {
   if (!sheet) return;
 
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const yaExiste = headers.some(h => (h || '').toString().toLowerCase().trim() === 'fecha envío a inscritx');
-  if (yaExiste) return;
+  const norm = h => (h || '').toString().toLowerCase().replace(/[^a-z0-9]/g,'');
+  const existeIdx = headers.findIndex(h => norm(h) === 'fechaenvioainscritx');
+  if (existeIdx >= 0) return; // Ya existe
 
+  // Crear la columna al final
   const newCol = sheet.getLastColumn() + 1;
   sheet.getRange(1, newCol).setValue('Fecha envío a Inscritx')
     .setFontWeight('bold')
     .setBackground('#90caf9');
   sheet.getRange(2, newCol, Math.max(1, sheet.getMaxRows() - 1), 1).setNumberFormat('dd/mm/yyyy hh:mm');
+
+  SpreadsheetApp.getUi().alert('✅ Columna creada', 'Se agregó "Fecha envío a Inscritx" en columna ' + String.fromCharCode(64 + newCol), SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 function instalarTodoLoNuevoAB() {
