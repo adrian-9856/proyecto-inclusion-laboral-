@@ -241,30 +241,25 @@ function setupMenuAB() {
       .addSubMenu(ui.createMenu('📊 Reportes')
         .addItem('🚀 Instalar Todo Lo Nuevo', 'instalarTodoLoNuevoAB')
         .addItem('✨ Mejorar Reportes', 'mejorarYRepararReportesAB')
-        .addItem('🔄 Reiniciar Mes Actual en Reporte', 'reiniciarMesEnReporteAB')
-        .addItem('📊 Guardar Mensual (Manual)', 'guardarReporteMensualAutomaticoAB')
-        .addItem('📅 Generar Mes Anterior...', 'generarReporteMensualPorMesAB')
-        .addItem('💾 PowerBI Export', 'crearHojaPowerBIExport')
-        .addItem('🔄 Actualizar PowerBI Export', 'actualizarPowerBIExport')
-        .addItem('⏰ Activar actualización automática PowerBI', 'instalarTriggerPowerBIExport')
-        .addItem('🛑 Desactivar actualización automática PowerBI', 'desinstalarTriggerPowerBIExport')
-        .addSeparator()
-        .addItem('⏰ Activar Reportes Automáticos', 'instalarTriggersReportesMensualesAB')
-        .addItem('🛑 Desactivar Reportes Automáticos', 'desinstalarTriggersReportesMensualesAB'))
+        .addItem('🔄 Reiniciar Mes Actual', 'reiniciarMesEnReporteAB')
+        .addItem('📊 Guardar Mensual', 'guardarReporteMensualAutomaticoAB')
+        .addItem('📅 Generar Mes Anterior', 'generarReporteMensualPorMesAB')
+        .addItem('⏰ Activar/Desactivar Automáticos', 'mostrarMenuReportesAutomaticos'))
       .addSeparator()
 
       // ========== HERRAMIENTAS ==========
+      .addSubMenu(ui.createMenu('🔌 Power BI')
+        .addItem('💾 Crear Tabla PowerBI_Export', 'crearHojaPowerBIExport')
+        .addItem('🔄 Actualizar PowerBI_Export Ahora', 'actualizarPowerBIExport')
+        .addItem('⏰ Activar Auto-Actualización (2 AM)', 'instalarTriggerPowerBIExport')
+        .addItem('🛑 Desactivar Auto-Actualización', 'desinstalarTriggerPowerBIExport'))
+
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
-        .addItem('📞 Flujo Seguimiento Manual (Interés)', 'abrirFlujoSeguimientoManual')
-        .addSeparator()
-        .addItem('🧹 Limpiar Cohortes Mal Nombradas', 'limpiarCohortesMalNombradasAB')
-        .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
+        .addItem('📞 Flujo Seguimiento Manual', 'abrirFlujoSeguimientoManual')
+        .addItem('📅 Agregar/Reparar Fecha en Inscritx', 'asegurarColumnaFechaEnvioInscritxAB')
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
-        .addItem('🔧 Reparar Columnas (Entrevistas + Interés + Inscritx)', 'repararColumnasAB')
-        .addItem('📋 Reorganizar columnas Hoja de Interés', 'agregarYOrganizarColumnasLlamadas')
-        .addItem('📅 Agregar columna Fecha en Inscritx', 'asegurarColumnaFechaEnvioInscritxAB')
-        .addSeparator()
+        .addItem('🔧 Reparar Columnas', 'repararColumnasAB')
         .addItem('👤 Agregar Responsable', 'agregarResponsable')
         .addItem('✅ Verificar Instalación', 'verificarInstalacion'))
       .addSeparator()
@@ -7705,6 +7700,35 @@ function repararColumnaFechaInscritxAB() {
 
 function asegurarColumnaFechaEnvioInscritxAB() {
   repararColumnaFechaInscritxAB();
+}
+
+function mostrarMenuReportesAutomaticos() {
+  const ui = SpreadsheetApp.getUi();
+  const menu = ui.createMenu('⏰ Reportes Automáticos')
+    .addItem('✅ Activar Reportes + PowerBI Automáticos', 'activarTodosAutomaticos')
+    .addItem('🛑 Desactivar Reportes + PowerBI Automáticos', 'desactivarTodosAutomaticos')
+    .addItem('📋 Ver Estado de Triggers', 'verEstadoTriggers');
+  menu.showModelessDialog(ui.createHtmlOutput(''), '⏰ Automáticos');
+}
+
+function activarTodosAutomaticos() {
+  instalarTriggersReportesMensualesAB();
+  instalarTriggerPowerBIExport();
+  SpreadsheetApp.getUi().alert('✅ Listo', 'Reportes y PowerBI se actualizarán automáticamente', SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function desactivarTodosAutomaticos() {
+  desinstalarTriggersReportesMensualesAB();
+  desinstalarTriggerPowerBIExport();
+  SpreadsheetApp.getUi().alert('✅ Listo', 'Automáticos desactivados', SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function verEstadoTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  const funcionesAutomaticas = ['autoActualizarReportesMensualesAB', 'autoActualizarPowerBIExport'];
+  const activos = triggers.filter(t => funcionesAutomaticas.includes(t.getHandlerFunction()));
+  const estado = activos.length > 0 ? '✅ ACTIVOS (' + activos.length + ')' : '❌ DESACTIVADOS';
+  SpreadsheetApp.getUi().alert('⏰ Estado de Triggers', estado, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 function instalarTodoLoNuevoAB() {

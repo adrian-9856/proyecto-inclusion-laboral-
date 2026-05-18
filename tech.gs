@@ -240,30 +240,27 @@ function setupMenuTech() {
       .addSubMenu(ui.createMenu('📊 Reportes')
         .addItem('🚀 Instalar Todo Lo Nuevo', 'instalarTodoLoNuevoTech')
         .addItem('✨ Mejorar Reportes', 'mejorarYRepararReportes')
-        .addItem('🔄 Reiniciar Mes Actual en Reporte', 'reiniciarMesEnReporteTech')
-        .addItem('📊 Guardar Mensual (Manual)', 'guardarReporteMensualAutomatico')
-        .addItem('📅 Generar Mes Anterior...', 'generarReporteMensualPorMesTech')
-        .addItem('💾 PowerBI Export', 'crearHojaPowerBIExport')
-        .addItem('🔄 Actualizar PowerBI Export', 'actualizarPowerBIExport')
-        .addItem('⏰ Activar actualización automática PowerBI', 'instalarTriggerPowerBIExport')
-        .addItem('🛑 Desactivar actualización automática PowerBI', 'desinstalarTriggerPowerBIExport')
-        .addSeparator()
-        .addItem('⏰ Activar Reportes Automáticos', 'instalarTriggersReportesMensuales')
-        .addItem('🛑 Desactivar Reportes Automáticos', 'desinstalarTriggersReportesMensuales'))
+        .addItem('🔄 Reiniciar Mes Actual', 'reiniciarMesEnReporteTech')
+        .addItem('📊 Guardar Mensual', 'guardarReporteMensualAutomatico')
+        .addItem('📅 Generar Mes Anterior', 'generarReporteMensualPorMesTech')
+        .addItem('⏰ Activar/Desactivar Automáticos', 'mostrarMenuReportesAutomaticos'))
+      .addSeparator()
+
+      // ========== POWER BI ==========
+      .addSubMenu(ui.createMenu('🔌 Power BI')
+        .addItem('💾 Crear Tabla PowerBI_Export', 'crearHojaPowerBIExport')
+        .addItem('🔄 Actualizar PowerBI_Export Ahora', 'actualizarPowerBIExport')
+        .addItem('⏰ Activar Auto-Actualización (2 AM)', 'instalarTriggerPowerBIExport')
+        .addItem('🛑 Desactivar Auto-Actualización', 'desinstalarTriggerPowerBIExport'))
       .addSeparator()
 
       // ========== HERRAMIENTAS ==========
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
-        .addItem('📞 Flujo Seguimiento Manual (Interés)', 'abrirFlujoSeguimientoManual')
-        .addSeparator()
-        .addItem('🧹 Limpiar Cohortes Mal Nombradas', 'limpiarCohortesMalNombradasTech')
-        .addItem('🧹 Limpiar Cohortes Eliminadas', 'limpiarCohortesEliminadas')
+        .addItem('📞 Flujo Seguimiento Manual', 'abrirFlujoSeguimientoManual')
+        .addItem('📅 Agregar/Reparar Fecha en Inscritx', 'asegurarColumnaFechaEnvioInscritxTech')
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
-        .addItem('🔧 Reparar Columnas (Entrevistas + Interés)', 'repararColumnasTech')
-        .addItem('📋 Reorganizar columnas Hoja de Interés', 'agregarYOrganizarColumnasLlamadas')
-        .addItem('📅 Agregar columna Fecha en Inscritx', 'asegurarColumnaFechaEnvioInscritxTech')
-        .addSeparator()
+        .addItem('🔧 Reparar Columnas', 'repararColumnasTech')
         .addItem('👤 Agregar Responsable', 'agregarResponsable')
         .addItem('✅ Verificar Instalación', 'verificarInstalacion'))
       .addSeparator()
@@ -7528,6 +7525,35 @@ function mejorarYRepararReportes() {
 
 function asegurarColumnaFechaEnvioInscritxTech() {
   repararColumnaFechaInscritxTech();
+}
+
+function mostrarMenuReportesAutomaticos() {
+  const ui = SpreadsheetApp.getUi();
+  const menu = ui.createMenu('⏰ Reportes Automáticos')
+    .addItem('✅ Activar Reportes + PowerBI Automáticos', 'activarTodosAutomaticos')
+    .addItem('🛑 Desactivar Reportes + PowerBI Automáticos', 'desactivarTodosAutomaticos')
+    .addItem('📋 Ver Estado de Triggers', 'verEstadoTriggers');
+  menu.showModelessDialog(ui.createHtmlOutput(''), '⏰ Automáticos');
+}
+
+function activarTodosAutomaticos() {
+  instalarTriggersReportesMensuales();
+  instalarTriggerPowerBIExport();
+  SpreadsheetApp.getUi().alert('✅ Listo', 'Reportes y PowerBI se actualizarán automáticamente', SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function desactivarTodosAutomaticos() {
+  desinstalarTriggersReportesMensuales();
+  desinstalarTriggerPowerBIExport();
+  SpreadsheetApp.getUi().alert('✅ Listo', 'Automáticos desactivados', SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function verEstadoTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  const funcionesAutomaticas = ['autoActualizarReportesMensuales', 'autoActualizarPowerBIExport'];
+  const activos = triggers.filter(t => funcionesAutomaticas.includes(t.getHandlerFunction()));
+  const estado = activos.length > 0 ? '✅ ACTIVOS (' + activos.length + ')' : '❌ DESACTIVADOS';
+  SpreadsheetApp.getUi().alert('⏰ Estado de Triggers', estado, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 function repararColumnaFechaInscritxTech() {
