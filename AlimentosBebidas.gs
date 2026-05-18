@@ -13907,19 +13907,49 @@ function repararColumnasAB() {
  * EXPORTACIÓN POWERBI — Consolida datos para Power BI
  * =====================================================================
  */
+
+// Helpers (se definen en tech.gs si ambos archivos están en el mismo proyecto)
+// Si no existen, se definen localmente aquí:
+if (typeof _pbiFmt === 'undefined') {
+  var _pbiFmt = function(v) {
+    if (!v && v !== 0) return '';
+    if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+    return v.toString().trim();
+  };
+  var _pbiNorm = function(s) {
+    return (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  };
+  var _pbiCol = function(hdr, nombres) {
+    if (!hdr) return -1;
+    return hdr.findIndex(function(h) { return nombres.some(function(n) { return _pbiNorm(h) === _pbiNorm(n); }); });
+  };
+  var _pbiIndex = function(datos, colId) {
+    var idx = new Map();
+    if (!datos || datos.length < 2 || colId < 0) return idx;
+    for (var i = 1; i < datos.length; i++) {
+      var id = (datos[i][colId] || '').toString().trim();
+      if (id) idx.set(id, datos[i]);
+    }
+    return idx;
+  };
+}
+
 function crearHojaPowerBIExport() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName('PowerBI_Export');
-  if (!sheet) {
-    sheet = ss.insertSheet('PowerBI_Export');
-    sheet.getRange('A1:O1').setValues([[
-      'Creamos ID', 'Nombre Completo', 'DPI', 'Teléfono', 'Edad', 'Género',
-      'Zona', 'Nivel Educativo', 'Fecha Interés', 'Fecha Entrevista',
-      'Fecha Inscripción', 'Fecha Graduación', 'Fecha Retiro', 'Responsable', 'Cohorte'
-    ]]);
-    sheet.getRange('A1:O1').setFontWeight('bold').setBackground('#1565c0').setFontColor('white');
-    sheet.setFrozenRows(1);
-  }
+  if (!sheet) sheet = ss.insertSheet('PowerBI_Export');
+
+  const COLS = ['Creamos ID','Nombre Completo','DPI','Teléfono','Edad','Género',
+    'Zona','Nivel Educativo','Estado Actual','Fecha Interés','Fecha Entrevista',
+    'Resultado Entrevista','Fecha Inscripción','Cohorte','Fecha Graduación',
+    'Fecha Retiro','Responsable'];
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, COLS.length).setValues([COLS])
+    .setFontWeight('bold').setBackground('#1565c0').setFontColor('white');
+  sheet.setFrozenRows(1);
+  [120,160,110,90,50,110,70,140,100,130,130,150,130,140,130,100,120]
+    .forEach((w,i) => sheet.setColumnWidth(i+1, w));
   return sheet;
 }
 
@@ -13928,90 +13958,76 @@ function actualizarPowerBIExport() {
   const ui = SpreadsheetApp.getUi();
   try {
     const sheet = crearHojaPowerBIExport();
-    sheet.getRange(2, 1, Math.max(1, sheet.getLastRow() - 1), 15).clearContent();
 
-    const hojaInteres = ss.getSheetByName('Hoja de Interés');
-    const hojaEntrevistas = ss.getSheetByName('Entrevistas');
-    const hojaInscritx = ss.getSheetByName('Inscritx');
-    const hojaGraduadx = ss.getSheetByName('Graduadx');
-    const hojaRetiradx = ss.getSheetByName('Retiradx');
+    const get = nombre => { const h = ss.getSheetByName(nombre); return h ? h.getDataRange().getValues() : []; };
+    const dInt  = get('Hoja de Interés');
+    const dEnt  = get('Entrevistas');
+    const dInsc = get('Inscritx');
+    const dGrad = get('Graduadx');
+    const dRet  = get('Retiradx');
 
-    const datosInteres = hojaInteres ? hojaInteres.getDataRange().getValues() : [];
-    const datosEntrev = hojaEntrevistas ? hojaEntrevistas.getDataRange().getValues() : [];
-    const datosInscritx = hojaInscritx ? hojaInscritx.getDataRange().getValues() : [];
-    const datosGraduadx = hojaGraduadx ? hojaGraduadx.getDataRange().getValues() : [];
-    const datosRetiradx = hojaRetiradx ? hojaRetiradx.getDataRange().getValues() : [];
-
-    const buscarColumnaPor = (datos, nombres) => {
-      if (!datos[0]) return -1;
-      const norm = n => (n || '').toString().toLowerCase().replace(/[^a-z0-9]/g,'');
-      return datos[0].findIndex(h => nombres.some(nombre => norm(h) === norm(nombre)));
+    const c = {
+      int: { id: _pbiCol(dInt[0],['Creamos ID','CREAMOS ID']), nom: _pbiCol(dInt[0],['Nombre Completo']),
+        dpi: _pbiCol(dInt[0],['DPI']), tel: _pbiCol(dInt[0],['Teléfono','Telefono']),
+        edad: _pbiCol(dInt[0],['Edad']), gen: _pbiCol(dInt[0],['Género','Genero']),
+        zona: _pbiCol(dInt[0],['Zona']), nivel: _pbiCol(dInt[0],['Nivel Educativo']),
+        resp: _pbiCol(dInt[0],['Responsable']), fecha: _pbiCol(dInt[0],['Fecha','Fecha registro']) },
+      ent: { id: _pbiCol(dEnt[0],['Creamos ID']), fecha: _pbiCol(dEnt[0],['Fecha entrevista','Fecha']),
+        estado: _pbiCol(dEnt[0],['Estado','Resultado']) },
+      ins: { id: _pbiCol(dInsc[0],['Creamos ID']), fecha: _pbiCol(dInsc[0],['Fecha envío a Inscritx','Fecha']),
+        coh: _pbiCol(dInsc[0],['Enviar a Cohorte','Cohorte']) },
+      grd: { id: _pbiCol(dGrad[0],['Creamos ID']), fecha: _pbiCol(dGrad[0],['Fecha','Fecha graduación']) },
+      ret: { id: _pbiCol(dRet[0],['Creamos ID']),  fecha: _pbiCol(dRet[0],['Fecha','Fecha retiro']) }
     };
 
-    const colMap = {
-      interes: {
-        id: buscarColumnaPor(datosInteres, ['Creamos ID', 'CREAMOS ID']),
-        nombre: buscarColumnaPor(datosInteres, ['Nombre Completo']),
-        dpi: buscarColumnaPor(datosInteres, ['DPI']),
-        tel: buscarColumnaPor(datosInteres, ['Teléfono']),
-        edad: buscarColumnaPor(datosInteres, ['Edad']),
-        genero: buscarColumnaPor(datosInteres, ['Género']),
-        zona: buscarColumnaPor(datosInteres, ['Zona']),
-        nivel: buscarColumnaPor(datosInteres, ['Nivel Educativo']),
-        fecha: buscarColumnaPor(datosInteres, ['Fecha registro', 'Fecha']),
-        notas: buscarColumnaPor(datosInteres, ['Notas'])
-      },
-      entrev: { id: buscarColumnaPor(datosEntrev, ['Creamos ID']), fecha: buscarColumnaPor(datosEntrev, ['Fecha entrevista', 'Fecha']) },
-      inscritx: { id: buscarColumnaPor(datosInscritx, ['Creamos ID']), fecha: buscarColumnaPor(datosInscritx, ['Fecha envío a Inscritx', 'Fecha']), cohorte: buscarColumnaPor(datosInscritx, ['Cohorte', 'COHORTE']) },
-      graduadx: { id: buscarColumnaPor(datosGraduadx, ['Creamos ID']), fecha: buscarColumnaPor(datosGraduadx, ['Fecha', 'Fecha graduación']) },
-      retiradx: { id: buscarColumnaPor(datosRetiradx, ['Creamos ID']), fecha: buscarColumnaPor(datosRetiradx, ['Fecha', 'Fecha retiro']) }
-    };
+    const idxEnt  = _pbiIndex(dEnt,  c.ent.id);
+    const idxInsc = _pbiIndex(dInsc, c.ins.id);
+    const idxGrad = _pbiIndex(dGrad, c.grd.id);
+    const idxRet  = _pbiIndex(dRet,  c.ret.id);
 
     const filas = [];
-    for (let i = 1; i < datosInteres.length; i++) {
-      const cId = datosInteres[i][colMap.interes.id] || '';
+    for (let i = 1; i < dInt.length; i++) {
+      const row = dInt[i];
+      const cId = (c.int.id >= 0 ? row[c.int.id] : '').toString().trim();
       if (!cId) continue;
-      const fila = [
+
+      const rEnt  = idxEnt.get(cId)  || null;
+      const rInsc = idxInsc.get(cId) || null;
+      const rGrad = idxGrad.get(cId) || null;
+      const rRet  = idxRet.get(cId)  || null;
+
+      let estado = 'Interesada';
+      if (rGrad)      estado = 'Graduadx';
+      else if (rRet)  estado = 'Retiradx';
+      else if (rInsc) estado = 'Inscritx';
+      else if (rEnt)  estado = 'En Entrevista';
+
+      const resultEnt = rEnt && c.ent.estado >= 0 ? _pbiFmt(rEnt[c.ent.estado]) : '';
+      if (rEnt && resultEnt) estado = resultEnt;
+
+      filas.push([
         cId,
-        datosInteres[i][colMap.interes.nombre] || '',
-        datosInteres[i][colMap.interes.dpi] || '',
-        datosInteres[i][colMap.interes.tel] || '',
-        datosInteres[i][colMap.interes.edad] || '',
-        datosInteres[i][colMap.interes.genero] || '',
-        datosInteres[i][colMap.interes.zona] || '',
-        datosInteres[i][colMap.interes.nivel] || '',
-        datosInteres[i][colMap.interes.fecha] || '',
-        '',  // Fecha entrevista
-        '',  // Fecha inscripción
-        '',  // Fecha graduación
-        '',  // Fecha retiro
-        '',  // Responsable
-        ''   // Cohorte
-      ];
-
-      // Buscar en otras hojas
-      if (datosEntrev.length > 1) for (let j = 1; j < datosEntrev.length; j++) {
-        if (datosEntrev[j][colMap.entrev.id] === cId) { fila[9] = datosEntrev[j][colMap.entrev.fecha] || ''; break; }
-      }
-      if (datosInscritx.length > 1) for (let j = 1; j < datosInscritx.length; j++) {
-        if (datosInscritx[j][colMap.inscritx.id] === cId) {
-          fila[10] = datosInscritx[j][colMap.inscritx.fecha] || '';
-          fila[14] = datosInscritx[j][colMap.inscritx.cohorte] || '';
-          break;
-        }
-      }
-      if (datosGraduadx.length > 1) for (let j = 1; j < datosGraduadx.length; j++) {
-        if (datosGraduadx[j][colMap.graduadx.id] === cId) { fila[11] = datosGraduadx[j][colMap.graduadx.fecha] || ''; break; }
-      }
-      if (datosRetiradx.length > 1) for (let j = 1; j < datosRetiradx.length; j++) {
-        if (datosRetiradx[j][colMap.retiradx.id] === cId) { fila[12] = datosRetiradx[j][colMap.retiradx.fecha] || ''; break; }
-      }
-
-      filas.push(fila);
+        c.int.nom   >= 0 ? _pbiFmt(row[c.int.nom])   : '',
+        c.int.dpi   >= 0 ? _pbiFmt(row[c.int.dpi])   : '',
+        c.int.tel   >= 0 ? _pbiFmt(row[c.int.tel])   : '',
+        c.int.edad  >= 0 ? (row[c.int.edad] || '')    : '',
+        c.int.gen   >= 0 ? _pbiFmt(row[c.int.gen])   : '',
+        c.int.zona  >= 0 ? _pbiFmt(row[c.int.zona])  : '',
+        c.int.nivel >= 0 ? _pbiFmt(row[c.int.nivel]) : '',
+        estado,
+        c.int.fecha >= 0 ? _pbiFmt(row[c.int.fecha]) : '',
+        rEnt  && c.ent.fecha >= 0 ? _pbiFmt(rEnt[c.ent.fecha])  : '',
+        resultEnt,
+        rInsc && c.ins.fecha >= 0 ? _pbiFmt(rInsc[c.ins.fecha]) : '',
+        rInsc && c.ins.coh   >= 0 ? _pbiFmt(rInsc[c.ins.coh])   : '',
+        rGrad && c.grd.fecha >= 0 ? _pbiFmt(rGrad[c.grd.fecha]) : '',
+        rRet  && c.ret.fecha >= 0 ? _pbiFmt(rRet[c.ret.fecha])  : '',
+        c.int.resp  >= 0 ? _pbiFmt(row[c.int.resp])  : ''
+      ]);
     }
 
     if (filas.length > 0) {
-      sheet.getRange(2, 1, filas.length, 15).setValues(filas);
+      sheet.getRange(2, 1, filas.length, 17).setValues(filas);
     }
 
     SpreadsheetApp.flush();
