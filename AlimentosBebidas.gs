@@ -256,7 +256,8 @@ function setupMenuAB() {
 
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
         .addItem('📞 Flujo Seguimiento Manual', 'abrirFlujoSeguimientoManual')
-        .addItem('📅 Agregar/Reparar Fecha en Inscritx', 'asegurarColumnaFechaEnvioInscritxAB')
+        .addItem('📅 Agregar/Reparar columna Fecha Inscritx', 'asegurarColumnaFechaEnvioInscritxAB')
+        .addItem('🗓️ Rellenar fechas faltantes en Inscritx', 'rellenarFechasInscritxFaltantesAB')
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
         .addItem('🔧 Reparar Columnas', 'repararColumnasAB')
@@ -7700,6 +7701,83 @@ function repararColumnaFechaInscritxAB() {
 
 function asegurarColumnaFechaEnvioInscritxAB() {
   repararColumnaFechaInscritxAB();
+}
+
+function rellenarFechasInscritxFaltantesAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const sheet = ss.getSheetByName('Inscritx');
+  if (!sheet) { ui.alert('❌', 'No existe la hoja Inscritx', ui.ButtonSet.OK); return; }
+
+  const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const norm = h => quitarTildes((h || '').toString().toLowerCase()).replace(/[^a-z0-9]/g, '');
+
+  // Encontrar columna de fecha
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const colFecha = headers.findIndex(h => norm(h) === 'fechaenvioainscritx');
+  if (colFecha < 0) {
+    ui.alert('❌', 'No se encontró la columna "Fecha envío a Inscritx". Primero usa "Agregar/Reparar Fecha en Inscritx".', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Encontrar columna de nombre para contar filas con datos
+  const colNombre = headers.findIndex(h => norm(h).includes('nombrecompleto') || norm(h).includes('nombre'));
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) { ui.alert('ℹ️', 'No hay participantes en Inscritx', ui.ButtonSet.OK); return; }
+
+  // Contar cuántos no tienen fecha
+  const fechas = sheet.getRange(2, colFecha + 1, lastRow - 1, 1).getValues();
+  const sinFecha = fechas.filter(r => !r[0]).length;
+
+  if (sinFecha === 0) {
+    ui.alert('✅', 'Todas las filas ya tienen fecha. No hay nada que rellenar.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Preguntar qué fecha usar
+  const resp = ui.prompt(
+    '📅 Rellenar fechas faltantes',
+    sinFecha + ' participantes no tienen fecha de envío a Inscritx.\n\n' +
+    'Escribe la fecha a usar (formato: DD/MM/AAAA)\n' +
+    'O deja vacío para usar HOY (' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy') + '):',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (resp.getSelectedButton() !== ui.Button.OK) return;
+
+  let fecha;
+  const textoFecha = resp.getResponseText().trim();
+  if (!textoFecha) {
+    fecha = new Date();
+  } else {
+    const partes = textoFecha.split('/');
+    if (partes.length !== 3) {
+      ui.alert('❌', 'Formato de fecha incorrecto. Usa DD/MM/AAAA', ui.ButtonSet.OK);
+      return;
+    }
+    fecha = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+    if (isNaN(fecha.getTime())) {
+      ui.alert('❌', 'Fecha inválida', ui.ButtonSet.OK);
+      return;
+    }
+  }
+
+  // Rellenar solo las celdas vacías
+  let rellenas = 0;
+  for (let i = 0; i < fechas.length; i++) {
+    if (!fechas[i][0]) {
+      sheet.getRange(i + 2, colFecha + 1).setValue(fecha).setNumberFormat('dd/mm/yyyy');
+      rellenas++;
+    }
+  }
+
+  SpreadsheetApp.flush();
+  ui.alert(
+    '✅ Fechas rellenadas',
+    rellenas + ' participantes ahora tienen fecha: ' + Utilities.formatDate(fecha, Session.getScriptTimeZone(), 'dd/MM/yyyy') + '\n\nPuedes cambiar fechas individuales haciendo clic en cada celda.',
+    ui.ButtonSet.OK
+  );
 }
 
 function mostrarMenuReportesAutomaticos() {
