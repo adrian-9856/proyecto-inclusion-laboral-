@@ -2497,8 +2497,13 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
 
     // Fecha de ingreso a Inscritx para medición mensual
     const idxFechaEnvioInscritx = colMapInscritx['fechaenvioainscritx'];
+    Logger.log('🔍 DEBUG colMapInscritx keys: ' + Object.keys(colMapInscritx).join(', '));
+    Logger.log('🔍 DEBUG buscando: fechaenvioainscritx = ' + idxFechaEnvioInscritx);
     if (idxFechaEnvioInscritx !== undefined && !registroInscritx[idxFechaEnvioInscritx]) {
       registroInscritx[idxFechaEnvioInscritx] = new Date();
+      Logger.log('✅ Fecha de Inscritx puesta en índice ' + idxFechaEnvioInscritx);
+    } else {
+      Logger.log('⚠️ No se puso fecha: idx=' + idxFechaEnvioInscritx + ', valor ya existe=' + !!registroInscritx[idxFechaEnvioInscritx]);
     }
 
     Logger.log('     Escribiendo en Inscritx (tech): ' + JSON.stringify(registroInscritx));
