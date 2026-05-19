@@ -4120,7 +4120,13 @@ function importarDatosHistoricos() {
  */
 function importarDesdeKoboTech() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
+  let ui = null;
+  try {
+    ui = SpreadsheetApp.getUi();
+  } catch (e) {
+    // Sin UI disponible (trigger automático)
+    Logger.log('⚠️ Ejecutándose como trigger automático (sin UI)');
+  }
 
   // URL FIJA de datos nuevos (actualizada cada 10 minutos)
   const url = CONFIG_TECH.KOBO_URL;
@@ -5431,18 +5437,27 @@ function diagnosticarCSV() {
  */
 function importarEntrevistasDesdeKobo() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
+  let ui = null;
+  try {
+    ui = SpreadsheetApp.getUi();
+  } catch (e) {
+    Logger.log('⚠️ Ejecutándose como trigger automático (sin UI)');
+  }
 
   const props = PropertiesService.getDocumentProperties();
   const url = props.getProperty('KOBO_ENTREVISTAS_URL') || CONFIG_TECH.KOBO_ENTREVISTAS_URL;
 
   if (!url) {
-    ui.alert('⚠️ URL no configurada', 'Configure la URL de Entrevistas de KoboToolbox primero.', ui.ButtonSet.OK);
+    if (ui) {
+      ui.alert('⚠️ URL no configurada', 'Configure la URL de Entrevistas de KoboToolbox primero.', ui.ButtonSet.OK);
+    } else {
+      Logger.log('❌ URL no configurada para Entrevistas');
+    }
     return;
   }
 
   try {
-    ss.toast('📥 Descargando datos de entrevistas desde KoboToolbox...', 'Importando', 5);
+    if (ui) ss.toast('📥 Descargando datos de entrevistas desde KoboToolbox...', 'Importando', 5);
 
     // Obtener última fecha de sincronización
     // Si la hoja está vacía (recién creada o reseteada), forzar importación completa
