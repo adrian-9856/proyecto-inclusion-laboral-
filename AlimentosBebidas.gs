@@ -14216,6 +14216,39 @@ function actualizarPowerBIExport() {
       ]);
     }
 
+    // Buscar cohorte si no está en Inscritx
+    for (let i = filas.length - 1; i >= 0; i--) {
+      const cId = filas[i][0];
+      if (!cId) continue;
+
+      if (!filas[i][13]) { // columna 13 = Cohorte
+        const cohortesSheet = ss.getSheetByName('Cohortes');
+        if (cohortesSheet) {
+          const datosCohortes = cohortesSheet.getDataRange().getValues();
+          for (let j = 1; j < datosCohortes.length; j++) {
+            const nombreCohorte = datosCohortes[j][0] ? datosCohortes[j][0].toString().trim() : '';
+            if (nombreCohorte) {
+              const hojaCohorte = ss.getSheetByName(nombreCohorte);
+              if (hojaCohorte) {
+                const datosCohorte = hojaCohorte.getDataRange().getValues();
+                const colIdCohorte = datosCohorte[0] ? datosCohorte[0].findIndex(h =>
+                  (h || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '').includes('id')
+                ) : -1;
+
+                for (let k = 1; k < datosCohorte.length; k++) {
+                  const idEnCohorte = colIdCohorte >= 0 ? (datosCohorte[k][colIdCohorte] || '').toString().trim() : '';
+                  if (idEnCohorte === cId.toString().trim()) {
+                    filas[i][13] = nombreCohorte;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     if (filas.length > 0) {
       sheet.getRange(2, 1, filas.length, 17).setValues(filas);
     }
