@@ -3416,6 +3416,12 @@ function procesarFinalizacionCohorte(sheet, fila) {
     return;
   }
 
+  // Si la hoja ya está oculta, la cohorte ya fue finalizada anteriormente
+  if (hojaCohorte.isSheetHidden()) {
+    ss.toast('ℹ️ "' + nombreCohorte + '" ya estaba finalizada y archivada.', 'Ya finalizada', 4);
+    return;
+  }
+
   // Contar participantes activas en la cohorte (sin estado definido)
   const datosCohorte = hojaCohorte.getDataRange().getValues();
   let participantesActivas = 0;
@@ -3437,24 +3443,19 @@ function procesarFinalizacionCohorte(sheet, fila) {
     'Hay ' + participantesActivas + ' participantes en esta cohorte.\n\n' +
     '¿Todas se GRADUARON?\n\n' +
     'SÍ = Graduar a todas automáticamente\n' +
-    'NO = Ir a la hoja "' + nombreCohorte + '" para marcar individualmente',
+    'NO = Ir a la hoja "' + nombreCohorte + '" para marcar individualmente\n' +
+    '(El estado queda en "Finalizada"; cuando termines de marcar, no necesitas hacer nada más)',
     ui.ButtonSet.YES_NO
   );
 
   if (respuesta === ui.Button.YES) {
-    // Graduar a todas
     graduarTodaLaCohorte(nombreCohorte, hojaCohorte);
-
-    // OCULTAR la hoja de cohorte (archivar)
     hojaCohorte.hideSheet();
-
     ss.toast('🎓 Todas graduadas de ' + nombreCohorte + ' - Hoja archivada', 'Graduación Masiva', 4);
   } else {
-    // Revertir estado a Activa y notificar
-    sheet.getRange(fila, 14).setValue('Activa');
-    ss.toast('📋 Vaya a la hoja "' + nombreCohorte + '" para marcar individualmente', 'Acción Requerida', 5);
-
-    // Activar la hoja de la cohorte
+    // NO revertir a "Activa" — el estado queda "Finalizada" para que al terminar
+    // de marcar individualmente se archive automáticamente en la próxima ejecución.
+    ss.toast('📋 Ve a la hoja "' + nombreCohorte + '" y marca cada participante. Cuando todas tengan estado, cambia a "Finalizada" de nuevo.', 'Acción Requerida', 7);
     hojaCohorte.activate();
   }
 }
