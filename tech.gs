@@ -14175,6 +14175,13 @@ function _pbiFmt(v) {
   return v.toString().trim();
 }
 
+function _pbiGenero(v) {
+  const s = (v || '').toString().trim().toLowerCase();
+  if (['mujer','femenino','femenina','f','fem'].includes(s)) return 'Mujer';
+  if (['hombre','masculino','masculina','m','masc'].includes(s)) return 'Hombre';
+  return _pbiFmt(v);
+}
+
 function _pbiNorm(s) {
   return (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -14286,15 +14293,13 @@ function actualizarPowerBIExport() {
       const rGrad = idxGrad.get(cId) || null;
       const rRet  = idxRet.get(cId)  || null;
 
-      // Estado actual (prioridad: Graduadx > Retiradx > Inscritx > Entrevista > Interesada)
-      let estado = 'Interesada';
-      if (rGrad)  estado = 'Graduadx';
-      else if (rRet)  estado = 'Retiradx';
-      else if (rInsc) estado = 'Inscritx';
-      else if (rEnt)  estado = 'En Entrevista';
-
+      // Estado actual (prioridad: Graduadx > Retiradx > Inscritx > resultado entrevista > En Entrevista > Interesada)
       const resultEnt = rEnt && c.ent.estado >= 0 ? _pbiFmt(rEnt[c.ent.estado]) : '';
-      if (rEnt && resultEnt) estado = resultEnt; // usar resultado real si existe
+      let estado = 'Interesada';
+      if (rGrad)       estado = 'Graduadx';
+      else if (rRet)   estado = 'Retiradx';
+      else if (rInsc)  estado = 'Inscritx';
+      else if (rEnt)   estado = resultEnt || 'En Entrevista';
 
       filas.push([
         cId,
@@ -14302,7 +14307,7 @@ function actualizarPowerBIExport() {
         c.int.dpi   >= 0 ? _pbiFmt(row[c.int.dpi])   : '',
         c.int.tel   >= 0 ? _pbiFmt(row[c.int.tel])   : '',
         c.int.edad  >= 0 ? (row[c.int.edad] || '')    : '',
-        c.int.gen   >= 0 ? _pbiFmt(row[c.int.gen])   : '',
+        c.int.gen   >= 0 ? _pbiGenero(row[c.int.gen]) : '',
         c.int.zona  >= 0 ? _pbiFmt(row[c.int.zona])  : '',
         c.int.nivel >= 0 ? _pbiFmt(row[c.int.nivel]) : '',
         estado,
