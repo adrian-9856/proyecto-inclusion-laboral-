@@ -2748,10 +2748,17 @@ function derivarApasoAPaso(entrevistasSheet, fila) {
  * Pregunta motivo y mueve a Retiradx
  */
 function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
-  // Guard: evita doble ejecución por triggers duplicados
+  // Guard 1: LockService — si otro trigger ya está ejecutando, salir de inmediato (sin esperar)
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(1500)) {
+  if (!lock.tryLock(0)) {
     Logger.log('⚠️ procesarDesercionEnCohorte: doble trigger detectado, omitiendo segunda ejecución');
+    return;
+  }
+
+  // Guard 2: Re-leer celda para confirmar que sigue siendo 'Retiradx'
+  const estadoCelda = sheet.getRange(fila, 11).getValue();
+  if (estadoCelda !== 'Retiradx') {
+    lock.releaseLock();
     return;
   }
 
@@ -2765,7 +2772,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
 
   // Mostrar motivos de deserción
   let listaMotivos = '';
-  CONFIG_AB.MOTIVOS_DESERCION.forEach((motivo, idx) => {
+  CONFIG_AB.MOTIVOS_DESERCION.forEach(function(motivo, idx) {
     listaMotivos += (idx + 1) + '. ' + motivo + '\n';
   });
 
@@ -3546,10 +3553,17 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
  * Procesa graduación individual desde hoja de cohorte
  */
 function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
-  // Guard: evita doble ejecución por triggers duplicados
+  // Guard 1: LockService — si otro trigger ya está ejecutando, salir de inmediato
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(1500)) {
+  if (!lock.tryLock(0)) {
     Logger.log('⚠️ procesarGraduacionIndividual: doble trigger detectado, omitiendo segunda ejecución');
+    return;
+  }
+
+  // Guard 2: Re-leer celda para confirmar que sigue siendo 'Graduada'
+  const estadoCelda = sheet.getRange(fila, 11).getValue();
+  if (estadoCelda !== 'Graduada') {
+    lock.releaseLock();
     return;
   }
 
