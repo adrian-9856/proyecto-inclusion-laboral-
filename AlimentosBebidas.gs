@@ -3413,7 +3413,8 @@ function procesarFinalizacionCohorte(sheet, fila) {
   const datosCohorte = hojaCohorte.getDataRange().getValues();
   let participantesActivas = 0;
   for (let i = 1; i < datosCohorte.length; i++) {
-    if (datosCohorte[i][4] && (!datosCohorte[i][10] || datosCohorte[i][10] === '')) {
+    const estadoK = datosCohorte[i][10];
+    if (datosCohorte[i][4] && (!estadoK || estadoK === '' || estadoK === 'Activa')) {
       participantesActivas++;
     }
   }
@@ -3468,7 +3469,7 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
   for (let i = 1; i < datosCohorte.length; i++) {
     const fila = datosCohorte[i];
     // Solo procesar si tiene nombre y no tiene estado (o estado vacío)
-    if (fila[4] && (!fila[10] || fila[10] === '')) {
+    if (fila[4] && (!fila[10] || fila[10] === '' || fila[10] === 'Activa')) {
       listaParaEmail.push({ nombre: fila[4], creamosId: fila[2] || '' });
 
       // Si no tiene Creamos ID, agregar nota
@@ -3577,7 +3578,7 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
 
   // Verificar si todos los participantes de la cohorte ya tienen estado
   const datosActualizados = sheet.getDataRange().getValues();
-  const pendientes = datosActualizados.slice(1).filter(r => r[4] && (!r[10] || r[10] === '')).length;
+  const pendientes = datosActualizados.slice(1).filter(r => r[4] && (!r[10] || r[10] === '' || r[10] === 'Activa')).length;
 
   if (pendientes === 0) {
     const respuestaFinalizar = ui.alert(
