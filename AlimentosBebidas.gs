@@ -234,6 +234,8 @@ function setupMenuAB() {
         .addItem('👥 Enviar Participantes', 'enviarParticipantesACohorteAB')
         .addItem('📊 Estadísticas', 'estadisticasCohorte')
         .addSeparator()
+        .addItem('🔧 Reparar Cohorte con Problemas', 'repararCohorteAB')
+        .addSeparator()
         .addItem('📝 Ver/Gestionar', 'verCohortes'))
       .addSeparator()
 
@@ -3604,6 +3606,111 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
 }
 
 
+
+/**
+ * Diagnostica y repara una cohorte que quedó en estado incorrecto.
+ */
+function repararCohorteAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const cohortesSheet = ss.getSheetByName('Cohortes');
+  if (!cohortesSheet) { ui.alert('⚠️ No existe la hoja "Cohortes".'); return; }
+
+  const datosCohortes = cohortesSheet.getDataRange().getValues();
+  let listaNombres = '';
+  const mapCohortes = {};
+  for (let i = 1; i < datosCohortes.length; i++) {
+    const nombre = (datosCohortes[i][0] || '').toString().trim();
+    if (!nombre) continue;
+    const estado = (datosCohortes[i][13] || '').toString().trim();
+    listaNombres += (Object.keys(mapCohortes).length + 1) + '. ' + nombre + '  [' + (estado || 'sin estado') + ']\n';
+    mapCohortes[Object.keys(mapCohortes).length + 1] = { nombre, estado, fila: i + 1 };
+  }
+
+  if (!listaNombres) { ui.alert('No hay cohortes registradas.'); return; }
+
+  const resp = ui.prompt(
+    '🔧 Reparar Cohorte — Selecciona',
+    'Cohortes disponibles:\n\n' + listaNombres + '\nEscribe el número:',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (resp.getSelectedButton() !== ui.Button.OK) return;
+
+  const num = parseInt(resp.getResponseText().trim());
+  if (isNaN(num) || !mapCohortes[num]) { ui.alert('Número inválido.'); return; }
+
+  const { nombre: nombreCohorte, estado: estadoActual, fila: filaCohortes } = mapCohortes[num];
+
+  const hojaCohorte = ss.getSheetByName(nombreCohorte);
+  const hojaOculta  = hojaCohorte ? hojaCohorte.isSheetHidden() : null;
+
+  let activas = 0, graduadas = 0, retiradas = 0, sinNombre = 0;
+  let filasDatos = [];
+  if (hojaCohorte) {
+    const datos = hojaCohorte.getDataRange().getValues();
+    for (let i = 1; i < datos.length; i++) {
+      const nombre_ = (datos[i][4] || '').toString().trim();
+      const estado_  = (datos[i][10] || '').toString().trim();
+      if (!nombre_) { sinNombre++; continue; }
+      if (estado_ === 'Graduadx' || estado_ === 'Graduada')       graduadas++;
+      else if (estado_ === 'Retiradx')  retiradas++;
+      else                              activas++;
+      filasDatos.push({ fila: i + 1, nombre: nombre_, estado: estado_ });
+    }
+  }
+
+  const diagMsg =
+    '📋 DIAGNÓSTICO — ' + nombreCohorte + '\n\n' +
+    '• Estado en tabla Cohortes:  ' + (estadoActual || '(vacío)') + '\n' +
+    '• Hoja individual:           ' + (hojaCohorte ? (hojaOculta ? '⚠️ OCULTA' : '✅ Visible') : '❌ NO EXISTE') + '\n' +
+    '• Participantes activos:     ' + activas + '\n' +
+    '• Ya graduadas:              ' + graduadas + '\n' +
+    '• Ya retiradas:              ' + retiradas + '\n' +
+    (sinNombre > 0 ? '• Filas sin nombre (ignorar): ' + sinNombre + '\n' : '') +
+    '\n¿Quieres aplicar las reparaciones necesarias?';
+
+  const confirmar = ui.alert('🔧 Reparar Cohorte', diagMsg, ui.ButtonSet.YES_NO);
+  if (confirmar !== ui.Button.YES) return;
+
+  const acciones = [];
+
+  if (hojaCohorte && hojaOculta) {
+    hojaCohorte.showSheet();
+    acciones.push('✅ Hoja "' + nombreCohorte + '" visible de nuevo');
+  }
+
+  if (estadoActual !== 'Activa') {
+    cohortesSheet.getRange(filaCohortes, 14).setValue('Activa');
+    acciones.push('✅ Estado en tabla Cohortes → "Activa"');
+  }
+
+  if (hojaCohorte) {
+    let corregidos = 0;
+    filasDatos.forEach(({ fila, estado: est }) => {
+      if (est !== 'Graduadx' && est !== 'Graduada' && est !== 'Retiradx') {
+        hojaCohorte.getRange(fila, 11).setValue('Activa');
+        corregidos++;
+      }
+    });
+    if (corregidos > 0) acciones.push('✅ ' + corregidos + ' participante(s) sin estado final → "Activa"');
+  }
+
+  if (!hojaCohorte) {
+    crearHojaIndividualCohorte(nombreCohorte);
+    acciones.push('✅ Hoja individual "' + nombreCohorte + '" creada');
+  }
+
+  SpreadsheetApp.flush();
+
+  if (acciones.length === 0) {
+    ui.alert('✅ La cohorte "' + nombreCohorte + '" ya estaba en buen estado. No se hicieron cambios.');
+  } else {
+    ui.alert('✅ Reparación completada',
+      acciones.join('\n') + '\n\nAhora puedes:\n• Enviar participantes desde Inscritx\n• O finalizar la cohorte desde la tabla Cohortes.',
+      ui.ButtonSet.OK);
+  }
+}
 
 /**
  * Aplica formato condicional a una hoja de cohorte:
