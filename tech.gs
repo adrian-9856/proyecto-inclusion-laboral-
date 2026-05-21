@@ -1990,6 +1990,9 @@ function alEditarTech(e) {
  * Pregunta si ya hizo seguimiento por mensaje y guarda el comentario
  */
 function manejarReprogramadaEnHojaInteres(sheet, fila) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) return;
+  try {
   const ui = SpreadsheetApp.getUi();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -2001,7 +2004,6 @@ function manejarReprogramadaEnHojaInteres(sheet, fila) {
   );
 
   if (resp !== ui.Button.YES) {
-    // Si dice No, solo marca como Reprogramada sin comentario
     return;
   }
 
@@ -2020,6 +2022,7 @@ function manejarReprogramadaEnHojaInteres(sheet, fila) {
   }
 
   ss.toast('✅ Seguimiento registrado', 'Reprogramada', 3);
+  } finally { lock.releaseLock(); }
 }
 
 /**
@@ -2028,8 +2031,11 @@ function manejarReprogramadaEnHojaInteres(sheet, fila) {
  * - "Entrevista realizada" → Copia a Entrevistas (conserva registro en Hoja de Interés)
  */
 function procesarCambioEstadoInteres(sheet, fila, estado) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) return;
+  try {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
+
   const colMapInteres = obtenerMapaColumnas(sheet);
   const maxCol = sheet.getLastColumn();
   const datos = sheet.getRange(fila, 1, 1, maxCol).getValues()[0];
@@ -2204,6 +2210,7 @@ function procesarCambioEstadoInteres(sheet, fila, estado) {
     sheet.getRange(fila, 1, 1, maxCol).setBackground('#ffe0b2');
     ss.toast('✅ Registrada/o en No Inscritx', 'Hoja de Interés', 4);
   }
+  } finally { lock.releaseLock(); }
 }
 
 /**
@@ -2580,6 +2587,9 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
  * Muestra panel con datos de la persona listos para copiar al formulario Kobo.
  */
 function abrirFormularioKobo(sheet, fila, columna) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) return;
+  try {
   sheet.getRange(fila, columna).setValue('');
 
   const colMap = obtenerMapaColumnas(sheet);
@@ -2663,6 +2673,7 @@ function abrirFormularioKobo(sheet, fila, columna) {
     '</div>'
   ).setWidth(400).setHeight(545);
   SpreadsheetApp.getUi().showModalDialog(html, '📋 Datos para Formulario — ' + nombre);
+  } finally { lock.releaseLock(); }
 }
 
 /**
@@ -3018,17 +3029,9 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
 function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // LOCK: Prevenir condición de carrera al procesar múltiples envíos simultáneos
+  // LOCK: evita doble ejecución por triggers duplicados
   const lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(30000); // Esperar hasta 30 segundos
-  } catch (e) {
-    ss.toast('⚠️ El sistema está ocupado. Intente nuevamente en unos segundos.', 'Error', 4);
-    const colMapTemp = obtenerMapaColumnas(sheet);
-    const colEnvioTemp = colMapTemp['enviar a cohorte'];
-    if (colEnvioTemp !== undefined) sheet.getRange(fila, colEnvioTemp + 1).setValue('');
-    return;
-  }
+  if (!lock.tryLock(0)) return;
 
   // Obtener mapa de columnas de Inscritx
   const colMapInscritx = obtenerMapaColumnas(sheet);
@@ -3220,6 +3223,9 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
  * Se activa al seleccionar "Enviar a A y B" en el Estado de Entrevistas.
  */
 function enviarAOtroProgramaDesdeEntrevistas(sheet, fila, columnaEstado, destino) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) return;
+  try {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
@@ -3300,6 +3306,7 @@ function enviarAOtroProgramaDesdeEntrevistas(sheet, fila, columnaEstado, destino
 
   sheet.getRange(fila, columnaEstado).setValue('✅ Enviado a ' + nombrePrograma);
   ss.toast('✅ ' + nombre + ' enviado a ' + nombrePrograma, 'Envío completado', 4);
+  } finally { lock.releaseLock(); }
 }
 
 /**
@@ -3307,6 +3314,9 @@ function enviarAOtroProgramaDesdeEntrevistas(sheet, fila, columnaEstado, destino
  * Requiere configurar CONFIG_TECH.ID_SPREADSHEET_AB con el ID del otro Sheets.
  */
 function trasladarPersonaAAyB(sheet, fila) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) return;
+  try {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
   const colN = 14; // columna N = "Trasladar a A y B"
@@ -3399,6 +3409,7 @@ function trasladarPersonaAAyB(sheet, fila) {
 
   sheet.getRange(fila, colN).setValue('✅ Trasladado');
   ss.toast('✅ ' + nombre + ' trasladado a Alimentos y Bebidas', 'Traslado completado', 4);
+  } finally { lock.releaseLock(); }
 }
 
 /**
