@@ -204,6 +204,7 @@ function setupMenuTech() {
     ui.createMenu('💻 Tecnología')
       // ========== ACTUALIZAR TODO ==========
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodoTech')
+      .addItem('🆕 APLICAR ACTUALIZACIONES', 'aplicarActualizacionesTech')
       .addSeparator()
 
       // ========== DATOS (IMPORTAR/ACTUALIZAR) ==========
@@ -270,7 +271,7 @@ function setupMenuTech() {
 
       // ========== CONFIGURACIÓN ==========
       .addSubMenu(ui.createMenu('⚙️ Configuración')
-        .addItem('✅ Instalar Sistema', 'instalarSistemaCompletoTech')
+        .addItem('🏗️ Primera Instalación (Nuevo Sistema)', 'instalarSistemaCompletoTech')
         .addItem('🆕 Activar Mejoras Entrevistas', 'activarMejorasEntrevistasTech')
         .addItem('🔄 Activar Traslados entre Programas', 'activarTrasladosTech')
         .addItem('📋 Instalar Cambios Nuevos (Llamadas + Reprogramada)', 'instalarCambiosNuevosTech')
@@ -7825,6 +7826,82 @@ function repararColumnaFechaInscritxTech() {
 
   SpreadsheetApp.flush();
   ui.alert('✅ Reparación completada', log.join('\n'), ui.ButtonSet.OK);
+}
+
+function aplicarActualizacionesTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const confirmar = ui.alert(
+    '🆕 APLICAR ACTUALIZACIONES',
+    'Aplicará todos los cambios nuevos al sistema existente:\n\n' +
+    '✅ Reparar trigger de automatizaciones\n' +
+    '✅ Reinstalar/reparar hoja Cohortes y fórmulas\n' +
+    '✅ Reparar fórmulas de conteo (Graduadx/Retiradx)\n' +
+    '✅ Actualizar validaciones y desplegables\n' +
+    '✅ Verificar columnas y reportes\n\n' +
+    '⚠️ Los datos existentes NO se borran.\n¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmar !== ui.Button.YES) return;
+
+  const log = [];
+  const errores = [];
+
+  ss.toast('Paso 1/5: Reparando trigger...', 'Actualizando', 10);
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    triggers.forEach(t => {
+      if (t.getHandlerFunction() === 'alEditar' || t.getHandlerFunction() === 'alEditarTech') {
+        ScriptApp.deleteTrigger(t);
+      }
+    });
+    ScriptApp.newTrigger('alEditarTech').forSpreadsheet(ss).onEdit().create();
+    log.push('✓ Trigger alEditarTech instalado');
+  } catch(e) { errores.push('✗ Trigger: ' + e.message); }
+
+  ss.toast('Paso 2/5: Reinstalando hoja Cohortes...', 'Actualizando', 10);
+  try {
+    reinstalarHojaCohortesTech();
+    log.push('✓ Hoja Cohortes reinstalada');
+  } catch(e) { errores.push('✗ Cohortes: ' + e.message); }
+
+  ss.toast('Paso 3/5: Reparando fórmulas...', 'Actualizando', 10);
+  try {
+    repararFormulasCohortes();
+    log.push('✓ Fórmulas de Cohortes reparadas (Graduadx/Retiradx → columna J)');
+  } catch(e) { errores.push('✗ Fórmulas Cohortes: ' + e.message); }
+  try {
+    repararFormulasReporte();
+    log.push('✓ Fórmulas de Reporte reparadas');
+  } catch(e) { errores.push('✗ Fórmulas Reporte: ' + e.message); }
+
+  ss.toast('Paso 4/5: Actualizando validaciones y desplegables...', 'Actualizando', 10);
+  try {
+    configurarValidaciones();
+    log.push('✓ Validaciones y dropdowns actualizados');
+  } catch(e) { errores.push('✗ Validaciones: ' + e.message); }
+  try {
+    repararDesplegableEntrevistasTech();
+    log.push('✓ Desplegable Entrevistas reparado');
+  } catch(e) { errores.push('✗ Desplegable: ' + e.message); }
+
+  ss.toast('Paso 5/5: Verificando columnas y reportes...', 'Actualizando', 10);
+  try {
+    asegurarColumnaFechaEnvioInscritxTech();
+    agregarYOrganizarColumnasLlamadas();
+    log.push('✓ Columnas verificadas');
+  } catch(e) { errores.push('✗ Columnas: ' + e.message); }
+  try {
+    asegurarEstructuraReportesMensualesTech();
+    log.push('✓ Reportes Mensuales verificados');
+  } catch(e) { errores.push('✗ Reportes: ' + e.message); }
+
+  SpreadsheetApp.flush();
+  const titulo = errores.length > 0 ? '⚠️ Completado con advertencias' : '✅ Actualizaciones aplicadas';
+  ui.alert(titulo,
+    log.join('\n') +
+    (errores.length > 0 ? '\n\n⚠️ Errores:\n' + errores.join('\n') : ''),
+    ui.ButtonSet.OK);
 }
 
 function instalarTodoLoNuevoTech() {
