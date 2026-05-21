@@ -9414,28 +9414,36 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
     }
   }
 
-  // 3. Buscar por Nombre con FUZZY MATCHING (tolerancia a errores)
+  // 3. Buscar por Nombre con FUZZY MATCHING seguro (word-based)
   if (!filaDir && nom) {
-    Logger.log('   → Buscando por Nombre (fuzzy): ' + nom);
+    Logger.log('   → Buscando por Nombre (word-fuzzy): ' + nom);
     let mejorCoincidencia = null;
     let mejorSimilitud = 0;
+    let segundaMejor = 0;
 
     for (let registro of filasDirectorio) {
-      const sim = similitud(nom, registro.nombre);
-      Logger.log('     • "' + nom + '" vs "' + registro.nombre + '" → ' + sim.toFixed(0) + '%');
+      const sim = similitudNombre(nom, registro.nombre);
       if (sim > mejorSimilitud) {
+        segundaMejor = mejorSimilitud;
         mejorSimilitud = sim;
         mejorCoincidencia = registro;
+      } else if (sim > segundaMejor) {
+        segundaMejor = sim;
       }
     }
 
-    // Si similitud >= 75%, aceptar coincidencia
-    if (mejorSimilitud >= 75) {
-      filaDir = mejorCoincidencia;
-      Logger.log('   ✓ Encontrado por Nombre fuzzy (' + mejorSimilitud.toFixed(0) + '% similar)');
-      metodo = 'Nombre fuzzy (' + mejorSimilitud.toFixed(0) + '%)';
+    const UMBRAL_NOMBRE = 85;
+    const UMBRAL_AMBIGUEDAD = 70;
+    if (mejorSimilitud >= UMBRAL_NOMBRE) {
+      if (segundaMejor >= UMBRAL_AMBIGUEDAD) {
+        Logger.log('⚠️ Nombre ambiguo: dos candidatos con similitud alta (' + mejorSimilitud.toFixed(0) + '% y ' + segundaMejor.toFixed(0) + '%). Se requiere DPI o Creamos ID para confirmar.');
+      } else {
+        filaDir = mejorCoincidencia;
+        Logger.log('   ✓ Encontrado por Nombre (' + mejorSimilitud.toFixed(0) + '% similar)');
+        metodo = 'Nombre (' + mejorSimilitud.toFixed(0) + '%)';
+      }
     } else {
-      Logger.log('⚠️ Mejor coincidencia solo ' + mejorSimilitud.toFixed(0) + '% similar (necesita ≥75%)');
+      Logger.log('⚠️ Mejor coincidencia solo ' + mejorSimilitud.toFixed(0) + '% similar (necesita ≥' + UMBRAL_NOMBRE + '%)');
     }
   }
 
@@ -9568,34 +9576,26 @@ function actualizarTodosDesdeDirectorio(silencioso) {
       }
     }
 
-    // ─ NIVEL 4: Nombre FUZZY (70%+) ─
+    // ─ NIVEL 4: Nombre por palabras (umbral 85%, con detección de ambigüedad) ─
     if (nom) {
-      let mejorSim = 0, mejorReg = null;
+      let mejorSim = 0, segundaSim = 0, mejorReg = null;
       for (const r of filasDirectorio) {
-        const sim = similitud(nom, r.nombre);
-        if (sim > mejorSim) { mejorSim = sim; mejorReg = r; }
+        const sim = similitudNombre(nom, r.nombre);
+        if (sim > mejorSim) { segundaSim = mejorSim; mejorSim = sim; mejorReg = r; }
+        else if (sim > segundaSim) { segundaSim = sim; }
       }
-      if (mejorSim >= 70) {
-        Logger.log('     ✓ Encontrado por Nombre fuzzy (' + mejorSim.toFixed(0) + '% similar)');
-        return mejorReg;
-      }
-      if (mejorReg) Logger.log('     ℹ️ Mejor por nombre: "' + mejorReg.nombre + '" (' + mejorSim.toFixed(0) + '%)');
-    }
-
-    // ─ NIVEL 5: Búsqueda por APELLIDOS PARCIALES ─
-    if (nom && nom.length > 3) {
-      const palabrasNom = nom.split(/\s+/).filter(p => p.length > 2);
-      for (const palabra of palabrasNom) {
-        const palabraNorm = normalizarBusqueda(palabra);
-        for (const r of filasDirectorio) {
-          const nomDirNorm = normalizarBusqueda(r.nombre);
-          if (nomDirNorm.includes(palabraNorm) && similitud(palabra, r.nombre) >= 60) {
-            Logger.log('     ✓ Encontrado por apellido/palabra parcial: "' + palabra + '"');
-            return r;
-          }
+      if (mejorSim >= 85) {
+        if (segundaSim >= 70) {
+          Logger.log('     ⚠️ Nombre ambiguo (' + mejorSim.toFixed(0) + '% y ' + segundaSim.toFixed(0) + '%): requiere DPI o Creamos ID');
+        } else {
+          Logger.log('     ✓ Encontrado por Nombre (' + mejorSim.toFixed(0) + '% similar)');
+          return mejorReg;
         }
       }
+      if (mejorReg) Logger.log('     ℹ️ Mejor por nombre: "' + mejorReg.nombre + '" (' + mejorSim.toFixed(0) + '%, necesita ≥85%)');
     }
+
+    // ─ NIVEL 5: eliminado (búsqueda parcial por apellido causaba falsos positivos) ─
 
     Logger.log('     ⚠️ NO ENCONTRADO. Búsqueda completada en 5 niveles sin coincidencias.');
     return null;
@@ -11005,6 +11005,43 @@ function normalizarBusqueda(texto) {
     .replace(/[áéíóúÁÉÍÓÚñÑ]/g, ch => map[ch] || ch)
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Similitud específica para nombres de personas (basada en palabras, no en caracteres globales).
+ * Cada palabra del nombre buscado debe coincidir con alguna palabra del directorio.
+ * Esto evita falsos positivos por prefijos cortos ("María" → "María González").
+ * Retorna 0-100. Umbral recomendado: 85%.
+ */
+function similitudNombre(nombre1, nombre2) {
+  var s1 = normalizarBusqueda(nombre1);
+  var s2 = normalizarBusqueda(nombre2);
+  if (s1 === s2) return 100;
+  if (!s1 || !s2) return 0;
+
+  var pals1 = s1.split(/\s+/).filter(function(w) { return w.length >= 2; });
+  var pals2 = s2.split(/\s+/).filter(function(w) { return w.length >= 2; });
+  if (pals1.length === 0 || pals2.length === 0) return 0;
+
+  var usadas = new Array(pals2.length).fill(false);
+  var matches = 0;
+  for (var i = 0; i < pals1.length; i++) {
+    var p1 = pals1[i];
+    var mejorJ = -1;
+    var mejorDist = Infinity;
+    for (var j = 0; j < pals2.length; j++) {
+      if (usadas[j]) continue;
+      var dist = levenshtein(p1, pals2[j]);
+      var maxLen = Math.max(p1.length, pals2[j].length);
+      var tolerancia = maxLen <= 4 ? 0 : 1;
+      if (dist <= tolerancia && dist < mejorDist) { mejorDist = dist; mejorJ = j; }
+    }
+    if (mejorJ >= 0) { matches++; usadas[mejorJ] = true; }
+  }
+
+  var precision = matches / pals1.length;
+  var recall    = matches / pals2.length;
+  return (precision * 0.65 + recall * 0.35) * 100;
 }
 
 /**
