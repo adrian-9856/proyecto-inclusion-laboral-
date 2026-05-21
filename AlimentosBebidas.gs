@@ -2748,6 +2748,13 @@ function derivarApasoAPaso(entrevistasSheet, fila) {
  * Pregunta motivo y mueve a Retiradx
  */
 function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
+  // Guard: evita doble ejecución por triggers duplicados
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1500)) {
+    Logger.log('⚠️ procesarDesercionEnCohorte: doble trigger detectado, omitiendo segunda ejecución');
+    return;
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
@@ -2770,6 +2777,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
 
   if (respuesta.getSelectedButton() !== ui.Button.OK) {
     sheet.getRange(fila, 11).setValue(''); // Limpiar Estado (columna K)
+    lock.releaseLock();
     return;
   }
 
@@ -2777,6 +2785,7 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
   if (isNaN(num) || num < 1 || num > CONFIG_AB.MOTIVOS_DESERCION.length) {
     ui.alert('Número inválido');
     sheet.getRange(fila, 11).setValue(''); // Limpiar Estado (columna K)
+    lock.releaseLock();
     return;
   }
 
@@ -2824,6 +2833,8 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
 
   // Enviar email a Eva con recordatorio de Salesforce
   enviarEmailDesercionEva(nombre, nombreCohorte, motivo, creamosId);
+
+  lock.releaseLock();
 }
 
 /**
@@ -3535,6 +3546,13 @@ function graduarTodaLaCohorte(nombreCohorte, hojaCohorte) {
  * Procesa graduación individual desde hoja de cohorte
  */
 function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
+  // Guard: evita doble ejecución por triggers duplicados
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1500)) {
+    Logger.log('⚠️ procesarGraduacionIndividual: doble trigger detectado, omitiendo segunda ejecución');
+    return;
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
   const graduadas = ss.getSheetByName('Graduadx');
@@ -3604,6 +3622,7 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
       ss.toast('✅ Cohorte "' + nombreCohorte + '" marcada como Finalizada', 'Completado', 5);
     }
   }
+  lock.releaseLock();
 }
 
 
