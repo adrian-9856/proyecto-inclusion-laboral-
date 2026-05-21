@@ -1876,6 +1876,7 @@ function alEditarTech(e) {
         return;
       }
       procesarCambioEstadoInteres(sheet, fila, val);
+      return;
     }
 
     // 2da Llamada - si selecciona Reprogramada, cambiar automáticamente Estado a No interesada/o
@@ -2300,7 +2301,6 @@ function flujoSeguimientoInterés(sheet, fila) {
       if (r1b === ui.Button.YES) {
         procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
         clearEstado();
-        ui.alert('✅ Enviada/o a Entrevistas', 'Agendada/o en Entrevistas automáticamente.', ui.ButtonSet.OK);
         return;
       } else {
         // Continuar a 2da Llamada (necesita mensaje)
@@ -2354,9 +2354,6 @@ function flujoSeguimientoInterés(sheet, fila) {
   if (val1raBase === 'contestó') {
     procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
     clearEstado();
-    ui.alert('✅ Enviada/o a Entrevistas',
-      '1ra Llamada CONTESTÓ ✅\n\nRegistrada/o en "Entrevistas" automáticamente.',
-      ui.ButtonSet.OK);
     return;
   }
 
@@ -2378,7 +2375,6 @@ function flujoSeguimientoInterés(sheet, fila) {
     setVal(c2da, 'Contestó (' + fecha + ')');
     SpreadsheetApp.flush();
     procesarCambioEstadoInteres(sheet, fila, 'Entrevista realizada');
-    ui.alert('✅ Enviada/o a Entrevistas', 'Contestó en 2da llamada → registrada/o en "Entrevistas".', ui.ButtonSet.OK);
 
   } else if (r2 === ui.Button.NO) {
     setVal(c2da, 'No contestó (' + fecha + ')');
@@ -2389,7 +2385,6 @@ function flujoSeguimientoInterés(sheet, fila) {
     }
     SpreadsheetApp.flush();
     procesarCambioEstadoInteres(sheet, fila, 'No interesada/o');
-    ui.alert('❌ Enviada/o a No Inscritx', 'No contestó ambas llamadas → registrada/o en "No Inscritx".', ui.ButtonSet.OK);
 
   } else if (r2 === ui.Button.CANCEL) {
     const r3 = ui.alert('¿Cuál es el estado?',
@@ -2398,7 +2393,7 @@ function flujoSeguimientoInterés(sheet, fila) {
     setVal(c2da, est2 + ' (' + fecha + ')');
     clearEstado();
     SpreadsheetApp.flush();
-    ui.alert('🔄 ' + est2, 'Selecciona "Entrevista agendada" otra vez cuando reintentes.', ui.ButtonSet.OK);
+    ss.toast('🔄 Estado: ' + est2 + ' — selecciona "Entrevista agendada" otra vez cuando reintentes.', 'Llamadas', 5);
   } else {
     clearEstado();
   }
@@ -2813,18 +2808,10 @@ function procesarDesercionEnCohorte(sheet, fila, nombreCohorte) {
   // Marcar fila como Deserción (NO eliminar - conservar registro)
   sheet.getRange(fila, 1, 1, 12).setBackground('#ffcdd2'); // Rojo claro
 
-  ss.toast('📋 Deserción registrada: ' + motivo, 'Cohorte ' + nombreCohorte, 4);
+  ss.toast('📋 Deserción: ' + nombre + ' — ' + motivo + '\n⚠️ Recuerda actualizar Salesforce.', 'Cohorte ' + nombreCohorte, 6);
 
   // Enviar email a Eva con recordatorio de Salesforce
   enviarEmailDesercionEva(nombre, nombreCohorte, motivo, creamosId);
-
-  // Recordatorio Salesforce: actualizar etapa en el CRM
-  ui.alert(
-    '⚠️ Recordatorio Salesforce',
-    'La deserción de ' + nombre + ' ha sido registrada.\n\n' +
-    'Recuerda cambiar la etapa en Salesforce a "Deserción" para mantener el CRM actualizado.',
-    ui.ButtonSet.OK
-  );
 }
 
 /**
@@ -3588,15 +3575,7 @@ function procesarGraduacionIndividual(sheet, fila, nombreCohorte) {
     sheet.getRange(fila, 3).setBackground('#ffe0b2');
   }
 
-  ss.toast('🎓 ' + datos[4] + ' graduada exitosamente', 'Completado', 3);
-
-  // Recordatorio Salesforce
-  ui.alert(
-    '⚠️ Recordatorio Salesforce',
-    datos[4] + ' ha sido graduada.\n\n' +
-    'Recuerda cambiar la etapa en Salesforce a "Graduadx" para mantener el CRM actualizado.',
-    ui.ButtonSet.OK
-  );
+  ss.toast('🎓 ' + datos[4] + ' graduada ✅  — Recuerda actualizar Salesforce.', 'Completado', 6);
 
   // Verificar si todos los participantes de la cohorte ya tienen estado
   const datosActualizados = sheet.getDataRange().getValues();
