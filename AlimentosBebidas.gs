@@ -3187,10 +3187,7 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
     const numColsDef = listaDefinitiva.getLastColumn();
     const registroDef = new Array(numColsDef).fill('');
 
-    const mappingDef = {
-      ...mappingCohorte,
-      'Cohorte': cohorteDestino
-    };
+    const mappingDef = Object.assign({}, mappingCohorte, {'Cohorte': cohorteDestino});
 
     for (let [header, valor] of Object.entries(mappingDef)) {
       const targetIdx = colMapListaDef[header.toLowerCase()];
@@ -5344,7 +5341,7 @@ function parsearCSVManual(csvData, separador) {
         }
         campos.push(campoActual.trim());
         if (campos.some(c => c.length > 0)) {
-          resultado.push([...campos]);
+          resultado.push(campos.slice());
         }
         campos.length = 0;
         campoActual = '';
@@ -5362,7 +5359,7 @@ function parsearCSVManual(csvData, separador) {
   if (campoActual.length > 0 || campos.length > 0) {
     campos.push(campoActual.trim());
     if (campos.some(c => c.length > 0)) {
-      resultado.push([...campos]);
+      resultado.push(campos.slice());
     }
   }
 
@@ -9614,8 +9611,9 @@ function actualizarTodosDesdeDirectorio(silencioso) {
       colIdx[k] = i;
     });
 
-    const getColi = (...claves) => {
-      for (const k of claves) if (colIdx[k] !== undefined) return colIdx[k];
+    const getColi = function() {
+      const claves = Array.prototype.slice.call(arguments);
+      for (let ki = 0; ki < claves.length; ki++) { const k = claves[ki]; if (colIdx[k] !== undefined) return colIdx[k]; }
       return -1;
     };
 
@@ -13168,7 +13166,7 @@ function verificarPresupuestoEstipendios() {
       );
 
       if (atrasados.length > 0) {
-        const maxDias = Math.max(...atrasados.map(e => parseFloat(e[15]) || 0));
+        const maxDias = Math.max.apply(null, atrasados.map(function(e) { return parseFloat(e[15]) || 0; }));
         alertas.push({
           tipo: 'atrasados',
           cohorte: nombreCohorte,
