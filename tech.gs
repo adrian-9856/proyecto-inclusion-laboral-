@@ -3407,6 +3407,20 @@ function trasladarPersonaAAyB(sheet, fila) {
  * Si no, indica que vaya a la hoja individual para marcar una por una
  */
 function procesarFinalizacionCohorte(sheet, fila) {
+  // Guard 1: LockService — evita doble ejecución por triggers duplicados
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(0)) {
+    Logger.log('⚠️ procesarFinalizacionCohorte: doble trigger detectado, omitiendo');
+    return;
+  }
+
+  // Guard 2: Re-leer celda para confirmar que sigue siendo 'Finalizada'
+  const estadoCelda = sheet.getRange(fila, 14).getValue();
+  if (estadoCelda !== 'Finalizada') {
+    lock.releaseLock();
+    return;
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
@@ -3415,6 +3429,7 @@ function procesarFinalizacionCohorte(sheet, fila) {
   if (!nombreCohorte) {
     ss.toast('⚠️ No hay nombre de cohorte', 'Error', 3);
     sheet.getRange(fila, 14).setValue('Activa');
+    lock.releaseLock();
     return;
   }
 
@@ -3422,12 +3437,14 @@ function procesarFinalizacionCohorte(sheet, fila) {
   if (!hojaCohorte) {
     ss.toast('⚠️ No existe la hoja de la cohorte', 'Error', 3);
     sheet.getRange(fila, 14).setValue('Activa');
+    lock.releaseLock();
     return;
   }
 
   // Si la hoja ya está oculta, la cohorte ya fue finalizada anteriormente
   if (hojaCohorte.isSheetHidden()) {
     ss.toast('ℹ️ "' + nombreCohorte + '" ya estaba finalizada y archivada.', 'Ya finalizada', 4);
+    lock.releaseLock();
     return;
   }
 
@@ -3444,6 +3461,7 @@ function procesarFinalizacionCohorte(sheet, fila) {
   if (participantesActivas === 0) {
     hojaCohorte.hideSheet();
     ss.toast('✅ Cohorte finalizada y archivada', 'Completado', 3);
+    lock.releaseLock();
     return;
   }
 
@@ -3463,11 +3481,10 @@ function procesarFinalizacionCohorte(sheet, fila) {
     hojaCohorte.hideSheet();
     ss.toast('🎓 Todas graduadas de ' + nombreCohorte + ' - Hoja archivada', 'Graduación Masiva', 4);
   } else {
-    // NO revertir a "Activa" — el estado queda "Finalizada" para que al terminar
-    // de marcar individualmente se archive automáticamente en la próxima ejecución.
     ss.toast('📋 Ve a la hoja "' + nombreCohorte + '" y marca cada participante. Cuando todas tengan estado, cambia a "Finalizada" de nuevo.', 'Acción Requerida', 7);
     hojaCohorte.activate();
   }
+  lock.releaseLock();
 }
 
 /**
