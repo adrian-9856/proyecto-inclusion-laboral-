@@ -223,6 +223,7 @@ function setupMenuAB() {
       .addSubMenu(ui.createMenu('🗂️ Directorio CREAMOS ID')
         .addItem('🔁 Actualizar desde directorio (manual)', 'actualizarTodosDesdeDirectorio')
         .addItem('🔍 Diagnosticar IDs', 'diagnosticoAutocompletado')
+        .addItem('🕵️ Auditar IDs en todas las hojas', 'auditarCreamosIDsAB')
         .addSeparator()
         .addItem('⏰ Activar actualización automática (c/hora)', 'instalarTriggerAutoDirectorio')
         .addItem('🛑 Desactivar actualización automática', 'desinstalarTriggerAutoDirectorio'))
@@ -9805,6 +9806,102 @@ function diagnosticoAutocompletado() {
     'Ver logs para detalles completos.';
 
   ui.alert('Diagnóstico de Autocompletado', msg, ui.ButtonSet.OK);
+}
+
+function auditarCreamosIDsAB() {
+  _auditarCreamosIDsEnSistema(NOMBRE_HOJA_CREAMOS_ID_AB,
+    ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx', 'Retiradx', 'Graduadx']);
+}
+
+function _auditarCreamosIDsEnSistema(nombreDirectorio, nombresHojas) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const hojaDir = ss.getSheetByName(nombreDirectorio);
+  if (!hojaDir) { ui.alert('❌ Directorio no encontrado: ' + nombreDirectorio); return; }
+
+  const colMapDir = detectarColumnasDirectorio();
+  if (!colMapDir) { ui.alert('❌ No se pudieron detectar columnas del directorio.'); return; }
+
+  const datosDir = hojaDir.getDataRange().getValues();
+  const mapPorId = {};
+
+  for (let i = 1; i < datosDir.length; i++) {
+    const f = datosDir[i];
+    const nombre    = colMapDir.nombre    >= 0 ? (f[colMapDir.nombre]    || '').toString().trim() : '';
+    const creamosId = colMapDir.creamosId >= 0 ? (f[colMapDir.creamosId] || '').toString().trim() : '';
+    const dpi       = colMapDir.dpi       >= 0 ? (f[colMapDir.dpi]       || '').toString().trim() : '';
+    if (creamosId) mapPorId[normalizarBusqueda(creamosId)] = { nombre, creamosId, dpi };
+  }
+
+  const NOMBRE_AUDITORIA = '🕵️ Auditoría IDs';
+  let hojaAudit = ss.getSheetByName(NOMBRE_AUDITORIA);
+  if (!hojaAudit) { hojaAudit = ss.insertSheet(NOMBRE_AUDITORIA); }
+  else { hojaAudit.clearContents(); hojaAudit.clearFormats(); }
+
+  const ENCABEZADOS = ['Hoja', 'Fila', 'Creamos ID en Hoja', 'Nombre en Hoja', 'Nombre en Directorio', 'DPI en Directorio', 'Estado', 'Problema'];
+  hojaAudit.getRange(1, 1, 1, ENCABEZADOS.length).setValues([ENCABEZADOS])
+    .setBackground('#37474F').setFontColor('#FFFFFF').setFontWeight('bold');
+
+  const resultados = [];
+  let totalOK = 0, totalIDNoExiste = 0, totalNombreMal = 0;
+
+  for (let nh = 0; nh < nombresHojas.length; nh++) {
+    const nombreHoja = nombresHojas[nh];
+    const hoja = ss.getSheetByName(nombreHoja);
+    if (!hoja || hoja.getLastRow() < 2) continue;
+
+    const encabezados = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+    const idx = {};
+    encabezados.forEach(function(h, i) { idx[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i; });
+
+    const iCId = idx['creamosid'] !== undefined ? idx['creamosid'] : idx['creamos id'] !== undefined ? idx['creamos id'] : -1;
+    const iNom = idx['nombrecompleto'] !== undefined ? idx['nombrecompleto'] : idx['nombre completo'] !== undefined ? idx['nombre completo'] : idx['nombre'] !== undefined ? idx['nombre'] : -1;
+
+    if (iCId < 0) continue;
+
+    const datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, hoja.getLastColumn()).getValues();
+    for (let i = 0; i < datos.length; i++) {
+      const cId = (datos[i][iCId] || '').toString().trim();
+      const nom = iNom >= 0 ? (datos[i][iNom] || '').toString().trim() : '';
+      if (!cId || cId === '⚠️ Crear en Salesforce') continue;
+
+      const entrada = mapPorId[normalizarBusqueda(cId)] || null;
+      if (!entrada) {
+        totalIDNoExiste++;
+        resultados.push([nombreHoja, i + 2, cId, nom, '—', '—', '❌ ID no existe', 'Este Creamos ID no está en el directorio']);
+      } else if (nom) {
+        const sim = similitudNombre(nom, entrada.nombre);
+        if (sim < 65) {
+          totalNombreMal++;
+          resultados.push([nombreHoja, i + 2, cId, nom, entrada.nombre, entrada.dpi, '⚠️ Nombre no coincide', 'Similitud ' + sim.toFixed(0) + '%. Posible ID de otra persona']);
+        } else {
+          totalOK++;
+          resultados.push([nombreHoja, i + 2, cId, nom, entrada.nombre, entrada.dpi, '✅ OK', '']);
+        }
+      } else {
+        totalOK++;
+        resultados.push([nombreHoja, i + 2, cId, '(sin nombre)', entrada.nombre, entrada.dpi, '✅ ID existe', '']);
+      }
+    }
+  }
+
+  if (resultados.length > 0) {
+    hojaAudit.getRange(2, 1, resultados.length, ENCABEZADOS.length).setValues(resultados);
+    for (let r = 0; r < resultados.length; r++) {
+      const estado = resultados[r][6];
+      const color = estado === '❌ ID no existe' ? '#FFCDD2' : estado === '⚠️ Nombre no coincide' ? '#FFF9C4' : '#E8F5E9';
+      hojaAudit.getRange(r + 2, 1, 1, ENCABEZADOS.length).setBackground(color);
+    }
+  }
+
+  hojaAudit.autoResizeColumns(1, ENCABEZADOS.length);
+  hojaAudit.setFrozenRows(1);
+  ss.setActiveSheet(hojaAudit);
+
+  const resumen = '📊 AUDITORÍA COMPLETADA\n\n✅ OK: ' + totalOK + '\n❌ ID no existe: ' + totalIDNoExiste + '\n⚠️ Nombre no coincide: ' + totalNombreMal +
+    (totalIDNoExiste + totalNombreMal > 0 ? '\n\nRevisa la hoja "' + NOMBRE_AUDITORIA + '". Los registros ⚠️ AMARILLOS son más urgentes: pueden tener el Creamos ID de otra persona.' : '\n\n¡Todo en orden!');
+  ui.alert('Auditoría de Creamos IDs', resumen, ui.ButtonSet.OK);
 }
 
 // =====================================================================
