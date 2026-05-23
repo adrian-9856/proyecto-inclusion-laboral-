@@ -224,6 +224,7 @@ function setupMenuAB() {
         .addItem('🔁 Actualizar desde directorio (manual)', 'actualizarTodosDesdeDirectorio')
         .addItem('🔍 Diagnosticar IDs', 'diagnosticoAutocompletado')
         .addItem('🕵️ Auditar IDs en todas las hojas', 'auditarCreamosIDsAB')
+        .addItem('🔧 Reparar IDs incorrectos', 'repararCreamosIDsAB')
         .addSeparator()
         .addItem('⏰ Activar actualización automática (c/hora)', 'instalarTriggerAutoDirectorio')
         .addItem('🛑 Desactivar actualización automática', 'desinstalarTriggerAutoDirectorio'))
@@ -9930,6 +9931,129 @@ function configurarEmailEva() {
       SpreadsheetApp.getActiveSpreadsheet().toast('❌ Email inválido. Ingresa un email válido.', 'Error', 4);
     }
   }
+}
+
+function repararCreamosIDsAB() {
+  _repararCreamosIDsEnSistema(NOMBRE_HOJA_CREAMOS_ID_AB);
+}
+
+function _repararCreamosIDsEnSistema(nombreDirectorio) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const NOMBRE_AUDIT = '🕵️ Auditoría IDs';
+  const hojaAudit = ss.getSheetByName(NOMBRE_AUDIT);
+  if (!hojaAudit) {
+    ui.alert('⚠️ Primero ejecuta "🕵️ Auditar IDs en todas las hojas" para generar el reporte.');
+    return;
+  }
+
+  const hojaDir = ss.getSheetByName(nombreDirectorio);
+  if (!hojaDir) { ui.alert('❌ Directorio no encontrado: ' + nombreDirectorio); return; }
+
+  const colMapDir = detectarColumnasDirectorio();
+  const datosDir  = hojaDir.getDataRange().getValues();
+  const dirEntradas = [];
+
+  for (let i = 1; i < datosDir.length; i++) {
+    const f       = datosDir[i];
+    const nombre    = colMapDir.nombre    >= 0 ? (f[colMapDir.nombre]    || '').toString().trim() : '';
+    const creamosId = colMapDir.creamosId >= 0 ? (f[colMapDir.creamosId] || '').toString().trim() : '';
+    const dpi       = colMapDir.dpi       >= 0 ? (f[colMapDir.dpi]       || '').toString().trim() : '';
+    if (creamosId || nombre) dirEntradas.push({ nombre, creamosId, dpi });
+  }
+
+  const datosAudit = hojaAudit.getDataRange().getValues();
+  const FILAS_PROBLEMA = [];
+  for (let i = 1; i < datosAudit.length; i++) {
+    const estado = (datosAudit[i][6] || '').toString();
+    if (estado === '⚠️ Nombre no coincide' || estado === '❌ ID no existe') {
+      FILAS_PROBLEMA.push({
+        auditFila : i + 1,
+        nombreHoja: (datosAudit[i][0] || '').toString().trim(),
+        filaHoja  : parseInt(datosAudit[i][1]) || 0,
+        idActual  : (datosAudit[i][2] || '').toString().trim(),
+        nomHoja   : (datosAudit[i][3] || '').toString().trim(),
+        estado    : estado
+      });
+    }
+  }
+
+  if (FILAS_PROBLEMA.length === 0) {
+    ui.alert('✅ No hay registros problemáticos. Ejecuta primero "🕵️ Auditar IDs".');
+    return;
+  }
+
+  const propuestas = [], ambiguos = [], sinMatch = [];
+  for (let p = 0; p < FILAS_PROBLEMA.length; p++) {
+    const prob = FILAS_PROBLEMA[p];
+    if (!prob.nomHoja) { sinMatch.push(prob); continue; }
+
+    let mejorSim = 0, segundaSim = 0, mejorDir = null;
+    for (let d = 0; d < dirEntradas.length; d++) {
+      const sim = similitudNombre(prob.nomHoja, dirEntradas[d].nombre);
+      if (sim > mejorSim) { segundaSim = mejorSim; mejorSim = sim; mejorDir = dirEntradas[d]; }
+      else if (sim > segundaSim) { segundaSim = sim; }
+    }
+
+    if (mejorSim >= 85 && segundaSim < 70) {
+      if (mejorDir.creamosId !== prob.idActual) propuestas.push({ prob, entrada: mejorDir, sim: mejorSim });
+    } else if (mejorSim >= 70) {
+      ambiguos.push({ prob, mejor: mejorDir, mejorSim, segundaSim });
+    } else {
+      sinMatch.push(prob);
+    }
+  }
+
+  if (propuestas.length === 0) {
+    let msg = '📋 Sin cambios automáticos posibles.\n\n⚠️ Ambiguos: ' + ambiguos.length + '\n❓ Sin coincidencia: ' + sinMatch.length;
+    if (ambiguos.length > 0) {
+      msg += '\n\nAMBIGUOS:\n';
+      ambiguos.slice(0, 5).forEach(function(a) {
+        msg += '• "' + a.prob.nomHoja + '" (' + a.prob.nombreHoja + ' fila ' + a.prob.filaHoja + '): ' + a.mejorSim.toFixed(0) + '% vs ' + a.segundaSim.toFixed(0) + '%\n';
+      });
+    }
+    ui.alert('Reparar IDs', msg, ui.ButtonSet.OK);
+    return;
+  }
+
+  let confirmMsg = '🔧 CAMBIOS PROPUESTOS (' + propuestas.length + '):\n\n';
+  propuestas.slice(0, 10).forEach(function(c) {
+    confirmMsg += '• "' + c.prob.nombreHoja + '" fila ' + c.prob.filaHoja + ': "' + c.prob.nomHoja + '"\n  ' + c.prob.idActual + ' → ' + c.entrada.creamosId + ' (' + c.sim.toFixed(0) + '%)\n';
+  });
+  if (propuestas.length > 10) confirmMsg += '... y ' + (propuestas.length - 10) + ' más.\n';
+  if (ambiguos.length > 0) confirmMsg += '\n⚠️ ' + ambiguos.length + ' ambiguos no se cambiarán (revisar manualmente).';
+  confirmMsg += '\n\n¿Aplicar los ' + propuestas.length + ' cambios?';
+
+  if (ui.alert('Confirmar Reparación', confirmMsg, ui.ButtonSet.YES_NO) !== ui.Button.YES) {
+    ss.toast('Cancelado.', '', 3); return;
+  }
+
+  let aplicados = 0;
+  for (let c = 0; c < propuestas.length; c++) {
+    const { prob, entrada } = propuestas[c];
+    try {
+      const hoja = ss.getSheetByName(prob.nombreHoja);
+      if (!hoja) continue;
+      const enc = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+      const idx = {};
+      enc.forEach(function(h, i) { idx[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i; });
+      const iCId = idx['creamosid'] !== undefined ? idx['creamosid'] : idx['creamos id'] !== undefined ? idx['creamos id'] : -1;
+      const iDpi = idx['dpi'] !== undefined ? idx['dpi'] : idx['numerodedpi'] !== undefined ? idx['numerodedpi'] : -1;
+      if (iCId >= 0 && entrada.creamosId) hoja.getRange(prob.filaHoja, iCId + 1).setValue(entrada.creamosId);
+      if (iDpi >= 0 && entrada.dpi && !hoja.getRange(prob.filaHoja, iDpi + 1).getValue()) hoja.getRange(prob.filaHoja, iDpi + 1).setValue(entrada.dpi);
+      hojaAudit.getRange(prob.auditFila, 7).setValue('✅ Corregido automáticamente');
+      hojaAudit.getRange(prob.auditFila, 8).setValue('ID anterior: ' + prob.idActual + ' → ' + entrada.creamosId);
+      hojaAudit.getRange(prob.auditFila, 1, 1, 8).setBackground('#C8E6C9');
+      aplicados++;
+    } catch (e) {
+      Logger.log('❌ Error en fila ' + prob.filaHoja + ': ' + e.message);
+    }
+  }
+
+  ui.alert('Reparación completada', '✅ Corregidos: ' + aplicados + ' de ' + propuestas.length +
+    (ambiguos.length > 0 ? '\n⚠️ Ambiguos pendientes: ' + ambiguos.length : '') +
+    (sinMatch.length  > 0 ? '\n❓ Sin coincidencia: ' + sinMatch.length : ''), ui.ButtonSet.OK);
 }
 
 function enviarEmailDesercionEva(nombre, cohorte, motivo, creamosId) {

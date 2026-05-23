@@ -223,6 +223,7 @@ function setupMenuTech() {
         .addItem('🔁 Actualizar desde directorio (manual)', 'actualizarTodosDesdeDirectorio')
         .addItem('🔍 Diagnosticar IDs', 'diagnosticoAutocompletado')
         .addItem('🕵️ Auditar IDs en todas las hojas', 'auditarCreamosIDsTech')
+        .addItem('🔧 Reparar IDs incorrectos', 'repararCreamosIDsTech')
         .addSeparator()
         .addItem('⏰ Activar actualización automática (c/hora)', 'instalarTriggerAutoDirectorio')
         .addItem('🛑 Desactivar actualización automática', 'desinstalarTriggerAutoDirectorio'))
@@ -9903,6 +9904,191 @@ function configurarEmailEva() {
       SpreadsheetApp.getActiveSpreadsheet().toast('❌ Email inválido. Ingresa un email válido.', 'Error', 4);
     }
   }
+}
+
+/**
+ * Lee la hoja de Auditoría IDs y corrige automáticamente los Creamos IDs
+ * incorrectos buscando por nombre en el directorio.
+ * Solo corrige cuando hay una coincidencia clara (≥85%) y no ambigua.
+ * Pide confirmación antes de aplicar cambios.
+ */
+function repararCreamosIDsTech() {
+  _repararCreamosIDsEnSistema(NOMBRE_HOJA_CREAMOS_ID_TECH);
+}
+
+function _repararCreamosIDsEnSistema(nombreDirectorio) {
+  const ss   = SpreadsheetApp.getActiveSpreadsheet();
+  const ui   = SpreadsheetApp.getUi();
+
+  // --- 1. Verificar que existe la hoja de auditoría ---
+  const NOMBRE_AUDIT = '🕵️ Auditoría IDs';
+  const hojaAudit = ss.getSheetByName(NOMBRE_AUDIT);
+  if (!hojaAudit) {
+    ui.alert('⚠️ Primero ejecuta "🕵️ Auditar IDs en todas las hojas" para generar el reporte.');
+    return;
+  }
+
+  // --- 2. Cargar directorio completo ---
+  const hojaDir = ss.getSheetByName(nombreDirectorio);
+  if (!hojaDir) { ui.alert('❌ Directorio no encontrado: ' + nombreDirectorio); return; }
+
+  const colMapDir = detectarColumnasDirectorio();
+  const datosDir  = hojaDir.getDataRange().getValues();
+  const dirEntradas = [];
+
+  for (let i = 1; i < datosDir.length; i++) {
+    const f       = datosDir[i];
+    const nombre    = colMapDir.nombre    >= 0 ? (f[colMapDir.nombre]    || '').toString().trim() : '';
+    const creamosId = colMapDir.creamosId >= 0 ? (f[colMapDir.creamosId] || '').toString().trim() : '';
+    const dpi       = colMapDir.dpi       >= 0 ? (f[colMapDir.dpi]       || '').toString().trim() : '';
+    const edad      = colMapDir.edad      >= 0 ? (f[colMapDir.edad]      || '').toString().trim() : '';
+    const zona      = colMapDir.zona      >= 0 ? (f[colMapDir.zona]      || '').toString().trim() : '';
+    if (creamosId || nombre) dirEntradas.push({ nombre, creamosId, dpi, edad, zona });
+  }
+
+  // --- 3. Leer filas problemáticas de la auditoría ---
+  const datosAudit = hojaAudit.getDataRange().getValues();
+  const FILAS_PROBLEMA = [];
+
+  for (let i = 1; i < datosAudit.length; i++) {
+    const estado = (datosAudit[i][6] || '').toString();
+    if (estado === '⚠️ Nombre no coincide' || estado === '❌ ID no existe') {
+      FILAS_PROBLEMA.push({
+        auditFila : i + 1,          // fila en hoja auditoría (1-based)
+        nombreHoja: (datosAudit[i][0] || '').toString().trim(),
+        filaHoja  : parseInt(datosAudit[i][1]) || 0,
+        idActual  : (datosAudit[i][2] || '').toString().trim(),
+        nomHoja   : (datosAudit[i][3] || '').toString().trim(),
+        estado    : estado
+      });
+    }
+  }
+
+  if (FILAS_PROBLEMA.length === 0) {
+    ui.alert('✅ No hay registros problemáticos en la auditoría.\nEjecuta primero "🕵️ Auditar IDs" para obtener resultados actualizados.');
+    return;
+  }
+
+  // --- 4. Para cada fila, buscar el ID correcto por nombre en el directorio ---
+  const propuestas   = [];  // cambios con alta confianza → se pueden aplicar
+  const ambiguos     = [];  // hay 2+ candidatos → requiere revisión manual
+  const sinMatch     = [];  // no se encontró nadie con ese nombre
+
+  for (let p = 0; p < FILAS_PROBLEMA.length; p++) {
+    const prob = FILAS_PROBLEMA[p];
+    if (!prob.nomHoja) { sinMatch.push(prob); continue; }
+
+    let mejorSim = 0, segundaSim = 0, mejorDir = null;
+    for (let d = 0; d < dirEntradas.length; d++) {
+      const sim = similitudNombre(prob.nomHoja, dirEntradas[d].nombre);
+      if (sim > mejorSim) {
+        segundaSim = mejorSim;
+        mejorSim   = sim;
+        mejorDir   = dirEntradas[d];
+      } else if (sim > segundaSim) {
+        segundaSim = sim;
+      }
+    }
+
+    if (mejorSim >= 85 && segundaSim < 70) {
+      // Coincidencia clara → proponer cambio
+      if (mejorDir.creamosId !== prob.idActual) {
+        propuestas.push({
+          prob   : prob,
+          entrada: mejorDir,
+          sim    : mejorSim
+        });
+      }
+    } else if (mejorSim >= 70) {
+      ambiguos.push({ prob: prob, mejor: mejorDir, mejorSim: mejorSim, segundaSim: segundaSim });
+    } else {
+      sinMatch.push(prob);
+    }
+  }
+
+  // --- 5. Mostrar resumen y pedir confirmación ---
+  if (propuestas.length === 0) {
+    let msg = '📋 RESULTADO DEL ANÁLISIS\n\n';
+    msg += '✅ Cambios automáticos posibles: 0\n';
+    msg += '⚠️ Ambiguos (revisión manual): ' + ambiguos.length + '\n';
+    msg += '❓ Sin coincidencia en directorio: ' + sinMatch.length + '\n\n';
+    if (ambiguos.length > 0) {
+      msg += 'AMBIGUOS (primeros 5):\n';
+      ambiguos.slice(0, 5).forEach(function(a) {
+        msg += '• Hoja "' + a.prob.nombreHoja + '" fila ' + a.prob.filaHoja +
+               ': "' + a.prob.nomHoja + '" — mejor: ' + a.mejor.nombre +
+               ' (' + a.mejorSim.toFixed(0) + '%) vs otro (' + a.segundaSim.toFixed(0) + '%)\n';
+      });
+    }
+    ui.alert('Reparar IDs — Sin cambios automáticos', msg, ui.ButtonSet.OK);
+    return;
+  }
+
+  let confirmMsg = '🔧 CAMBIOS PROPUESTOS (' + propuestas.length + '):\n\n';
+  propuestas.slice(0, 10).forEach(function(c) {
+    confirmMsg += '• "' + c.prob.nombreHoja + '" fila ' + c.prob.filaHoja + '\n' +
+                  '  Nombre: "' + c.prob.nomHoja + '"\n' +
+                  '  ID actual: "' + c.prob.idActual + '" → Nuevo: "' + c.entrada.creamosId + '"\n' +
+                  '  (' + c.sim.toFixed(0) + '% similitud)\n';
+  });
+  if (propuestas.length > 10) confirmMsg += '... y ' + (propuestas.length - 10) + ' más.\n';
+  if (ambiguos.length > 0)   confirmMsg += '\n⚠️ ' + ambiguos.length + ' registros ambiguos NO serán cambiados (revisión manual necesaria).';
+  if (sinMatch.length > 0)   confirmMsg += '\n❓ ' + sinMatch.length + ' sin coincidencia en directorio (se dejan como están).';
+  confirmMsg += '\n\n¿Aplicar los ' + propuestas.length + ' cambios automáticos?';
+
+  const resp = ui.alert('Confirmar Reparación', confirmMsg, ui.ButtonSet.YES_NO);
+  if (resp !== ui.Button.YES) {
+    ss.toast('Operación cancelada. No se realizaron cambios.', 'Cancelado', 4);
+    return;
+  }
+
+  // --- 6. Aplicar cambios ---
+  let aplicados = 0;
+  const errores = [];
+
+  for (let c = 0; c < propuestas.length; c++) {
+    const { prob, entrada } = propuestas[c];
+    try {
+      const hoja = ss.getSheetByName(prob.nombreHoja);
+      if (!hoja) { errores.push('No se encontró hoja: ' + prob.nombreHoja); continue; }
+
+      const encabezados = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+      const idx = {};
+      encabezados.forEach(function(h, i) { idx[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i; });
+
+      const iCId = idx['creamosid'] !== undefined ? idx['creamosid'] : idx['creamos id'] !== undefined ? idx['creamos id'] : -1;
+      const iDpi = idx['dpi'] !== undefined ? idx['dpi'] : idx['numerodedpi'] !== undefined ? idx['numerodedpi'] : -1;
+
+      if (iCId >= 0 && entrada.creamosId) {
+        hoja.getRange(prob.filaHoja, iCId + 1).setValue(entrada.creamosId);
+      }
+      if (iDpi >= 0 && entrada.dpi) {
+        const dpiActual = hoja.getRange(prob.filaHoja, iDpi + 1).getValue().toString().trim();
+        if (!dpiActual) hoja.getRange(prob.filaHoja, iDpi + 1).setValue(entrada.dpi);
+      }
+
+      // Marcar la fila de auditoría como corregida
+      hojaAudit.getRange(prob.auditFila, 7).setValue('✅ Corregido automáticamente');
+      hojaAudit.getRange(prob.auditFila, 8).setValue('ID anterior: ' + prob.idActual + ' → ' + entrada.creamosId);
+      hojaAudit.getRange(prob.auditFila, 1, 1, 8).setBackground('#C8E6C9');
+
+      aplicados++;
+      Logger.log('✅ Corregido: "' + prob.nombreHoja + '" fila ' + prob.filaHoja +
+                 ' | ' + prob.idActual + ' → ' + entrada.creamosId);
+    } catch (e) {
+      errores.push('Fila ' + prob.filaHoja + ' de "' + prob.nombreHoja + '": ' + e.message);
+    }
+  }
+
+  // --- 7. Resultado final ---
+  let msgFinal = '✅ REPARACIÓN COMPLETADA\n\n' +
+    'Corregidos: ' + aplicados + ' de ' + propuestas.length + '\n';
+  if (ambiguos.length > 0) msgFinal += '⚠️ Ambiguos (revisar manualmente): ' + ambiguos.length + '\n';
+  if (sinMatch.length > 0) msgFinal += '❓ Sin coincidencia: ' + sinMatch.length + '\n';
+  if (errores.length > 0)  msgFinal += '❌ Errores: ' + errores.length + '\n' + errores.slice(0, 3).join('\n');
+
+  ss.toast('', '', 1);
+  ui.alert('Reparación de IDs', msgFinal, ui.ButtonSet.OK);
 }
 
 function enviarEmailDesercionEva(nombre, cohorte, motivo, creamosId) {
