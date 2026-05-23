@@ -202,15 +202,12 @@ function setupMenuTech() {
   try {
     const ui = SpreadsheetApp.getUi();
     ui.createMenu('💻 Tecnología')
-      // ========== ACTUALIZAR TODO ==========
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodoTech')
       .addItem('🆕 APLICAR ACTUALIZACIONES', 'aplicarActualizacionesTech')
       .addSeparator()
 
-      // ========== DATOS (IMPORTAR/ACTUALIZAR) ==========
       .addSubMenu(ui.createMenu('📥 Datos')
-        .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
-        .addItem('📥 Importar Datos Nuevos (cada 10 min)', 'importarDesdeKoboTech')
+        .addItem('📥 Importar Datos Nuevos', 'importarDesdeKoboTech')
         .addItem('🔄 Actualizar Todas las Notas', 'actualizarNotasDesdeKoboTech')
         .addItem('📝 Importar Entrevistas', 'importarEntrevistasDesdeKobo')
         .addSeparator()
@@ -218,10 +215,8 @@ function setupMenuTech() {
         .addItem('🛑 Desactivar Auto-Importación', 'desinstalarTriggersImportacionAuto'))
       .addSeparator()
 
-      // ========== DIRECTORIO CREAMOS ID ==========
       .addSubMenu(ui.createMenu('🗂️ Directorio CREAMOS ID')
         .addItem('🔁 Actualizar desde directorio (manual)', 'actualizarTodosDesdeDirectorio')
-        .addItem('🔍 Diagnosticar IDs', 'diagnosticoAutocompletado')
         .addItem('🕵️ Auditar IDs en todas las hojas', 'auditarCreamosIDsTech')
         .addItem('🔧 Reparar IDs incorrectos', 'repararCreamosIDsTech')
         .addItem('🧹 Limpiar IDs que no corresponden', 'limpiarCreamosIDsIncorrectosTech')
@@ -231,7 +226,6 @@ function setupMenuTech() {
         .addItem('🛑 Desactivar actualización automática', 'desinstalarTriggerAutoDirectorio'))
       .addSeparator()
 
-      // ========== COHORTES ==========
       .addSubMenu(ui.createMenu('📋 Cohortes')
         .addItem('➕ Crear Nueva Cohorte', 'crearNuevaCohorteTech')
         .addItem('✏️ Editar Cohorte', 'editarCohorte')
@@ -243,42 +237,37 @@ function setupMenuTech() {
         .addItem('📝 Ver/Gestionar', 'verCohortes'))
       .addSeparator()
 
-      // ========== REPORTES ==========
       .addSubMenu(ui.createMenu('📊 Reportes')
-        .addItem('🚀 Instalar Todo Lo Nuevo', 'instalarTodoLoNuevoTech')
-        .addItem('✨ Mejorar Reportes', 'mejorarYRepararReportes')
         .addItem('🔄 Reiniciar Mes Actual', 'reiniciarMesEnReporteTech')
         .addItem('📊 Guardar Mensual', 'guardarReporteMensualAutomatico')
         .addItem('📅 Generar Mes Anterior', 'generarReporteMensualPorMesTech')
         .addItem('⏰ Activar/Desactivar Automáticos', 'mostrarMenuReportesAutomaticos'))
       .addSeparator()
 
-      // ========== POWER BI ==========
       .addSubMenu(ui.createMenu('🔌 Power BI')
-        .addItem('💾 Crear Tabla PowerBI_Export', 'crearHojaPowerBIExport')
         .addItem('🔄 Actualizar PowerBI_Export Ahora', 'actualizarPowerBIExport')
         .addItem('⏰ Activar Auto-Actualización (2 AM)', 'instalarTriggerPowerBIExport')
         .addItem('🛑 Desactivar Auto-Actualización', 'desinstalarTriggerPowerBIExport'))
       .addSeparator()
 
-      // ========== HERRAMIENTAS ==========
       .addSubMenu(ui.createMenu('🛠️ Herramientas')
         .addItem('📞 Flujo Seguimiento Manual', 'abrirFlujoSeguimientoManual')
-        .addItem('📅 Agregar/Reparar columna Fecha Inscritx', 'asegurarColumnaFechaEnvioInscritxTech')
-        .addItem('🗓️ Rellenar fechas faltantes en Inscritx', 'rellenarFechasInscritxFaltantesTech')
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
-        .addItem('🔧 Reparar Columnas', 'repararColumnasTech')
-        .addItem('👤 Agregar Responsable', 'agregarResponsable')
-        .addItem('✅ Verificar Instalación', 'verificarInstalacion'))
+        .addItem('🔧 Reparar Columnas', 'repararColumnasTech'))
       .addSeparator()
 
-      // ========== CONFIGURACIÓN ==========
       .addSubMenu(ui.createMenu('⚙️ Configuración')
         .addItem('🏗️ Primera Instalación (Nuevo Sistema)', 'instalarSistemaCompletoTech')
-        .addItem('🆕 Activar Mejoras Entrevistas', 'activarMejorasEntrevistasTech')
-        .addItem('🔄 Activar Traslados entre Programas', 'activarTrasladosTech')
-        .addItem('📋 Instalar Cambios Nuevos (Llamadas + Reprogramada)', 'instalarCambiosNuevosTech')
+        .addSeparator()
+        .addItem('📥 Importar Datos Históricos (una vez)', 'importarDatosHistoricos')
+        .addItem('🚀 Instalar / Actualizar Reportes', 'instalarTodoLoNuevoTech')
+        .addItem('✨ Mejorar Reportes', 'mejorarYRepararReportes')
+        .addItem('💾 Crear Tabla PowerBI_Export', 'crearHojaPowerBIExport')
+        .addItem('📅 Reparar columna Fecha Inscritx', 'asegurarColumnaFechaEnvioInscritxTech')
+        .addItem('🗓️ Rellenar fechas faltantes Inscritx', 'rellenarFechasInscritxFaltantesTech')
+        .addItem('👤 Agregar Responsable', 'agregarResponsable')
+        .addItem('✅ Verificar Instalación', 'verificarInstalacion')
         .addSeparator()
         .addItem('🔗 URL Kobo Registros', 'configurarKoboURL')
         .addItem('🔗 URL Kobo Entrevistas', 'configurarKoboEntrevistasURL')
