@@ -9081,9 +9081,9 @@ function autocompletarDesdeCreamosID(silencioso) {
       continue;
     }
 
-    // Si tenía la alerta, limpiarla antes de autocompletar
+    // Si tenía cualquier placeholder (⚠️ Crear perfil, ⚠️ Crear en Salesforce…), limpiarlo
     const valorActualC = celdaCreamosID.getValue().toString();
-    if (valorActualC === '⚠️ Crear en Salesforce') {
+    if (valorActualC.startsWith('⚠️')) {
       celdaCreamosID.clearContent().setBackground(null);
     }
 
@@ -9364,7 +9364,8 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
     actualizado = true;
   }
   if (colMap.creamosId >= 0 && (!cId || esPlaceholderCId) && cIdDir) {
-    sheet.getRange(numFila, colMap.creamosId + 1).setValue(cIdDir);
+    const celdaId = sheet.getRange(numFila, colMap.creamosId + 1);
+    celdaId.setValue(cIdDir).setBackground(null); // quita color naranja del placeholder
     actualizado = true;
   }
   if (colMap.dpi >= 0 && !dpi && dpiDir) {
@@ -9818,7 +9819,7 @@ function _auditarCreamosIDsEnSistema(nombreDirectorio, nombresHojas) {
       const fila = i + 2;
 
       if (!cId) { totalSinID++; continue; }
-      if (cId === '⚠️ Crear en Salesforce') continue; // placeholder esperado
+      if (cId.startsWith('⚠️')) continue; // placeholder esperado
 
       const entrada = mapPorId[normalizarBusqueda(cId)] || null;
 
@@ -10010,7 +10011,7 @@ function _limpiarCreamosIDsIncorrectos(nombreDirectorio) {
     for (let i = 0; i < datos.length; i++) {
       const cId = (datos[i][iCId] || '').toString().trim();
       const nom = iNom >= 0 ? (datos[i][iNom] || '').toString().trim() : '';
-      if (!cId || cId === '⚠️ Crear en Salesforce' || !nom) continue;
+      if (!cId || cId.startsWith('⚠️') || !nom) continue;
 
       const entrada = mapPorId[normalizarBusqueda(cId)] || null;
       const fila    = i + 2;
@@ -10124,7 +10125,7 @@ function _reporteSinCreamosID(nombreDirectorio) {
       if (!nom) continue; // fila vacía
       if (cId && cId !== '⚠️ Crear en Salesforce') continue; // ya tiene ID
 
-      const nota = cId === '⚠️ Crear en Salesforce' ? '⚠️ Pendiente de crear en Salesforce' : 'Sin Creamos ID';
+      const nota = cId.startsWith('⚠️') ? cId : 'Sin Creamos ID';
       filas.push([nombreHoja, i + 2, nom, dpi, nota + (estado ? ' | Estado: ' + estado : '')]);
       contHoja++;
       totalSinId++;
@@ -10164,9 +10165,40 @@ function _reporteSinCreamosID(nombreDirectorio) {
   filas.forEach(function(f) { conteo[f[0]] = (conteo[f[0]] || 0) + 1; });
   let resumen = '📋 PERSONAS SIN CREAMOS ID: ' + totalSinId + '\n\n';
   Object.keys(conteo).forEach(function(h) { resumen += '• ' + h + ': ' + conteo[h] + '\n'; });
-  resumen += '\nVer hoja "' + NOMBRE_REPORTE + '" para el detalle completo.';
+  resumen += '\nVer hoja "' + NOMBRE_REPORTE + '" para el detalle completo.\n\n' +
+    '¿Marcar también en las hojas con "⚠️ Crear perfil" para identificarlos fácilmente?\n' +
+    '(Se puede deshacer con Ctrl+Z o ejecutando "🔁 Actualizar desde directorio" cuando el ID ya esté en el directorio)';
 
-  ui.alert('Reporte — Sin Creamos ID', resumen, ui.ButtonSet.OK);
+  const respMarcar = ui.alert('Reporte — Sin Creamos ID', resumen, ui.ButtonSet.YES_NO);
+
+  if (respMarcar === ui.Button.YES) {
+    ss.toast('Marcando celdas vacías...', 'Reporte', -1);
+    let marcados = 0;
+    for (let f = 0; f < filas.length; f++) {
+      const nombreHoja = filas[f][0];
+      const filaNum    = filas[f][1];
+      const hoja = ss.getSheetByName(nombreHoja);
+      if (!hoja) continue;
+
+      const enc = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+      const idx = {};
+      enc.forEach(function(h, i) { idx[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i; });
+      const iCId = idx['creamosid'] !== undefined ? idx['creamosid'] : idx['creamos id'] !== undefined ? idx['creamos id'] : -1;
+      if (iCId < 0) continue;
+
+      const celda = hoja.getRange(filaNum, iCId + 1);
+      const valorActual = celda.getValue().toString().trim();
+      // Solo marcar si realmente está vacía (no sobreescribir otro placeholder existente)
+      if (!valorActual) {
+        celda.setValue('⚠️ Crear perfil').setBackground('#FFE0B2').setFontColor('#BF360C');
+        marcados++;
+      }
+    }
+    ss.toast('', '', 1);
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      marcados + ' celdas marcadas con "⚠️ Crear perfil". Cuando el ID esté en el directorio, ejecuta "🔁 Actualizar desde directorio" y se rellenará automáticamente.',
+      '✅ Listo', 8);
+  }
 }
 
 function repararCreamosIDsTech() {

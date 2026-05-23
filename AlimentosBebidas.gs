@@ -9203,7 +9203,7 @@ function autocompletarDesdeCreamosID(silencioso) {
 
     // Si tenía la alerta, limpiarla antes de autocompletar
     const valorActualC = celdaCreamosID.getValue().toString();
-    if (valorActualC === '⚠️ Crear en Salesforce') {
+    if (valorActualC.startsWith('⚠️')) {
       celdaCreamosID.clearContent().setBackground(null);
     }
 
@@ -9482,7 +9482,7 @@ function autocompletarFilaDesdeDirectorio(sheet, numFila, colMap) {
     actualizado = true;
   }
   if (colMap.creamosId >= 0 && (!cId || esPlaceholderCId) && cIdDir) {
-    sheet.getRange(numFila, colMap.creamosId + 1).setValue(cIdDir);
+    sheet.getRange(numFila, colMap.creamosId + 1).setValue(cIdDir).setBackground(null);
     actualizado = true;
   }
   if (colMap.dpi >= 0 && !dpi && dpiDir) {
@@ -9867,7 +9867,7 @@ function _auditarCreamosIDsEnSistema(nombreDirectorio, nombresHojas) {
     for (let i = 0; i < datos.length; i++) {
       const cId = (datos[i][iCId] || '').toString().trim();
       const nom = iNom >= 0 ? (datos[i][iNom] || '').toString().trim() : '';
-      if (!cId || cId === '⚠️ Crear en Salesforce') continue;
+      if (!cId || cId.startsWith('⚠️')) continue;
 
       const entrada = mapPorId[normalizarBusqueda(cId)] || null;
       if (!entrada) {
