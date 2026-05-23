@@ -226,6 +226,7 @@ function setupMenuAB() {
         .addItem('🕵️ Auditar IDs en todas las hojas', 'auditarCreamosIDsAB')
         .addItem('🔧 Reparar IDs incorrectos', 'repararCreamosIDsAB')
         .addItem('🧹 Limpiar IDs que no corresponden', 'limpiarCreamosIDsIncorrectosAB')
+        .addItem('📋 Reporte: personas sin Creamos ID', 'reporteSinCreamosIDAB')
         .addSeparator()
         .addItem('⏰ Activar actualización automática (c/hora)', 'instalarTriggerAutoDirectorio')
         .addItem('🛑 Desactivar actualización automática', 'desinstalarTriggerAutoDirectorio'))
@@ -9935,107 +9936,15 @@ function configurarEmailEva() {
 }
 
 function limpiarCreamosIDsIncorrectosAB() {
-  _limpiarCreamosIDsIncorrectos(NOMBRE_HOJA_CREAMOS_ID_AB,
-    ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx', 'Retiradx', 'Graduadx']);
+  _limpiarCreamosIDsIncorrectos(NOMBRE_HOJA_CREAMOS_ID_AB);
 }
 
-function _limpiarCreamosIDsIncorrectos(nombreDirectorio, nombresHojas) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-
-  ss.toast('Cargando directorio...', 'Limpieza de IDs', -1);
-
-  const hojaDir = ss.getSheetByName(nombreDirectorio);
-  if (!hojaDir) { ss.toast('', '', 1); ui.alert('❌ Directorio no encontrado: ' + nombreDirectorio); return; }
-
-  const colMapDir = detectarColumnasDirectorio();
-  if (!colMapDir) { ss.toast('', '', 1); ui.alert('❌ No se detectaron columnas del directorio.'); return; }
-
-  const datosDir = hojaDir.getDataRange().getValues();
-  const mapPorId = {};
-  for (let i = 1; i < datosDir.length; i++) {
-    const f         = datosDir[i];
-    const nombre    = colMapDir.nombre    >= 0 ? (f[colMapDir.nombre]    || '').toString().trim() : '';
-    const creamosId = colMapDir.creamosId >= 0 ? (f[colMapDir.creamosId] || '').toString().trim() : '';
-    const dpi       = colMapDir.dpi       >= 0 ? (f[colMapDir.dpi]       || '').toString().trim() : '';
-    if (creamosId) mapPorId[normalizarBusqueda(creamosId)] = { nombre, creamosId, dpi };
-  }
-
-  Logger.log('🧹 LIMPIEZA — Directorio: ' + Object.keys(mapPorId).length + ' entradas');
-
-  const aBorrar = [], aConservar = [];
-
-  for (let nh = 0; nh < nombresHojas.length; nh++) {
-    const nombreHoja = nombresHojas[nh];
-    const hoja = ss.getSheetByName(nombreHoja);
-    if (!hoja || hoja.getLastRow() < 2) continue;
-
-    ss.toast('Revisando "' + nombreHoja + '"...', 'Limpieza de IDs', -1);
-
-    const nCols       = hoja.getLastColumn();
-    const encabezados = hoja.getRange(1, 1, 1, nCols).getValues()[0];
-    const idx = {};
-    encabezados.forEach(function(h, i) { idx[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i; });
-
-    const iCId = idx['creamosid']       !== undefined ? idx['creamosid']       :
-                 idx['creamos id']      !== undefined ? idx['creamos id']      : -1;
-    const iNom = idx['nombrecompleto']  !== undefined ? idx['nombrecompleto']  :
-                 idx['nombre completo'] !== undefined ? idx['nombre completo'] :
-                 idx['nombre']          !== undefined ? idx['nombre']          : -1;
-
-    if (iCId < 0) continue;
-
-    const datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, nCols).getValues();
-
-    for (let i = 0; i < datos.length; i++) {
-      const cId = (datos[i][iCId] || '').toString().trim();
-      const nom = iNom >= 0 ? (datos[i][iNom] || '').toString().trim() : '';
-      if (!cId || cId === '⚠️ Crear en Salesforce' || !nom) continue;
-
-      const entrada = mapPorId[normalizarBusqueda(cId)] || null;
-      const fila    = i + 2;
-
-      if (!entrada) {
-        aBorrar.push({ hoja, nombreHoja, fila, colCId: iCId + 1, idActual: cId, nomHoja: nom, nomDir: '(no existe)', motivo: 'ID no encontrado en directorio' });
-      } else {
-        const sim = similitudNombre(nom, entrada.nombre);
-        if (sim < 60) {
-          aBorrar.push({ hoja, nombreHoja, fila, colCId: iCId + 1, idActual: cId, nomHoja: nom, nomDir: entrada.nombre, motivo: 'Nombre difiere ' + sim.toFixed(0) + '% (dir: "' + entrada.nombre + '")' });
-        } else {
-          aConservar.push({ nombreHoja, fila, cId, nom });
-        }
-      }
-    }
-  }
-
-  ss.toast('', '', 1);
-
-  if (aBorrar.length === 0) {
-    ui.alert('✅ Todo limpio', 'Se revisaron ' + aConservar.length + ' registros.\nNo se encontraron IDs incorrectos.', ui.ButtonSet.OK);
-    return;
-  }
-
-  let msg = '🧹 IDs A BORRAR (' + aBorrar.length + ' de ' + (aBorrar.length + aConservar.length) + ' revisados):\n\n';
-  aBorrar.slice(0, 15).forEach(function(b) {
-    msg += '• ' + b.nombreHoja + ' — fila ' + b.fila + '\n  Nombre: "' + b.nomHoja + '"\n  ID a quitar: "' + b.idActual + '"\n  Motivo: ' + b.motivo + '\n';
-  });
-  if (aBorrar.length > 15) msg += '... y ' + (aBorrar.length - 15) + ' más.\n';
-  msg += '\n✅ Se conservarán: ' + aConservar.length + ' IDs correctos.\n\n' +
-         'Después puedes usar "🔁 Actualizar desde directorio" para rellenar\nlos IDs correctos por nombre.\n\n¿Confirmar la limpieza?';
-
-  if (ui.alert('Confirmar Limpieza', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) {
-    ss.toast('Cancelado.', '', 4); return;
-  }
-
-  ss.toast('Aplicando limpieza...', 'Limpieza de IDs', -1);
-  let borrados = 0;
-  for (let b = 0; b < aBorrar.length; b++) {
-    try { aBorrar[b].hoja.getRange(aBorrar[b].fila, aBorrar[b].colCId).clearContent(); borrados++; }
-    catch (e) { Logger.log('❌ Error: ' + e.message); }
-  }
-  ss.toast('', '', 1);
-  ui.alert('Limpieza completada', '🗑️ Borrados: ' + borrados + '\n✅ Conservados: ' + aConservar.length + '\n\nAhora ejecuta "🔁 Actualizar desde directorio" para rellenar los IDs correctos.', ui.ButtonSet.OK);
+function reporteSinCreamosIDAB() {
+  _reporteSinCreamosID(NOMBRE_HOJA_CREAMOS_ID_AB);
 }
+
+// Reutiliza _detectarHojasConCreamosID, _limpiarCreamosIDsIncorrectos y _reporteSinCreamosID
+// definidas en tech.gs (comparten el mismo proyecto GAS)
 
 function repararCreamosIDsAB() {
   _repararCreamosIDsEnSistema(NOMBRE_HOJA_CREAMOS_ID_AB);

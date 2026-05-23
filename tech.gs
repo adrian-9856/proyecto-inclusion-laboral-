@@ -225,6 +225,7 @@ function setupMenuTech() {
         .addItem('🕵️ Auditar IDs en todas las hojas', 'auditarCreamosIDsTech')
         .addItem('🔧 Reparar IDs incorrectos', 'repararCreamosIDsTech')
         .addItem('🧹 Limpiar IDs que no corresponden', 'limpiarCreamosIDsIncorrectosTech')
+        .addItem('📋 Reporte: personas sin Creamos ID', 'reporteSinCreamosIDTech')
         .addSeparator()
         .addItem('⏰ Activar actualización automática (c/hora)', 'instalarTriggerAutoDirectorio')
         .addItem('🛑 Desactivar actualización automática', 'desinstalarTriggerAutoDirectorio'))
@@ -9914,41 +9915,65 @@ function configurarEmailEva() {
  * Pide confirmación antes de aplicar cambios.
  */
 function limpiarCreamosIDsIncorrectosTech() {
-  _limpiarCreamosIDsIncorrectos(NOMBRE_HOJA_CREAMOS_ID_TECH,
-    ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx', 'Retiradx', 'Graduadx']);
+  _limpiarCreamosIDsIncorrectos(NOMBRE_HOJA_CREAMOS_ID_TECH);
+}
+
+function reporteSinCreamosIDTech() {
+  _reporteSinCreamosID(NOMBRE_HOJA_CREAMOS_ID_TECH);
+}
+
+// Hojas internas del sistema que NUNCA se limpian (no contienen participantes)
+const HOJAS_SISTEMA_EXCLUIR = [
+  'Copy of CREAMOS ID nuevo', 'PowerBI_Export', 'EXPORT_PowerBI',
+  'Reportes Mensuales', 'Dashboard Estipendios', 'Guía de Uso',
+  'Registro Formulario Kobo', 'Detalle Entrevistas', 'Reporte',
+  '🕵️ Auditoría IDs', 'DEBUG - Datos Kobo', 'DEBUG - Análisis Filtro',
+  '🔍 Diagnóstico CSV', 'Paso a Paso'
+];
+
+/**
+ * Devuelve todas las hojas del spreadsheet que tienen columna "Creamos ID"
+ * y no son hojas internas del sistema ni el directorio.
+ */
+function _detectarHojasConCreamosID(ss, nombreDirectorio) {
+  const todasLasHojas = ss.getSheets();
+  const resultado = [];
+  for (let i = 0; i < todasLasHojas.length; i++) {
+    const hoja = todasLasHojas[i];
+    const nombre = hoja.getName();
+    if (nombre === nombreDirectorio) continue;
+    if (HOJAS_SISTEMA_EXCLUIR.indexOf(nombre) >= 0) continue;
+    if (hoja.getLastRow() < 2) continue;
+    // Verificar que tiene columna Creamos ID
+    const enc = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+    const tieneId = enc.some(function(h) {
+      const k = h.toString().trim().toLowerCase().replace(/\s+/g, '');
+      return k === 'creamosid' || k === 'creamos id';
+    });
+    if (tieneId) resultado.push(nombre);
+  }
+  return resultado;
 }
 
 /**
- * Revisión exhaustiva: recorre todas las hojas y borra cualquier Creamos ID
- * cuyo nombre en la hoja NO coincida con el nombre del directorio para ese ID.
- *
- * Criterios para borrar:
- *   - El ID no existe en el directorio (es inventado o incorrecto)
- *   - El ID existe pero similitudNombre < 60% (casi seguro es de otra persona)
- *
- * NO borra:
- *   - Filas sin nombre (no hay cómo verificar)
- *   - IDs con similitud ≥ 60% (pueden ser ligeras variaciones del mismo nombre)
- *   - El placeholder "⚠️ Crear en Salesforce"
- *
- * Muestra lista completa de lo que borrará y pide confirmación.
+ * Recorre TODAS las hojas con Creamos ID y borra cualquier ID cuyo nombre
+ * en la hoja no coincida con el nombre del directorio (similitud < 60%).
+ * Muestra lista completa y pide confirmación antes de aplicar.
  */
-function _limpiarCreamosIDsIncorrectos(nombreDirectorio, nombresHojas) {
+function _limpiarCreamosIDsIncorrectos(nombreDirectorio) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
 
   ss.toast('Cargando directorio...', 'Limpieza de IDs', -1);
 
-  // ── 1. Cargar directorio ──────────────────────────────────────────────
+  // ── 1. Cargar directorio ─────────────────────────────────────────────
   const hojaDir = ss.getSheetByName(nombreDirectorio);
   if (!hojaDir) { ss.toast('', '', 1); ui.alert('❌ Directorio no encontrado: ' + nombreDirectorio); return; }
-
   const colMapDir = detectarColumnasDirectorio();
   if (!colMapDir) { ss.toast('', '', 1); ui.alert('❌ No se detectaron columnas del directorio.'); return; }
 
   const datosDir = hojaDir.getDataRange().getValues();
-  const mapPorId = {}; // creamosId normalizado → {nombre, dpi}
-
+  const mapPorId = {};
   for (let i = 1; i < datosDir.length; i++) {
     const f         = datosDir[i];
     const nombre    = colMapDir.nombre    >= 0 ? (f[colMapDir.nombre]    || '').toString().trim() : '';
@@ -9956,74 +9981,48 @@ function _limpiarCreamosIDsIncorrectos(nombreDirectorio, nombresHojas) {
     const dpi       = colMapDir.dpi       >= 0 ? (f[colMapDir.dpi]       || '').toString().trim() : '';
     if (creamosId) mapPorId[normalizarBusqueda(creamosId)] = { nombre, creamosId, dpi };
   }
+  Logger.log('🧹 LIMPIEZA — Directorio: ' + Object.keys(mapPorId).length + ' entradas');
 
-  const totalDir = Object.keys(mapPorId).length;
-  Logger.log('🧹 LIMPIEZA — Directorio cargado: ' + totalDir + ' entradas');
+  // ── 2. Detectar todas las hojas con Creamos ID ───────────────────────
+  const nombresHojas = _detectarHojasConCreamosID(ss, nombreDirectorio);
+  Logger.log('🧹 Hojas a revisar: ' + nombresHojas.join(', '));
 
-  // ── 2. Revisar cada hoja ──────────────────────────────────────────────
-  const aBorrar   = []; // {hoja, fila, colCId, idActual, nomHoja, nomDir, motivo}
-  const aConservar = [];
+  // ── 3. Revisar cada hoja ─────────────────────────────────────────────
+  const aBorrar = [], aConservar = [];
 
   for (let nh = 0; nh < nombresHojas.length; nh++) {
     const nombreHoja = nombresHojas[nh];
     const hoja = ss.getSheetByName(nombreHoja);
     if (!hoja || hoja.getLastRow() < 2) continue;
-
     ss.toast('Revisando "' + nombreHoja + '"...', 'Limpieza de IDs', -1);
 
-    const nCols      = hoja.getLastColumn();
+    const nCols       = hoja.getLastColumn();
     const encabezados = hoja.getRange(1, 1, 1, nCols).getValues()[0];
-    const idx        = {};
-    encabezados.forEach(function(h, i) {
-      idx[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i;
-    });
+    const idx = {};
+    encabezados.forEach(function(h, i) { idx[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i; });
 
-    const iCId = idx['creamosid']      !== undefined ? idx['creamosid']      :
-                 idx['creamos id']     !== undefined ? idx['creamos id']     : -1;
-    const iNom = idx['nombrecompleto'] !== undefined ? idx['nombrecompleto'] :
-                 idx['nombre completo']!== undefined ? idx['nombre completo']:
-                 idx['nombre']         !== undefined ? idx['nombre']         : -1;
-    const iDpi = idx['dpi']            !== undefined ? idx['dpi']            :
-                 idx['numerodedpi']    !== undefined ? idx['numerodedpi']    : -1;
+    const iCId = idx['creamosid']       !== undefined ? idx['creamosid']       : idx['creamos id']      !== undefined ? idx['creamos id']      : -1;
+    const iNom = idx['nombrecompleto']  !== undefined ? idx['nombrecompleto']  : idx['nombre completo'] !== undefined ? idx['nombre completo'] : idx['nombre'] !== undefined ? idx['nombre'] : -1;
 
-    if (iCId < 0) { Logger.log('  ⚠️ Hoja "' + nombreHoja + '" sin columna Creamos ID — omitida'); continue; }
+    if (iCId < 0) continue;
 
     const datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, nCols).getValues();
-
     for (let i = 0; i < datos.length; i++) {
       const cId = (datos[i][iCId] || '').toString().trim();
       const nom = iNom >= 0 ? (datos[i][iNom] || '').toString().trim() : '';
-      const dpi = iDpi >= 0 ? (datos[i][iDpi] || '').toString().trim() : '';
-
-      // Saltar filas sin ID, placeholders, o sin nombre (no verificable)
-      if (!cId || cId === '⚠️ Crear en Salesforce') continue;
-      if (!nom) continue; // sin nombre no podemos confirmar si es correcto
+      if (!cId || cId === '⚠️ Crear en Salesforce' || !nom) continue;
 
       const entrada = mapPorId[normalizarBusqueda(cId)] || null;
       const fila    = i + 2;
 
       if (!entrada) {
-        // El ID no existe en el directorio → borrar
-        aBorrar.push({
-          hoja: hoja, nombreHoja, fila, colCId: iCId + 1,
-          idActual: cId, nomHoja: nom, nomDir: '(no existe)', dpi,
-          motivo: 'ID no encontrado en directorio'
-        });
-        Logger.log('  ❌ "' + nombreHoja + '" fila ' + fila + ': ID "' + cId + '" no existe — BORRAR');
+        aBorrar.push({ hoja, nombreHoja, fila, colCId: iCId + 1, idActual: cId, nomHoja: nom, nomDir: '(no existe en directorio)', motivo: 'ID no existe en directorio' });
       } else {
         const sim = similitudNombre(nom, entrada.nombre);
-
         if (sim < 60) {
-          // Nombre claramente diferente → borrar
-          aBorrar.push({
-            hoja: hoja, nombreHoja, fila, colCId: iCId + 1,
-            idActual: cId, nomHoja: nom, nomDir: entrada.nombre, dpi,
-            motivo: 'Nombre difiere ' + sim.toFixed(0) + '% (dir: "' + entrada.nombre + '")'
-          });
-          Logger.log('  ⚠️ "' + nombreHoja + '" fila ' + fila + ': "' + nom + '" vs "' + entrada.nombre + '" = ' + sim.toFixed(0) + '% — BORRAR');
+          aBorrar.push({ hoja, nombreHoja, fila, colCId: iCId + 1, idActual: cId, nomHoja: nom, nomDir: entrada.nombre, motivo: 'Nombre difiere ' + sim.toFixed(0) + '% — directorio: "' + entrada.nombre + '"' });
         } else {
-          aConservar.push({ nombreHoja, fila, cId, nom, nomDir: entrada.nombre, sim });
-          Logger.log('  ✅ "' + nombreHoja + '" fila ' + fila + ': "' + nom + '" ≈ "' + entrada.nombre + '" = ' + sim.toFixed(0) + '% — OK');
+          aConservar.push({ nombreHoja, fila, cId, nom });
         }
       }
     }
@@ -10031,61 +10030,143 @@ function _limpiarCreamosIDsIncorrectos(nombreDirectorio, nombresHojas) {
 
   ss.toast('', '', 1);
 
-  // ── 3. Sin nada que limpiar ───────────────────────────────────────────
   if (aBorrar.length === 0) {
-    ui.alert('✅ Todo limpio',
-      'Se revisaron ' + (aConservar.length) + ' registros con Creamos ID.\n' +
-      'No se encontraron IDs que no correspondan al nombre de la persona.',
+    ui.alert('✅ Todo el sistema está limpio',
+      'Hojas revisadas: ' + nombresHojas.length + '\n' +
+      'Registros con ID verificados: ' + aConservar.length + '\n\n' +
+      'No se encontraron IDs incorrectos.',
       ui.ButtonSet.OK);
     return;
   }
 
-  // ── 4. Mostrar lista y pedir confirmación ─────────────────────────────
-  let msg = '🧹 IDs A BORRAR (' + aBorrar.length + ' de ' + (aBorrar.length + aConservar.length) + ' revisados):\n\n';
-
+  // ── 4. Confirmación ──────────────────────────────────────────────────
+  let msg = '🧹 IDs A BORRAR (' + aBorrar.length + ' encontrados en ' + nombresHojas.length + ' hojas):\n\n';
   aBorrar.slice(0, 15).forEach(function(b) {
-    msg += '• ' + b.nombreHoja + ' — fila ' + b.fila + '\n' +
-           '  Nombre: "' + b.nomHoja + '"\n' +
-           '  ID a quitar: "' + b.idActual + '"\n' +
-           '  Motivo: ' + b.motivo + '\n';
+    msg += '• ' + b.nombreHoja + ' fila ' + b.fila + ': "' + b.nomHoja + '"\n  ID: "' + b.idActual + '" → ' + b.motivo + '\n';
   });
+  if (aBorrar.length > 15) msg += '... y ' + (aBorrar.length - 15) + ' más.\n';
+  msg += '\n✅ IDs correctos que se conservan: ' + aConservar.length + '\n\n' +
+         'Después ejecuta "🔁 Actualizar desde directorio" para rellenar\nlos IDs correctos por nombre.\n\n¿Confirmar?';
 
-  if (aBorrar.length > 15) {
-    msg += '... y ' + (aBorrar.length - 15) + ' registros más.\n';
+  if (ui.alert('Confirmar Limpieza Total', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) {
+    ss.toast('Cancelado.', '', 4); return;
   }
 
-  msg += '\n✅ Se conservarán: ' + aConservar.length + ' IDs correctos.\n\n' +
-         '⚠️ Esta acción borra los IDs incorrectos. Los que tengan el nombre\n' +
-         'correcto en su fila se pueden recuperar con "Actualizar desde directorio".\n\n' +
-         '¿Confirmar la limpieza?';
-
-  if (ui.alert('Confirmar Limpieza de IDs', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) {
-    ss.toast('Cancelado. No se realizaron cambios.', '', 4);
-    return;
-  }
-
-  // ── 5. Aplicar borrado ────────────────────────────────────────────────
+  // ── 5. Aplicar ──────────────────────────────────────────────────────
   ss.toast('Aplicando limpieza...', 'Limpieza de IDs', -1);
   let borrados = 0, errores = 0;
-
   for (let b = 0; b < aBorrar.length; b++) {
     try {
       aBorrar[b].hoja.getRange(aBorrar[b].fila, aBorrar[b].colCId).clearContent();
       borrados++;
-      Logger.log('🗑️ Borrado: "' + aBorrar[b].nombreHoja + '" fila ' + aBorrar[b].fila + ' ID "' + aBorrar[b].idActual + '"');
-    } catch (e) {
-      errores++;
-      Logger.log('❌ Error borrando fila ' + aBorrar[b].fila + ': ' + e.message);
-    }
+    } catch (e) { errores++; Logger.log('❌ ' + e.message); }
   }
-
   ss.toast('', '', 1);
   ui.alert('Limpieza completada',
     '🗑️ IDs borrados: ' + borrados + '\n' +
     '✅ IDs correctos conservados: ' + aConservar.length + '\n' +
     (errores > 0 ? '❌ Errores: ' + errores + '\n' : '') +
-    '\nAhora puedes ejecutar "🔁 Actualizar desde directorio"\npara rellenar los IDs correctos según el nombre.',
+    '\nAhora ejecuta "🔁 Actualizar desde directorio" para poner los IDs correctos.',
     ui.ButtonSet.OK);
+}
+
+/**
+ * Genera la hoja "📋 Sin Creamos ID" con todas las personas que no tienen
+ * Creamos ID en ninguna hoja del sistema, agrupadas por hoja.
+ */
+function _reporteSinCreamosID(nombreDirectorio) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  ss.toast('Buscando personas sin Creamos ID...', 'Reporte', -1);
+
+  const nombresHojas = _detectarHojasConCreamosID(ss, nombreDirectorio);
+
+  const NOMBRE_REPORTE = '📋 Sin Creamos ID';
+  let hojaReporte = ss.getSheetByName(NOMBRE_REPORTE);
+  if (!hojaReporte) { hojaReporte = ss.insertSheet(NOMBRE_REPORTE); }
+  else { hojaReporte.clearContents(); hojaReporte.clearFormats(); }
+
+  const ENC = ['Hoja', 'Fila', 'Nombre', 'DPI', 'Estado / Motivo'];
+  hojaReporte.getRange(1, 1, 1, ENC.length).setValues([ENC])
+    .setBackground('#1565C0').setFontColor('#FFFFFF').setFontWeight('bold');
+
+  const filas = [];
+  let totalSinId = 0;
+
+  for (let nh = 0; nh < nombresHojas.length; nh++) {
+    const nombreHoja = nombresHojas[nh];
+    const hoja = ss.getSheetByName(nombreHoja);
+    if (!hoja || hoja.getLastRow() < 2) continue;
+    ss.toast('Revisando "' + nombreHoja + '"...', 'Reporte', -1);
+
+    const nCols       = hoja.getLastColumn();
+    const encabezados = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+    const idx = {};
+    encabezados.forEach(function(h, i) { idx[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i; });
+
+    const iCId    = idx['creamosid']       !== undefined ? idx['creamosid']       : idx['creamos id']      !== undefined ? idx['creamos id']      : -1;
+    const iNom    = idx['nombrecompleto']  !== undefined ? idx['nombrecompleto']  : idx['nombre completo'] !== undefined ? idx['nombre completo'] : idx['nombre'] !== undefined ? idx['nombre'] : -1;
+    const iDpi    = idx['dpi']             !== undefined ? idx['dpi']             : idx['numerodedpi']     !== undefined ? idx['numerodedpi']     : -1;
+    const iEstado = idx['estado']          !== undefined ? idx['estado']          : -1;
+
+    if (iNom < 0) continue; // sin columna nombre, ignorar
+
+    const datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, nCols).getValues();
+    let contHoja = 0;
+
+    for (let i = 0; i < datos.length; i++) {
+      const nom    = iNom    >= 0 ? (datos[i][iNom]    || '').toString().trim() : '';
+      const cId    = iCId    >= 0 ? (datos[i][iCId]    || '').toString().trim() : '';
+      const dpi    = iDpi    >= 0 ? (datos[i][iDpi]    || '').toString().trim() : '';
+      const estado = iEstado >= 0 ? (datos[i][iEstado] || '').toString().trim() : '';
+
+      if (!nom) continue; // fila vacía
+      if (cId && cId !== '⚠️ Crear en Salesforce') continue; // ya tiene ID
+
+      const nota = cId === '⚠️ Crear en Salesforce' ? '⚠️ Pendiente de crear en Salesforce' : 'Sin Creamos ID';
+      filas.push([nombreHoja, i + 2, nom, dpi, nota + (estado ? ' | Estado: ' + estado : '')]);
+      contHoja++;
+      totalSinId++;
+    }
+
+    if (contHoja > 0) Logger.log('📋 "' + nombreHoja + '": ' + contHoja + ' sin Creamos ID');
+  }
+
+  ss.toast('', '', 1);
+
+  if (filas.length === 0) {
+    hojaReporte.getRange(2, 1).setValue('✅ Todas las personas tienen Creamos ID asignado.');
+    ss.setActiveSheet(hojaReporte);
+    ui.alert('✅ Sin pendientes', 'Todas las personas en el sistema ya tienen Creamos ID.', ui.ButtonSet.OK);
+    return;
+  }
+
+  hojaReporte.getRange(2, 1, filas.length, ENC.length).setValues(filas);
+
+  // Colorear separadores por hoja
+  let hojaActual = '', colorFila = '#E3F2FD';
+  for (let r = 0; r < filas.length; r++) {
+    if (filas[r][0] !== hojaActual) {
+      hojaActual = filas[r][0];
+      colorFila  = colorFila === '#E3F2FD' ? '#FFF8E1' : '#E3F2FD';
+    }
+    const color = filas[r][4].startsWith('⚠️') ? '#FFE0B2' : colorFila;
+    hojaReporte.getRange(r + 2, 1, 1, ENC.length).setBackground(color);
+  }
+
+  hojaReporte.autoResizeColumns(1, ENC.length);
+  hojaReporte.setFrozenRows(1);
+  ss.setActiveSheet(hojaReporte);
+
+  // Resumen por hoja
+  const conteo = {};
+  filas.forEach(function(f) { conteo[f[0]] = (conteo[f[0]] || 0) + 1; });
+  let resumen = '📋 PERSONAS SIN CREAMOS ID: ' + totalSinId + '\n\n';
+  Object.keys(conteo).forEach(function(h) { resumen += '• ' + h + ': ' + conteo[h] + '\n'; });
+  resumen += '\nVer hoja "' + NOMBRE_REPORTE + '" para el detalle completo.';
+
+  ui.alert('Reporte — Sin Creamos ID', resumen, ui.ButtonSet.OK);
 }
 
 function repararCreamosIDsTech() {
