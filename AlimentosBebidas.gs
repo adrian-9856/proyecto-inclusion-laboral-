@@ -9943,8 +9943,229 @@ function reporteSinCreamosIDAB() {
   _reporteSinCreamosID(NOMBRE_HOJA_CREAMOS_ID_AB);
 }
 
-// Reutiliza _detectarHojasConCreamosID, _limpiarCreamosIDsIncorrectos y _reporteSinCreamosID
-// definidas en tech.gs (comparten el mismo proyecto GAS)
+const HOJAS_SISTEMA_EXCLUIR = [
+  'Copy of CREAMOS ID nuevo', 'PowerBI_Export', 'EXPORT_PowerBI',
+  'Reportes Mensuales', 'Dashboard Estipendios', 'Guía de Uso',
+  'Registro Formulario Kobo', 'Detalle Entrevistas', 'Reporte',
+  '🕵️ Auditoría IDs', 'DEBUG - Datos Kobo', 'DEBUG - Análisis Filtro',
+  '🔍 Diagnóstico CSV', 'Paso a Paso'
+];
+
+function _detectarHojasConCreamosID(ss, nombreDirectorio) {
+  const todasLasHojas = ss.getSheets();
+  const resultado = [];
+  for (let i = 0; i < todasLasHojas.length; i++) {
+    const hoja   = todasLasHojas[i];
+    const nombre = hoja.getName();
+    if (nombre === nombreDirectorio) continue;
+    if (HOJAS_SISTEMA_EXCLUIR.indexOf(nombre) >= 0) continue;
+    if (hoja.getLastRow() < 2) continue;
+    const enc = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+    const tieneId = enc.some(function(h) {
+      const k = h.toString().trim().toLowerCase().replace(/\s+/g, '');
+      return k === 'creamosid' || k === 'creamos id';
+    });
+    if (tieneId) resultado.push(nombre);
+  }
+  return resultado;
+}
+
+function _limpiarCreamosIDsIncorrectos(nombreDirectorio) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  ss.toast('Cargando directorio...', 'Limpieza de IDs', -1);
+
+  const hojaDir = ss.getSheetByName(nombreDirectorio);
+  if (!hojaDir) { ss.toast('', '', 1); ui.alert('❌ Directorio no encontrado: ' + nombreDirectorio); return; }
+  const colMapDir = detectarColumnasDirectorio();
+  if (!colMapDir) { ss.toast('', '', 1); ui.alert('❌ No se detectaron columnas del directorio.'); return; }
+
+  const datosDir = hojaDir.getDataRange().getValues();
+  const mapPorId = {};
+  for (let i = 1; i < datosDir.length; i++) {
+    const f         = datosDir[i];
+    const nombre    = colMapDir.nombre    >= 0 ? (f[colMapDir.nombre]    || '').toString().trim() : '';
+    const creamosId = colMapDir.creamosId >= 0 ? (f[colMapDir.creamosId] || '').toString().trim() : '';
+    if (creamosId) mapPorId[normalizarBusqueda(creamosId)] = { nombre, creamosId };
+  }
+  Logger.log('🧹 LIMPIEZA AB — Directorio: ' + Object.keys(mapPorId).length + ' entradas');
+
+  const nombresHojas = _detectarHojasConCreamosID(ss, nombreDirectorio);
+  Logger.log('🧹 Hojas a revisar: ' + nombresHojas.join(', '));
+
+  const aBorrar = [], aConservar = [];
+
+  for (let nh = 0; nh < nombresHojas.length; nh++) {
+    const nombreHoja = nombresHojas[nh];
+    const hoja = ss.getSheetByName(nombreHoja);
+    if (!hoja || hoja.getLastRow() < 2) continue;
+    ss.toast('Revisando "' + nombreHoja + '"...', 'Limpieza de IDs', -1);
+
+    const nCols       = hoja.getLastColumn();
+    const encabezados = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+    const idx = {};
+    encabezados.forEach(function(h, i) { idx[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i; });
+
+    const iCId = idx['creamosid']       !== undefined ? idx['creamosid']       : idx['creamos id']      !== undefined ? idx['creamos id']      : -1;
+    const iNom = idx['nombrecompleto']  !== undefined ? idx['nombrecompleto']  : idx['nombre completo'] !== undefined ? idx['nombre completo'] : idx['nombre'] !== undefined ? idx['nombre'] : -1;
+
+    if (iCId < 0) continue;
+
+    const datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, nCols).getValues();
+    for (let i = 0; i < datos.length; i++) {
+      const cId = (datos[i][iCId] || '').toString().trim();
+      const nom = iNom >= 0 ? (datos[i][iNom] || '').toString().trim() : '';
+      if (!cId || cId.startsWith('⚠️') || !nom) continue;
+
+      const entrada = mapPorId[normalizarBusqueda(cId)] || null;
+      const fila    = i + 2;
+      if (!entrada) {
+        aBorrar.push({ hoja, nombreHoja, fila, colCId: iCId + 1, idActual: cId, nomHoja: nom, motivo: 'ID no existe en directorio' });
+      } else {
+        const sim = similitudNombre(nom, entrada.nombre);
+        if (sim < 60) {
+          aBorrar.push({ hoja, nombreHoja, fila, colCId: iCId + 1, idActual: cId, nomHoja: nom, motivo: 'Nombre difiere ' + sim.toFixed(0) + '% — dir: "' + entrada.nombre + '"' });
+        } else {
+          aConservar.push({ nombreHoja, fila, cId, nom });
+        }
+      }
+    }
+  }
+
+  ss.toast('', '', 1);
+
+  if (aBorrar.length === 0) {
+    ui.alert('✅ Todo el sistema está limpio',
+      'Hojas revisadas: ' + nombresHojas.length + '\nRegistros verificados: ' + aConservar.length + '\nNo se encontraron IDs incorrectos.',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  let msg = '🧹 IDs A BORRAR (' + aBorrar.length + ' en ' + nombresHojas.length + ' hojas):\n\n';
+  aBorrar.slice(0, 15).forEach(function(b) {
+    msg += '• ' + b.nombreHoja + ' fila ' + b.fila + ': "' + b.nomHoja + '"\n  ID: "' + b.idActual + '" → ' + b.motivo + '\n';
+  });
+  if (aBorrar.length > 15) msg += '... y ' + (aBorrar.length - 15) + ' más.\n';
+  msg += '\n✅ Conservar: ' + aConservar.length + ' IDs correctos.\n\nDespués ejecuta "🔁 Actualizar desde directorio".\n\n¿Confirmar?';
+
+  if (ui.alert('Confirmar Limpieza Total', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) {
+    ss.toast('Cancelado.', '', 4); return;
+  }
+
+  ss.toast('Aplicando limpieza...', 'Limpieza de IDs', -1);
+  let borrados = 0;
+  for (let b = 0; b < aBorrar.length; b++) {
+    try { aBorrar[b].hoja.getRange(aBorrar[b].fila, aBorrar[b].colCId).clearContent(); borrados++; }
+    catch (e) { Logger.log('❌ ' + e.message); }
+  }
+  ss.toast('', '', 1);
+  ui.alert('Limpieza completada',
+    '🗑️ Borrados: ' + borrados + '\n✅ Conservados: ' + aConservar.length +
+    '\n\nAhora ejecuta "🔁 Actualizar desde directorio" para poner los IDs correctos.',
+    ui.ButtonSet.OK);
+}
+
+function _reporteSinCreamosID(nombreDirectorio) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  ss.toast('Buscando personas sin Creamos ID...', 'Reporte', -1);
+
+  const nombresHojas = _detectarHojasConCreamosID(ss, nombreDirectorio);
+
+  const NOMBRE_REPORTE = '📋 Sin Creamos ID';
+  let hojaReporte = ss.getSheetByName(NOMBRE_REPORTE);
+  if (!hojaReporte) { hojaReporte = ss.insertSheet(NOMBRE_REPORTE); }
+  else { hojaReporte.clearContents(); hojaReporte.clearFormats(); }
+
+  const ENC = ['Hoja', 'Fila', 'Nombre', 'DPI', 'Estado / Motivo'];
+  hojaReporte.getRange(1, 1, 1, ENC.length).setValues([ENC])
+    .setBackground('#1565C0').setFontColor('#FFFFFF').setFontWeight('bold');
+
+  const filas = [];
+  let totalSinId = 0;
+
+  for (let nh = 0; nh < nombresHojas.length; nh++) {
+    const nombreHoja = nombresHojas[nh];
+    const hoja = ss.getSheetByName(nombreHoja);
+    if (!hoja || hoja.getLastRow() < 2) continue;
+    ss.toast('Revisando "' + nombreHoja + '"...', 'Reporte', -1);
+
+    const nCols       = hoja.getLastColumn();
+    const encabezados = hoja.getRange(1, 1, 1, nCols).getValues()[0];
+    const idx = {};
+    encabezados.forEach(function(h, i) { idx[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i; });
+
+    const iCId    = idx['creamosid']       !== undefined ? idx['creamosid']       : idx['creamos id']      !== undefined ? idx['creamos id']      : -1;
+    const iNom    = idx['nombrecompleto']  !== undefined ? idx['nombrecompleto']  : idx['nombre completo'] !== undefined ? idx['nombre completo'] : idx['nombre'] !== undefined ? idx['nombre'] : -1;
+    const iDpi    = idx['dpi']             !== undefined ? idx['dpi']             : idx['numerodedpi']     !== undefined ? idx['numerodedpi']     : -1;
+    const iEstado = idx['estado']          !== undefined ? idx['estado']          : -1;
+
+    if (iNom < 0) continue;
+
+    const datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, nCols).getValues();
+    for (let i = 0; i < datos.length; i++) {
+      const nom    = iNom    >= 0 ? (datos[i][iNom]    || '').toString().trim() : '';
+      const cId    = iCId    >= 0 ? (datos[i][iCId]    || '').toString().trim() : '';
+      const dpi    = iDpi    >= 0 ? (datos[i][iDpi]    || '').toString().trim() : '';
+      const estado = iEstado >= 0 ? (datos[i][iEstado] || '').toString().trim() : '';
+      if (!nom) continue;
+      if (cId && !cId.startsWith('⚠️')) continue;
+      const nota = cId.startsWith('⚠️') ? cId : 'Sin Creamos ID';
+      filas.push([nombreHoja, i + 2, nom, dpi, nota + (estado ? ' | Estado: ' + estado : '')]);
+      totalSinId++;
+    }
+  }
+
+  ss.toast('', '', 1);
+
+  if (filas.length === 0) {
+    hojaReporte.getRange(2, 1).setValue('✅ Todas las personas tienen Creamos ID asignado.');
+    ss.setActiveSheet(hojaReporte);
+    ui.alert('✅ Sin pendientes', 'Todas las personas ya tienen Creamos ID.', ui.ButtonSet.OK);
+    return;
+  }
+
+  hojaReporte.getRange(2, 1, filas.length, ENC.length).setValues(filas);
+
+  let hojaActual = '', colorFila = '#E3F2FD';
+  for (let r = 0; r < filas.length; r++) {
+    if (filas[r][0] !== hojaActual) { hojaActual = filas[r][0]; colorFila = colorFila === '#E3F2FD' ? '#FFF8E1' : '#E3F2FD'; }
+    hojaReporte.getRange(r + 2, 1, 1, ENC.length).setBackground(filas[r][4].startsWith('⚠️') ? '#FFE0B2' : colorFila);
+  }
+  hojaReporte.autoResizeColumns(1, ENC.length);
+  hojaReporte.setFrozenRows(1);
+  ss.setActiveSheet(hojaReporte);
+
+  const conteo = {};
+  filas.forEach(function(f) { conteo[f[0]] = (conteo[f[0]] || 0) + 1; });
+  let resumen = '📋 PERSONAS SIN CREAMOS ID: ' + totalSinId + '\n\n';
+  Object.keys(conteo).forEach(function(h) { resumen += '• ' + h + ': ' + conteo[h] + '\n'; });
+  resumen += '\nVer hoja "' + NOMBRE_REPORTE + '".\n\n' +
+    '¿Marcar también en las hojas con "⚠️ Crear perfil"?\n' +
+    '(Se quita automáticamente al ejecutar "🔁 Actualizar desde directorio")';
+
+  if (ui.alert('Reporte — Sin Creamos ID', resumen, ui.ButtonSet.YES_NO) === ui.Button.YES) {
+    ss.toast('Marcando celdas...', 'Reporte', -1);
+    let marcados = 0;
+    for (let f = 0; f < filas.length; f++) {
+      const hoja = ss.getSheetByName(filas[f][0]);
+      if (!hoja) continue;
+      const enc = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+      const idx2 = {};
+      enc.forEach(function(h, i) { idx2[h.toString().trim().toLowerCase().replace(/\s+/g, '')] = i; });
+      const iCId2 = idx2['creamosid'] !== undefined ? idx2['creamosid'] : idx2['creamos id'] !== undefined ? idx2['creamos id'] : -1;
+      if (iCId2 < 0) continue;
+      const celda = hoja.getRange(filas[f][1], iCId2 + 1);
+      if (!celda.getValue().toString().trim()) {
+        celda.setValue('⚠️ Crear perfil').setBackground('#FFE0B2').setFontColor('#BF360C');
+        marcados++;
+      }
+    }
+    ss.toast(marcados + ' celdas marcadas. Ejecuta "🔁 Actualizar desde directorio" cuando el ID esté listo.', '✅ Listo', 8);
+  }
+}
 
 function repararCreamosIDsAB() {
   _repararCreamosIDsEnSistema(NOMBRE_HOJA_CREAMOS_ID_AB);
