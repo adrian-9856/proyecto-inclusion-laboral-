@@ -9936,9 +9936,12 @@ function _detectarHojasConCreamosID(ss, nombreDirectorio) {
     const nombre = hoja.getName();
     if (nombre === nombreDirectorio) continue;
     if (HOJAS_SISTEMA_EXCLUIR.indexOf(nombre) >= 0) continue;
-    if (hoja.getLastRow() < 2) continue;
-    // Verificar que tiene columna Creamos ID
-    const enc = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+    // Usar getMaxColumns() evita una llamada API extra por hoja
+    const numCols = Math.min(hoja.getMaxColumns(), 60);
+    if (numCols < 1) continue;
+    const enc = hoja.getRange(1, 1, 1, numCols).getValues()[0];
+    // Si el encabezado está completamente vacío, la hoja no tiene datos
+    if (!enc.some(function(c) { return c !== ''; })) continue;
     const tieneId = enc.some(function(h) {
       const k = h.toString().trim().toLowerCase().replace(/\s+/g, '');
       return k === 'creamosid' || k === 'creamos id';
