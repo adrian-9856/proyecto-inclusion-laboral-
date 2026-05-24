@@ -277,6 +277,9 @@ function setupMenuAB() {
         .addItem('⏰ Instalar Triggers', 'instalarTriggers')
         .addItem('💰 Activar Estipendios', 'configurarTriggersEstipendios'))
 
+      .addSeparator()
+      .addItem('⚡ Prueba de Rendimiento', 'pruebaRendimientoAB')
+
       .addToUi();
   } catch (e) {
     Logger.log('No UI context available for setupMenuAB.');
@@ -15017,4 +15020,137 @@ function autoActualizarPowerBIExport() {
   } catch (e) {
     Logger.log('❌ Error en actualización automática: ' + e.message);
   }
+}
+
+// =====================================================================
+// PRUEBA DE RENDIMIENTO
+// =====================================================================
+
+function pruebaRendimientoAB() {
+  _pruebaRendimiento(NOMBRE_HOJA_CREAMOS_ID_AB);
+}
+
+function _pruebaRendimiento(nombreDirectorio) {
+  const ss  = SpreadsheetApp.getActiveSpreadsheet();
+  const ui  = SpreadsheetApp.getUi();
+  const t0  = Date.now();
+  const resultados = [];
+
+  function medir(nombre, fn) {
+    const ini = Date.now();
+    let filas = 0, error = '';
+    try { filas = fn(); } catch(e) { error = e.message; }
+    const ms = Date.now() - ini;
+    const estado = error ? '❌' : ms < 2000 ? '🟢' : ms < 5000 ? '🟡' : '🔴';
+    resultados.push({ nombre: nombre, ms: ms, filas: filas, estado: estado, error: error });
+    Logger.log(estado + ' ' + nombre + ': ' + ms + 'ms' + (filas ? ' (' + filas + ' filas)' : '') + (error ? ' ERROR: ' + error : ''));
+  }
+
+  ss.toast('Iniciando prueba de rendimiento...', '⚡', -1);
+
+  // 1. Carga del directorio
+  medir('Carga directorio', function() {
+    const h = ss.getSheetByName(nombreDirectorio);
+    if (!h) return 0;
+    const d = h.getDataRange().getValues();
+    return d.length;
+  });
+
+  // 2. Detección de hojas
+  medir('Detectar hojas con Creamos ID', function() {
+    return _detectarHojasConCreamosID(ss, nombreDirectorio).length;
+  });
+
+  // 3. Lectura de todas las hojas de participantes
+  const hojas = _detectarHojasConCreamosID(ss, nombreDirectorio);
+  let totalFilas = 0;
+  medir('Leer todas las hojas (' + hojas.length + ' hojas)', function() {
+    hojas.forEach(function(nombre) {
+      const h = ss.getSheetByName(nombre);
+      if (h && h.getLastRow() > 1) {
+        const d = h.getRange(2, 1, h.getLastRow() - 1, h.getLastColumn()).getValues();
+        totalFilas += d.length;
+      }
+    });
+    return totalFilas;
+  });
+
+  // 4. Construcción del mapa del directorio
+  medir('Construir mapa de búsqueda', function() {
+    const colMapDir = detectarColumnasDirectorio();
+    if (!colMapDir) return 0;
+    const datos = ss.getSheetByName(nombreDirectorio).getDataRange().getValues();
+    const mapa = {};
+    for (let i = 1; i < datos.length; i++) {
+      const cId = colMapDir.creamosId >= 0 ? (datos[i][colMapDir.creamosId] || '').toString().trim() : '';
+      if (cId) mapa[normalizarBusqueda(cId)] = true;
+    }
+    return Object.keys(mapa).length;
+  });
+
+  // 5. similitudNombre: velocidad con 100 comparaciones
+  medir('100 comparaciones similitudNombre', function() {
+    const nombres = ['María García López','Juan Pérez Rodríguez','Ana Martínez','Carlos López','Rosa Hernández'];
+    let n = 0;
+    for (let i = 0; i < 100; i++) {
+      similitudNombre(nombres[i % nombres.length], nombres[(i + 1) % nombres.length]);
+      n++;
+    }
+    return n;
+  });
+
+  // 6. Triggers instalados
+  medir('Verificar triggers', function() {
+    return ScriptApp.getProjectTriggers().length;
+  });
+
+  // 7. Tiempo total
+  const totalMs = Date.now() - t0;
+  ss.toast('', '', 1);
+
+  // Generar reporte
+  const NOMBRE_REP = '⚡ Rendimiento';
+  let hojaRep = ss.getSheetByName(NOMBRE_REP);
+  if (!hojaRep) { hojaRep = ss.insertSheet(NOMBRE_REP); }
+  else { hojaRep.clearContents(); hojaRep.clearFormats(); }
+
+  hojaRep.getRange(1,1,1,5).setValues([['Prueba','Tiempo (ms)','Filas/Items','Estado','Error']])
+    .setBackground('#1A237E').setFontColor('#FFF').setFontWeight('bold');
+
+  const filasDatos = resultados.map(function(r) {
+    return [r.nombre, r.ms, r.filas || '', r.estado, r.error || ''];
+  });
+  filasDatos.push(['── TOTAL ──', totalMs, totalFilas + ' filas en sistema', totalMs < 10000 ? '🟢 Rápido' : totalMs < 20000 ? '🟡 Aceptable' : '🔴 Lento', '']);
+
+  hojaRep.getRange(2, 1, filasDatos.length, 5).setValues(filasDatos);
+
+  // Colorear filas por estado
+  resultados.forEach(function(r, i) {
+    const color = r.error ? '#FFCDD2' : r.ms < 2000 ? '#E8F5E9' : r.ms < 5000 ? '#FFF9C4' : '#FFCDD2';
+    hojaRep.getRange(i + 2, 1, 1, 5).setBackground(color);
+  });
+  hojaRep.getRange(filasDatos.length + 1, 1, 1, 5).setBackground('#E3F2FD').setFontWeight('bold');
+  hojaRep.autoResizeColumns(1, 5);
+  hojaRep.setFrozenRows(1);
+
+  // Verificar triggers duplicados
+  const triggers = ScriptApp.getProjectTriggers().filter(function(t) {
+    return t.getHandlerFunction() === 'alEditarAB';
+  });
+  const alertaTrigger = triggers.length > 1
+    ? '\n\n⚠️ ALERTA: Tienes ' + triggers.length + ' triggers onEdit instalados. Debe ser exactamente 1. Esto causa diálogos dobles.'
+    : '\n\n✅ Trigger onEdit: ' + triggers.length + ' instalado (correcto)';
+
+  const velocidad = totalMs < 10000 ? '🟢 Excelente' : totalMs < 20000 ? '🟡 Aceptable' : '🔴 Necesita optimización';
+
+  ss.setActiveSheet(hojaRep);
+  ui.alert('⚡ Resultado de Rendimiento',
+    velocidad + ' — ' + totalMs + 'ms total\n' +
+    '📊 ' + totalFilas + ' filas de participantes en ' + hojas.length + ' hojas\n\n' +
+    resultados.map(function(r) {
+      return r.estado + ' ' + r.nombre + ': ' + r.ms + 'ms' + (r.error ? ' ❌ ' + r.error : '');
+    }).join('\n') +
+    alertaTrigger +
+    '\n\nVer hoja "⚡ Rendimiento" para el detalle.',
+    ui.ButtonSet.OK);
 }
