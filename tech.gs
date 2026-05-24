@@ -9928,7 +9928,17 @@ const HOJAS_SISTEMA_EXCLUIR = [
  * Devuelve todas las hojas del spreadsheet que tienen columna "Creamos ID"
  * y no son hojas internas del sistema ni el directorio.
  */
-function _detectarHojasConCreamosID(ss, nombreDirectorio) {
+function _detectarHojasConCreamosID(ss, nombreDirectorio, forzarRefresh) {
+  const cacheKey = 'hojas_cid_' + ss.getId() + '_' + nombreDirectorio;
+  const cache = CacheService.getScriptCache();
+
+  if (!forzarRefresh) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      try { return JSON.parse(cached); } catch(e) {}
+    }
+  }
+
   const todasLasHojas = ss.getSheets();
   const resultado = [];
   for (let i = 0; i < todasLasHojas.length; i++) {
@@ -9936,11 +9946,9 @@ function _detectarHojasConCreamosID(ss, nombreDirectorio) {
     const nombre = hoja.getName();
     if (nombre === nombreDirectorio) continue;
     if (HOJAS_SISTEMA_EXCLUIR.indexOf(nombre) >= 0) continue;
-    // Usar getMaxColumns() evita una llamada API extra por hoja
     const numCols = Math.min(hoja.getMaxColumns(), 60);
     if (numCols < 1) continue;
     const enc = hoja.getRange(1, 1, 1, numCols).getValues()[0];
-    // Si el encabezado está completamente vacío, la hoja no tiene datos
     if (!enc.some(function(c) { return c !== ''; })) continue;
     const tieneId = enc.some(function(h) {
       const k = h.toString().trim().toLowerCase().replace(/\s+/g, '');
@@ -9948,6 +9956,8 @@ function _detectarHojasConCreamosID(ss, nombreDirectorio) {
     });
     if (tieneId) resultado.push(nombre);
   }
+
+  try { cache.put(cacheKey, JSON.stringify(resultado), 3600); } catch(e) {}
   return resultado;
 }
 
@@ -15331,12 +15341,12 @@ function _pruebaRendimiento(nombreDirectorio) {
     return d.length;
   });
 
-  // 2. Detección de hojas
+  // 2. Detección de hojas (forzarRefresh=true para medir tiempo real, no caché)
   medir('Detectar hojas con Creamos ID', function() {
-    return _detectarHojasConCreamosID(ss, nombreDirectorio).length;
+    return _detectarHojasConCreamosID(ss, nombreDirectorio, true).length;
   });
 
-  // 3. Lectura de todas las hojas de participantes
+  // 3. Lectura de todas las hojas de participantes (usa caché ya calentada)
   const hojas = _detectarHojasConCreamosID(ss, nombreDirectorio);
   let totalFilas = 0;
   medir('Leer todas las hojas (' + hojas.length + ' hojas)', function() {
