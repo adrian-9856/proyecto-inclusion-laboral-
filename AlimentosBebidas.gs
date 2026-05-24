@@ -15081,10 +15081,10 @@ function _pruebaRendimiento(nombreDirectorio) {
   medir('Leer todas las hojas (' + hojas.length + ' hojas)', function() {
     hojas.forEach(function(nombre) {
       const h = ss.getSheetByName(nombre);
-      if (h && h.getLastRow() > 1) {
-        const d = h.getRange(2, 1, h.getLastRow() - 1, h.getLastColumn()).getValues();
-        totalFilas += d.length;
-      }
+      if (!h) return;
+      // getDataRange().getValues() = 1 llamada API vs 3 (getLastRow+getLastColumn+getValues)
+      const d = h.getDataRange().getValues();
+      if (d.length > 1) totalFilas += d.length - 1; // -1 para excluir encabezado
     });
     return totalFilas;
   });
