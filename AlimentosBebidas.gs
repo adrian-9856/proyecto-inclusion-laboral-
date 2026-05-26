@@ -257,7 +257,9 @@ function setupMenuAB() {
         .addItem('📞 Flujo Seguimiento Manual', 'abrirFlujoSeguimientoManual')
         .addItem('🔧 Reparar Validaciones', 'repararValidaciones')
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
-        .addItem('🔧 Reparar Columnas', 'repararColumnasAB'))
+        .addItem('🔧 Reparar Columnas', 'repararColumnasAB')
+        .addSeparator()
+        .addItem('🗑️ Migrar: Eliminar Cómo se enteró y Responsable', 'migrarColumnasAB'))
       .addSeparator()
 
       .addSubMenu(ui.createMenu('⚙️ Configuración')
@@ -15250,4 +15252,66 @@ function separarDatos2025AB() {
   interes.getRange(1, 1, 1, headers.length).setBackground('#1565c0').setFontColor('white').setFontWeight('bold');
 
   ui.alert('✅ Listo', filasA2025.length + ' registros del 2025 movidos a "Histórico 2025".\n' + (filasRestantes.length - 1) + ' registros del 2026+ permanecen en Hoja de Interés.', ui.ButtonSet.OK);
+}
+
+/**
+ * Migración: elimina columnas "Cómo se enteró" y "Responsable" de Hoja de Interés.
+ * Antes de borrar, guarda cualquier contenido de "Responsable" en "Notas/Comentario".
+ * Los colores de fila se preservan automáticamente.
+ */
+function migrarColumnasAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const res = ui.alert(
+    '🗑️ Eliminar columnas de Hoja de Interés',
+    'Esta acción eliminará las columnas:\n• "Cómo se enteró"\n• "Responsable"\n\nEl contenido de "Responsable" se guardará en "Notas/Comentario" para no perder datos.\n\n¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (res !== ui.Button.YES) return;
+
+  const sheet = ss.getSheetByName('Hoja de Interés');
+  if (!sheet) { ui.alert('No se encontró la Hoja de Interés.'); return; }
+
+  const lastCol = sheet.getLastColumn();
+  const lastRow = sheet.getLastRow();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+  // Asegurar que exista columna Notas/Comentario (si no, crearla al final)
+  let idxNotas = headers.findIndex(h => h.toString().trim() === 'Notas/Comentario');
+  if (idxNotas < 0) {
+    const newCol = lastCol + 1;
+    sheet.getRange(1, newCol).setValue('Notas/Comentario')
+      .setBackground('#fff9c4').setFontWeight('bold').setHorizontalAlignment('center');
+    sheet.setColumnWidth(newCol, 250);
+    idxNotas = newCol - 1;
+    SpreadsheetApp.flush();
+  }
+
+  // Copiar datos de Responsable → Notas/Comentario (sin sobreescribir lo existente)
+  const idxResponsable = headers.findIndex(h => h.toString().trim() === 'Responsable');
+  if (idxResponsable >= 0 && lastRow > 1) {
+    const respData = sheet.getRange(2, idxResponsable + 1, lastRow - 1, 1).getValues();
+    const notasData = sheet.getRange(2, idxNotas + 1, lastRow - 1, 1).getValues();
+    const merged = respData.map((r, i) => {
+      const resp = r[0] ? r[0].toString().trim() : '';
+      const nota = notasData[i][0] ? notasData[i][0].toString().trim() : '';
+      if (resp && nota) return [nota + ' | ' + resp];
+      return [resp || nota || ''];
+    });
+    sheet.getRange(2, idxNotas + 1, lastRow - 1, 1).setValues(merged);
+  }
+
+  // Eliminar columnas de mayor a menor índice para no desfasar posiciones
+  const colsAEliminar = ['Cómo se enteró', 'Responsable'];
+  const headersActuales = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const indices = colsAEliminar
+    .map(nombre => headersActuales.findIndex(h => h.toString().trim() === nombre))
+    .filter(i => i >= 0)
+    .sort((a, b) => b - a);
+
+  indices.forEach(idx => sheet.deleteColumn(idx + 1));
+
+  configurarValidaciones();
+  ui.alert('✅ Listo', 'Columnas eliminadas correctamente.\nLos colores y datos se han preservado.', ui.ButtonSet.OK);
 }
