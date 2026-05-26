@@ -648,7 +648,7 @@ function diagnosticarCamposNivelYZona() {
   // Verificar Hoja de Interés
   const hojaInteres = ss.getSheetByName('Hoja de Interés');
   if (hojaInteres) {
-    const headers = hojaInteres.getRange(1, 1, 1, 16).getValues()[0];
+    const headers = hojaInteres.getRange(1, 1, 1, hojaInteres.getLastColumn()).getValues()[0];
     const tieneNivel = headers[8] === 'Nivel Educativo';
     const tieneZona = headers[9] === 'Zona';
 
@@ -852,12 +852,9 @@ function crearHojaInteres() {
     'Teléfono',        // H
     'Nivel Educativo', // I - Desplegable
     'Zona',            // J - Desplegable
-    'Cómo se enteró',  // K
-    'Responsable',     // L - Desplegable
-    'Notas',           // M
-    '¿Deseas inscribirte?', // N - Desde Kobo
-    'Servicio/Formación de Interés', // O - Desde Kobo
-    'Estado'           // P - Desplegable (al final para evitar problemas)
+    '¿Deseas inscribirte?', // K - Desde Kobo
+    'Servicio/Formación de Interés', // L - Desde Kobo
+    'Estado'           // M - Desplegable (trigger)
   ];
 
   // Siempre asegurar que los encabezados estén correctos
@@ -881,7 +878,7 @@ function crearHojaInteres() {
     }
   }
 
-  [100, 50, 100, 130, 200, 120, 60, 120, 150, 120, 150, 150, 120, 250, 250, 120, 250].forEach((w, i) => {
+  [100, 50, 100, 130, 200, 120, 60, 120, 150, 120, 250, 250, 120].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -1561,7 +1558,7 @@ function configurarValidaciones() {
     };
 
     aplicarHI('Género', CONFIG_TECH.GENEROS, true);
-    aplicarHI('Estado', ['Entrevista agendada', 'Reprogramada', 'No interesada/o'], true);
+    aplicarHI('Estado', ['Entrevista agendada', 'Reprogramada', 'No interesada/o', 'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a A y B'], true);
   }
 
   // === HOJA DE ENTREVISTAS ===
@@ -1874,6 +1871,18 @@ function alEditarTech(e) {
     if (headerHI === 'Estado') {
       if (val === 'Reprogramada') {
         manejarReprogramadaEnHojaInteres(sheet, fila);
+        return;
+      }
+      if (val === 'Derivar a Paso a Paso') {
+        derivarApasoAPaso(sheet, fila);
+        return;
+      }
+      if (val === 'Derivación a Programas') {
+        abrirFormularioKobo(sheet, fila, columna);
+        return;
+      }
+      if (val === 'Enviar a A y B') {
+        enviarAOtroProgramaDesdeEntrevistas(sheet, fila, columna, 'AyB');
         return;
       }
       procesarCambioEstadoInteres(sheet, fila, val);
@@ -4699,9 +4708,9 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       colESnapshot[filaVaciaIdx] = nombreCompleto; // marcar como ocupada en memoria
       filaVaciaIdx++;
 
-      // Limpiar validaciones solo en columnas intermedias (C-O) para no borrar
-      // el dropdown de Estado (columna P) ni las protecciones de A y B
-      hojaInteres.getRange(nuevaFila, 3, 1, 13).clearDataValidations();
+      // Limpiar validaciones solo en columnas intermedias (C-M) para no borrar
+      // el dropdown de Estado ni las protecciones de A y B
+      hojaInteres.getRange(nuevaFila, 3, 1, hojaInteres.getLastColumn() - 2).clearDataValidations();
 
       // Usar fecha de Kobo si existe; si no, poner fecha de hoy como valor fijo
       let fechaParaHoja = new Date();
@@ -4722,7 +4731,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
 
       // Preparar registro
       const registro = [
-        fechaParaHoja,      // A: Fecha Registro (valor fijo, no fórmula dinámica)
+        fechaParaHoja,      // A: Fecha Registro
         '',                 // B: No. (fórmula automática)
         creamosId,          // C: Creamos ID
         dpi,                // D: DPI
@@ -4732,19 +4741,23 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
         telefono,           // H: Teléfono
         nivelEducativo,     // I: Nivel Educativo
         zona,               // J: Zona
-        comoSeEntero,       // K: Cómo se enteró
-        '',                 // L: Responsable
-        observacionesKobo,  // M: Notas (comentarios/observaciones de Kobo)
-        deseaInscribirse,   // N: ¿Deseas inscribirte?
-        servicioFormacion,  // O: Servicio/Formación de Interés (programas seleccionados)
-        ''                  // P: Estado (vacío para que el dropdown funcione)
+        deseaInscribirse,   // K: ¿Deseas inscribirte?
+        servicioFormacion,  // L: Servicio/Formación de Interés
+        ''                  // M: Estado (vacío para que el dropdown funcione)
       ];
 
-      hojaInteres.getRange(nuevaFila, 1, 1, 16).setValues([registro]);
+      hojaInteres.getRange(nuevaFila, 1, 1, 13).setValues([registro]);
 
-      // RESALTADO AUTOMÁTICO 2026: Si el registro es del año 2026, aplicar color de fondo
+      // Guardar observaciones en Notas/Comentario (columna dinámica al final)
+      if (observacionesKobo) {
+        const hdrsNota = hojaInteres.getRange(1, 1, 1, hojaInteres.getLastColumn()).getValues()[0];
+        const colNota = hdrsNota.findIndex(h => h.toString().trim() === 'Notas/Comentario') + 1;
+        if (colNota > 0) hojaInteres.getRange(nuevaFila, colNota).setValue(observacionesKobo);
+      }
+
+      // RESALTADO AUTOMÁTICO 2026
       if (fechaParaHoja && fechaParaHoja instanceof Date && fechaParaHoja.getFullYear() === 2026) {
-        hojaInteres.getRange(nuevaFila, 1, 1, 16).setBackground('#fff3e0'); // Ámbar claro
+        hojaInteres.getRange(nuevaFila, 1, 1, 13).setBackground('#fff3e0'); // Ámbar claro
       }
 
       // Restaurar fórmula de No. (columna B) que setValues sobreescribe
@@ -4764,7 +4777,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       if (colEstadoHI > 0) {
         hojaInteres.getRange(nuevaFila, colEstadoHI).setDataValidation(
           SpreadsheetApp.newDataValidation()
-            .requireValueInList(['Entrevista agendada', 'Reprogramada', 'No interesada/o'])
+            .requireValueInList(['Entrevista agendada', 'Reprogramada', 'No interesada/o', 'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a A y B'])
             .setAllowInvalid(true).build()
         );
       }
@@ -4889,7 +4902,9 @@ function actualizarNotasDesdeKoboTech() {
 
       // Solo actualizar si hay cambios
       if (observacionesKobo !== notasActuales) {
-        hojaInteres.getRange(i + 1, 13).setValue(observacionesKobo); // Columna M
+        const hdrsNotasLookup = hojaInteres.getRange(1, 1, 1, hojaInteres.getLastColumn()).getValues()[0];
+        const colNotasLookup = hdrsNotasLookup.findIndex(h => h.toString().trim() === 'Notas/Comentario') + 1;
+        if (colNotasLookup > 0) hojaInteres.getRange(i + 1, colNotasLookup).setValue(observacionesKobo);
         actualizados++;
       } else {
         sinCambios++;
@@ -4950,7 +4965,9 @@ function limpiarTodasLasNotasTech() {
       const notasActuales = datos[i][12] ? datos[i][12].toString().trim() : ''; // Columna M
 
       if (notasActuales !== '') {
-        hojaInteres.getRange(i + 1, 13).setValue(''); // Limpiar columna M
+        const hdrsNotasLookup2 = hojaInteres.getRange(1, 1, 1, hojaInteres.getLastColumn()).getValues()[0];
+        const colNotasLookup2 = hdrsNotasLookup2.findIndex(h => h.toString().trim() === 'Notas/Comentario') + 1;
+        if (colNotasLookup2 > 0) hojaInteres.getRange(i + 1, colNotasLookup2).setValue('');
         notasLimpiadas++;
       }
     }
@@ -5152,7 +5169,9 @@ function actualizarNotasPorFiltroTech(filtro) {
 
       // Solo actualizar si hay cambios
       if (observacionesKobo !== notasActuales) {
-        hojaInteres.getRange(i + 1, 13).setValue(observacionesKobo); // Columna M
+        const hdrsNotasLookup = hojaInteres.getRange(1, 1, 1, hojaInteres.getLastColumn()).getValues()[0];
+        const colNotasLookup = hdrsNotasLookup.findIndex(h => h.toString().trim() === 'Notas/Comentario') + 1;
+        if (colNotasLookup > 0) hojaInteres.getRange(i + 1, colNotasLookup).setValue(observacionesKobo);
         actualizados++;
       } else {
         sinCambios++;
@@ -8583,14 +8602,14 @@ function crearDatosPrueba() {
   if (resp !== SpreadsheetApp.getUi().Button.YES) return;
 
   const interes = ss.getSheetByName('Hoja de Interés');
-  // Orden: Fecha, No, CreamosID, DPI, Nombre, Género, Edad, Teléfono, NivelEducativo, Zona, ComoSeEntero, Responsable, Notas, DeseaInscribirse, ServicioFormacion, Estado
+  // Orden: Fecha, No, CreamosID, DPI, Nombre, Género, Edad, Teléfono, NivelEducativo, Zona, DeseaInscribirse, ServicioFormacion, Estado
   // Estado vacío para que usuario elija "Entrevista realizada" o "No interesado"
   const datosPrueba = [
-    ['', '', 'CR001', '1234567890101', 'María García', 'Mujer / Femenino', '22', '5555-1234', 'Diversificado completo', 'Zona 1', 'Redes', 'Adrian Torres', '', '', '', ''],
-    ['', '', 'CR002', '2345678901212', 'Ana Martínez', 'Mujer / Femenino', '25', '5555-5678', 'Universitario', 'Zona 7', 'Referido', 'Paola Ortiz', '', '', '', ''],
-    ['', '', 'CR003', '3456789012323', 'Laura López', 'Mujer / Femenino', '19', '5555-9012', 'Básicos completos', 'Mixco', 'Facebook', 'Adrian Torres', '', '', '', '']
+    ['', '', 'CR001', '1234567890101', 'María García', 'Mujer / Femenino', '22', '5555-1234', 'Diversificado completo', 'Zona 1', '', '', ''],
+    ['', '', 'CR002', '2345678901212', 'Ana Martínez', 'Mujer / Femenino', '25', '5555-5678', 'Universitario', 'Zona 7', '', '', ''],
+    ['', '', 'CR003', '3456789012323', 'Laura López', 'Mujer / Femenino', '19', '5555-9012', 'Básicos completos', 'Mixco', '', '', '']
   ];
-  interes.getRange(2, 1, 3, 16).setValues(datosPrueba);
+  interes.getRange(2, 1, 3, Math.min(datosPrueba[0].length, interes.getLastColumn())).setValues(datosPrueba);
   ss.toast('✅ 3 registros creados', 'OK', 4);
 }
 
@@ -10729,7 +10748,7 @@ function instalarCambiosNuevosTech() {
     if (idxEstado >= 0) {
       interes.getRange(2, idxEstado + 1, 499, 1).setDataValidation(
         SpreadsheetApp.newDataValidation()
-          .requireValueInList(['Entrevista agendada', 'Reprogramada', 'No interesada/o'])
+          .requireValueInList(['Entrevista agendada', 'Reprogramada', 'No interesada/o', 'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a A y B'])
           .setAllowInvalid(true).build()
       );
       log.push('✓ Dropdown Estado actualizado');
