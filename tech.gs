@@ -212,7 +212,9 @@ function setupMenuTech() {
         .addItem('📝 Importar Entrevistas', 'importarEntrevistasDesdeKobo')
         .addSeparator()
         .addItem('⏰ Activar Auto-Importación (c/10 min)', 'instalarTriggersImportacionAuto')
-        .addItem('🛑 Desactivar Auto-Importación', 'desinstalarTriggersImportacionAuto'))
+        .addItem('🛑 Desactivar Auto-Importación', 'desinstalarTriggersImportacionAuto')
+        .addSeparator()
+        .addItem('📦 Separar datos 2025 → Histórico', 'separarDatos2025Tech'))
       .addSeparator()
 
       .addSubMenu(ui.createMenu('🗂️ Directorio CREAMOS ID')
@@ -15438,4 +15440,66 @@ function _pruebaRendimiento(nombreDirectorio) {
     alertaTrigger +
     '\n\nVer hoja "⚡ Rendimiento" para el detalle.',
     ui.ButtonSet.OK);
+}
+
+function separarDatos2025Tech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const res = ui.alert(
+    '📦 Separar datos 2025',
+    '¿Mover todos los registros del año 2025 de la Hoja de Interés a una hoja "Histórico 2025"?\n\n⚠️ Los datos serán movidos (se eliminarán de la Hoja de Interés).',
+    ui.ButtonSet.YES_NO
+  );
+  if (res !== ui.Button.YES) return;
+
+  const interes = ss.getSheetByName('Hoja de Interés');
+  if (!interes) { ui.alert('No se encontró la Hoja de Interés.'); return; }
+
+  let historico = ss.getSheetByName('Histórico 2025');
+  if (!historico) {
+    historico = ss.insertSheet('Histórico 2025');
+  }
+
+  const datos = interes.getDataRange().getValues();
+  const headers = datos[0];
+
+  if (historico.getLastRow() === 0) {
+    historico.getRange(1, 1, 1, headers.length).setValues([headers])
+      .setBackground('#37474f').setFontColor('white').setFontWeight('bold');
+  }
+
+  const filasA2025 = [];
+  const filasRestantes = [headers];
+
+  for (let i = 1; i < datos.length; i++) {
+    const fila = datos[i];
+    const nombreE = fila[4];
+    if (!nombreE) continue;
+    const fechaVal = fila[0];
+    let es2025 = false;
+    if (fechaVal instanceof Date && !isNaN(fechaVal)) {
+      es2025 = fechaVal.getFullYear() === 2025;
+    } else if (typeof fechaVal === 'string') {
+      es2025 = fechaVal.includes('2025');
+    }
+    if (es2025) {
+      filasA2025.push(fila);
+    } else {
+      filasRestantes.push(fila);
+    }
+  }
+
+  if (filasA2025.length === 0) {
+    ui.alert('No se encontraron registros del año 2025.');
+    return;
+  }
+
+  const ultimaHistorico = Math.max(historico.getLastRow(), 1) + 1;
+  historico.getRange(ultimaHistorico, 1, filasA2025.length, headers.length).setValues(filasA2025);
+
+  interes.clearContents();
+  interes.getRange(1, 1, filasRestantes.length, headers.length).setValues(filasRestantes);
+  interes.getRange(1, 1, 1, headers.length).setBackground('#1565c0').setFontColor('white').setFontWeight('bold');
+
+  ui.alert('✅ Listo', filasA2025.length + ' registros del 2025 movidos a "Histórico 2025".\n' + (filasRestantes.length - 1) + ' registros del 2026+ permanecen en Hoja de Interés.', ui.ButtonSet.OK);
 }
