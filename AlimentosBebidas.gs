@@ -204,6 +204,7 @@ function setupMenuAB() {
     ui.createMenu('🍔 Alimentos y Bebidas')
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodoAB')
       .addItem('🆕 APLICAR ACTUALIZACIONES', 'aplicarActualizacionesAB')
+      .addItem('🛠️ ACTUALIZAR COLUMNAS Y DESPLEGABLES', 'actualizarColumnasYDesplegablesAB')
       .addSeparator()
 
       .addSubMenu(ui.createMenu('📥 Datos')
@@ -15318,4 +15319,147 @@ function migrarColumnasAB() {
 
   configurarValidaciones();
   ui.alert('✅ Listo', 'Columnas eliminadas correctamente.\nLos colores y datos se han preservado.', ui.ButtonSet.OK);
+}
+
+/**
+ * ACTUALIZAR COLUMNAS Y DESPLEGABLES — un solo clic aplica todos los cambios:
+ * 1. Elimina columnas "Cómo se enteró" y "Responsable" (guarda datos en Notas/Comentario)
+ * 2. Agrega columnas 1ra Llamada, 2da Llamada, Notas/Comentario si no existen
+ * 3. Mueve Notas/Comentario al final si no está ahí
+ * 4. Actualiza desplegable Estado con las nuevas opciones
+ */
+function actualizarColumnasYDesplegablesAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const confirmar = ui.alert(
+    '🛠️ Actualizar columnas y desplegables',
+    'Esta acción aplicará todos los cambios a la Hoja de Interés:\n\n' +
+    '1️⃣ Eliminar "Cómo se enteró" y "Responsable"\n' +
+    '   (el contenido de Responsable se guarda en Notas/Comentario)\n\n' +
+    '2️⃣ Agregar columnas de seguimiento si faltan:\n' +
+    '   • 1ra Llamada, 2da Llamada, Notas/Comentario\n\n' +
+    '3️⃣ Mover Notas/Comentario al final\n\n' +
+    '4️⃣ Actualizar desplegable Estado con opciones nuevas:\n' +
+    '   • Derivar a Paso a Paso\n' +
+    '   • Derivación a Programas\n' +
+    '   • Enviar a Tecnología\n\n' +
+    '⚠️ Los datos y colores existentes NO se borran.\n¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmar !== ui.Button.YES) return;
+
+  const sheet = ss.getSheetByName('Hoja de Interés');
+  if (!sheet) { ui.alert('No se encontró la Hoja de Interés.'); return; }
+
+  const log = [];
+
+  // ── PASO 1: Eliminar Cómo se enteró y Responsable ──────────────────────
+  ss.toast('Paso 1/4: Eliminando columnas antiguas...', 'Actualizando', 10);
+  try {
+    let headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const lastRow = sheet.getLastRow();
+
+    let idxNotas = headers.findIndex(h => h.toString().trim() === 'Notas/Comentario');
+    if (idxNotas < 0) {
+      const newCol = sheet.getLastColumn() + 1;
+      sheet.getRange(1, newCol).setValue('Notas/Comentario')
+        .setBackground('#fff9c4').setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.setColumnWidth(newCol, 250);
+      idxNotas = newCol - 1;
+      SpreadsheetApp.flush();
+      headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    }
+
+    const idxResponsable = headers.findIndex(h => h.toString().trim() === 'Responsable');
+    if (idxResponsable >= 0 && lastRow > 1) {
+      const respData = sheet.getRange(2, idxResponsable + 1, lastRow - 1, 1).getValues();
+      const notasData = sheet.getRange(2, idxNotas + 1, lastRow - 1, 1).getValues();
+      const merged = respData.map((r, i) => {
+        const resp = r[0] ? r[0].toString().trim() : '';
+        const nota = notasData[i][0] ? notasData[i][0].toString().trim() : '';
+        if (resp && nota) return [nota + ' | ' + resp];
+        return [resp || nota || ''];
+      });
+      sheet.getRange(2, idxNotas + 1, lastRow - 1, 1).setValues(merged);
+    }
+
+    const headersActuales = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    ['Cómo se enteró', 'Responsable']
+      .map(n => headersActuales.findIndex(h => h.toString().trim() === n))
+      .filter(i => i >= 0)
+      .sort((a, b) => b - a)
+      .forEach(idx => sheet.deleteColumn(idx + 1));
+
+    log.push('✓ Columnas eliminadas (Cómo se enteró, Responsable)');
+  } catch(e) { log.push('⚠️ Paso 1: ' + e.message); }
+
+  // ── PASO 2: Agregar columnas de seguimiento si no existen ───────────────
+  ss.toast('Paso 2/4: Verificando columnas de seguimiento...', 'Actualizando', 10);
+  try {
+    const hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const ya1ra   = hdrs.some(h => h === '1ra Llamada');
+    const ya2da   = hdrs.some(h => h === '2da Llamada');
+    const yaNotas = hdrs.some(h => h === 'Notas/Comentario');
+
+    if (!ya1ra) {
+      const c = sheet.getLastColumn() + 1;
+      sheet.getRange(1, c).setValue('1ra Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.getRange(2, c, 499).setDataValidation(
+        SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente']).setAllowInvalid(true).build()
+      );
+      sheet.hideColumns(c);
+    }
+    if (!ya2da) {
+      const c = sheet.getLastColumn() + 1;
+      sheet.getRange(1, c).setValue('2da Llamada').setBackground('#e0e0e0').setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.getRange(2, c, 499).setDataValidation(
+        SpreadsheetApp.newDataValidation().requireValueInList(['Contestó', 'No contestó', 'Pendiente', 'Reprogramada']).setAllowInvalid(true).build()
+      );
+      sheet.hideColumns(c);
+    }
+    if (!yaNotas) {
+      const c = sheet.getLastColumn() + 1;
+      sheet.getRange(1, c).setValue('Notas/Comentario').setBackground('#fff9c4').setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.setColumnWidth(c, 250);
+    }
+    log.push('✓ Columnas de seguimiento verificadas');
+  } catch(e) { log.push('⚠️ Paso 2: ' + e.message); }
+
+  // ── PASO 3: Mover Notas/Comentario al final ─────────────────────────────
+  ss.toast('Paso 3/4: Reubicando Notas/Comentario...', 'Actualizando', 10);
+  try {
+    const hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const idxN = hdrs.findIndex(h => h.toString().trim() === 'Notas/Comentario');
+    const totalCols = sheet.getLastColumn();
+    if (idxN >= 0 && idxN < totalCols - 1) {
+      sheet.moveColumns(sheet.getRange(1, idxN + 1), totalCols + 1);
+    }
+    log.push('✓ Notas/Comentario al final');
+  } catch(e) { log.push('⚠️ Paso 3: ' + e.message); }
+
+  // ── PASO 4: Actualizar desplegable Estado ───────────────────────────────
+  ss.toast('Paso 4/4: Actualizando desplegables...', 'Actualizando', 10);
+  try {
+    const hdrs = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const idxEstado = hdrs.findIndex(h => h.toString().trim() === 'Estado');
+    if (idxEstado >= 0) {
+      sheet.getRange(2, idxEstado + 1, 499, 1).setDataValidation(
+        SpreadsheetApp.newDataValidation()
+          .requireValueInList([
+            'Entrevista agendada', 'Reprogramada', 'No interesada/o',
+            'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a Tecnología'
+          ])
+          .setAllowInvalid(true).build()
+      );
+    }
+    log.push('✓ Desplegable Estado actualizado');
+  } catch(e) { log.push('⚠️ Paso 4: ' + e.message); }
+
+  SpreadsheetApp.flush();
+  ui.alert(
+    '✅ Actualización completada',
+    log.join('\n') + '\n\n¡La Hoja de Interés está lista con la nueva estructura!',
+    ui.ButtonSet.OK
+  );
 }
