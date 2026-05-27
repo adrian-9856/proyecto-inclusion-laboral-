@@ -15210,21 +15210,22 @@ function separarDatos2025AB() {
     historico = ss.insertSheet('Histórico 2025');
   }
 
-  const datos = interes.getDataRange().getValues();
+  const lastCol = interes.getLastColumn();
+  const lastRow = interes.getLastRow();
+  const datos = interes.getRange(1, 1, lastRow, lastCol).getValues();
   const headers = datos[0];
 
+  // Crear encabezado en Histórico 2025 si no existe
   if (historico.getLastRow() === 0) {
     historico.getRange(1, 1, 1, headers.length).setValues([headers])
       .setBackground('#37474f').setFontColor('white').setFontWeight('bold');
   }
 
-  const filasA2025 = [];
-  const filasRestantes = [headers];
-
+  // Identificar filas del 2025
+  const filas2025 = [];
   for (let i = 1; i < datos.length; i++) {
     const fila = datos[i];
-    const nombreE = fila[4];
-    if (!nombreE) continue;
+    if (!fila[4]) continue;
     const fechaVal = fila[0];
     let es2025 = false;
     if (fechaVal instanceof Date && !isNaN(fechaVal)) {
@@ -15232,26 +15233,29 @@ function separarDatos2025AB() {
     } else if (typeof fechaVal === 'string') {
       es2025 = fechaVal.includes('2025');
     }
-    if (es2025) {
-      filasA2025.push(fila);
-    } else {
-      filasRestantes.push(fila);
-    }
+    if (es2025) filas2025.push({ filaHoja: i + 1, valores: fila });
   }
 
-  if (filasA2025.length === 0) {
+  if (filas2025.length === 0) {
     ui.alert('No se encontraron registros del año 2025.');
     return;
   }
 
+  // Copiar datos del 2025 al Histórico
   const ultimaHistorico = Math.max(historico.getLastRow(), 1) + 1;
-  historico.getRange(ultimaHistorico, 1, filasA2025.length, headers.length).setValues(filasA2025);
+  historico.getRange(ultimaHistorico, 1, filas2025.length, headers.length)
+    .setValues(filas2025.map(r => r.valores));
 
-  interes.clearContents();
-  interes.getRange(1, 1, filasRestantes.length, headers.length).setValues(filasRestantes);
-  interes.getRange(1, 1, 1, headers.length).setBackground('#1565c0').setFontColor('white').setFontWeight('bold');
+  // Eliminar filas del 2025 de abajo hacia arriba para preservar índices y colores del 2026
+  const indicesAEliminar = filas2025.map(r => r.filaHoja).sort((a, b) => b - a);
+  indicesAEliminar.forEach(idx => interes.deleteRow(idx));
 
-  ui.alert('✅ Listo', filasA2025.length + ' registros del 2025 movidos a "Histórico 2025".\n' + (filasRestantes.length - 1) + ' registros del 2026+ permanecen en Hoja de Interés.', ui.ButtonSet.OK);
+  ui.alert(
+    '✅ Listo',
+    filas2025.length + ' registros del 2025 movidos a "Histórico 2025".\n' +
+    'Los colores de las filas del 2026 se han preservado.',
+    ui.ButtonSet.OK
+  );
 }
 
 /**
