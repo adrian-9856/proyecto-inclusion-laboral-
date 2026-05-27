@@ -260,7 +260,8 @@ function setupMenuAB() {
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
         .addItem('🔧 Reparar Columnas', 'repararColumnasAB')
         .addSeparator()
-        .addItem('🗑️ Migrar: Eliminar Cómo se enteró y Responsable', 'migrarColumnasAB'))
+        .addItem('🗑️ Migrar: Eliminar Cómo se enteró y Responsable', 'migrarColumnasAB')
+        .addItem('↩️ Mover Notas/Comentario a columna U', 'moverNotasAColumnaU_AB'))
       .addSeparator()
 
       .addSubMenu(ui.createMenu('⚙️ Configuración')
@@ -15462,4 +15463,15 @@ function actualizarColumnasYDesplegablesAB() {
     log.join('\n') + '\n\n¡La Hoja de Interés está lista con la nueva estructura!',
     ui.ButtonSet.OK
   );
+}
+
+function moverNotasAColumnaU_AB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Hoja de Interés');
+  if (!sheet) return;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const idx = headers.findIndex(h => h.toString().trim() === 'Notas/Comentario');
+  if (idx < 0) { SpreadsheetApp.getUi().alert('No se encontró la columna Notas/Comentario.'); return; }
+  sheet.moveColumns(sheet.getRange(1, idx + 1), 21);
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Notas/Comentario movida a columna U', 'Listo', 3);
 }

@@ -259,7 +259,8 @@ function setupMenuTech() {
         .addItem('🔧 Reparar Fórmulas', 'repararFormulas')
         .addItem('🔧 Reparar Columnas', 'repararColumnasTech')
         .addSeparator()
-        .addItem('🗑️ Migrar: Eliminar Cómo se enteró y Responsable', 'migrarColumnasTech'))
+        .addItem('🗑️ Migrar: Eliminar Cómo se enteró y Responsable', 'migrarColumnasTech')
+        .addItem('↩️ Mover Notas/Comentario a columna U', 'moverNotasAColumnaU_Tech'))
       .addSeparator()
 
       .addSubMenu(ui.createMenu('⚙️ Configuración')
@@ -15736,4 +15737,15 @@ function actualizarColumnasYDesplegablesTech() {
     log.join('\n') + '\n\n¡La Hoja de Interés está lista con la nueva estructura!',
     ui.ButtonSet.OK
   );
+}
+
+function moverNotasAColumnaU_Tech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Hoja de Interés');
+  if (!sheet) return;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const idx = headers.findIndex(h => h.toString().trim() === 'Notas/Comentario');
+  if (idx < 0) { SpreadsheetApp.getUi().alert('No se encontró la columna Notas/Comentario.'); return; }
+  sheet.moveColumns(sheet.getRange(1, idx + 1), 21); // mover a posición U (col 21)
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Notas/Comentario movida a columna U', 'Listo', 3);
 }
