@@ -4924,6 +4924,8 @@ function actualizarNotasDesdeKoboTech() {
     // === PASO 2: Actualizar registros existentes ===
     const hojaInteres = ss.getSheetByName('Hoja de Interés');
     const datos = hojaInteres.getDataRange().getValues();
+    const hdrsHI = datos[0];
+    const idxNotasHI = hdrsHI.findIndex(h => h.toString().trim() === 'Notas/Comentario');
 
     let actualizados = 0;
     let sinCoincidencia = 0;
@@ -4933,7 +4935,7 @@ function actualizarNotasDesdeKoboTech() {
       const fila = datos[i];
       const creamosId = fila[2] ? fila[2].toString().trim().toUpperCase() : ''; // Columna C
       const dpi = fila[3] ? fila[3].toString().trim() : ''; // Columna D
-      const notasActuales = fila[12] ? fila[12].toString().trim() : ''; // Columna M
+      const notasActuales = idxNotasHI >= 0 && fila[idxNotasHI] ? fila[idxNotasHI].toString().trim() : '';
 
       // Buscar observaciones en Kobo
       let observacionesKobo = '';
@@ -5003,12 +5005,13 @@ function limpiarTodasLasNotasTech() {
 
     const hojaInteres = ss.getSheetByName('Hoja de Interés');
     const datos = hojaInteres.getDataRange().getValues();
+    const idxNotasLimp = datos[0].findIndex(h => h.toString().trim() === 'Notas/Comentario');
 
     let notasLimpiadas = 0;
 
     // Empezar desde fila 2 (índice 1) para omitir encabezados
     for (let i = 1; i < datos.length; i++) {
-      const notasActuales = datos[i][12] ? datos[i][12].toString().trim() : ''; // Columna M
+      const notasActuales = idxNotasLimp >= 0 && datos[i][idxNotasLimp] ? datos[i][idxNotasLimp].toString().trim() : '';
 
       if (notasActuales !== '') {
         const hdrsNotasLookup2 = hojaInteres.getRange(1, 1, 1, hojaInteres.getLastColumn()).getValues()[0];
@@ -5140,6 +5143,7 @@ function actualizarNotasPorFiltroTech(filtro) {
     // === PASO 2: Actualizar registros existentes con filtro ===
     const hojaInteres = ss.getSheetByName('Hoja de Interés');
     const datos = hojaInteres.getDataRange().getValues();
+    const idxNotasFiltro = datos[0].findIndex(h => h.toString().trim() === 'Notas/Comentario');
 
     let actualizados = 0;
     let sinCoincidencia = 0;
@@ -5151,7 +5155,7 @@ function actualizarNotasPorFiltroTech(filtro) {
       const fechaRegistro = fila[0]; // Columna A - Fecha de Registro
       const creamosId = fila[2] ? fila[2].toString().trim().toUpperCase() : ''; // Columna C
       const dpi = fila[3] ? fila[3].toString().trim() : ''; // Columna D
-      const notasActuales = fila[12] ? fila[12].toString().trim() : ''; // Columna M
+      const notasActuales = idxNotasFiltro >= 0 && fila[idxNotasFiltro] ? fila[idxNotasFiltro].toString().trim() : '';
 
       // Aplicar filtro por fecha
       let cumpleFiltro = false;
