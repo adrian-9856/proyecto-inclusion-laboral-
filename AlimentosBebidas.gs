@@ -4692,7 +4692,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       // Verificar duplicados por CreamosID, DPI o Nombre (como último recurso)
       const esDuplicadoId = creamosId && idsExistentes.has(creamosId.toUpperCase());
       const esDuplicadoDpi = dpi && dpisExistentes.has(dpi);
-      const esDuplicadoNombre = !creamosId && !dpi && nombreCompleto && nombresExistentes.has(nombreCompleto.toLowerCase());
+      const esDuplicadoNombre = nombreCompleto && nombresExistentes.has(nombreCompleto.toLowerCase());
       if (esDuplicadoId || esDuplicadoDpi || esDuplicadoNombre) {
         omitidosDuplicados++;
         continue;
