@@ -15852,6 +15852,13 @@ function aplicarMejoras2026AB() {
       } catch(eSheet) { /* skip hojas problemáticas */ }
     }
     if (totalCambios === 0) log.push('ℹ Géneros: todos ya estaban normalizados');
+
+    // Actualizar desplegables de Género con los valores nuevos
+    try {
+      configurarValidaciones();
+      log.push('✓ Desplegables de Género actualizados con valores normalizados');
+    } catch(eVal) { log.push('⚠️ No se pudieron actualizar desplegables: ' + eVal.message); }
+
   } catch(e) { errores.push('✗ Paso 4: ' + e.message); }
 
   // ── Paso 5: Renombrar pestaña "Inscritx" → "Pre-Inscritxs" y migrar datos ──
