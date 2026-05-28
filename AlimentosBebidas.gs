@@ -182,8 +182,40 @@ const CONFIG_AB = {
 
   // ID del Google Sheets de Tecnología (para traslados entre programas)
   // Se encuentra en la URL: docs.google.com/spreadsheets/d/[ESTE_ID]/edit
-  ID_SPREADSHEET_TECH: '1En60zjrwPTrSMFrLUWr2KgXmH7y3vcopfpQgy6lY3HU'
+  ID_SPREADSHEET_TECH: '1En60zjrwPTrSMFrLUWr2KgXmH7y3vcopfpQgy6lY3HU',
+
+  COLORES_ESTADO: {
+    'Seleccionada/o':                   '#c8e6c9',
+    'Entrevista agendada':              '#e3f2fd',
+    'Reprogramada':                     '#fff9c4',
+    'No interesada/o':                  '#ffcdd2',
+    'No seleccionada/o':                '#ffcdd2',
+    'No asistió':                       '#ffcdd2',
+    'Próxima cohorte Programación':     '#ffe0b2',
+    'Próxima cohorte Alfa Digital':     '#ffe0b2',
+    'Derivar a Paso a Paso':            '#ede7f6',
+    'Derivación a Programas':           '#c5cae9',
+    'Enviar a A y B':                   '#d7ccc8',
+    'Enviar a Tecnología':              '#d7ccc8',
+    'Inscritx':                         '#c8e6c9',
+    'Graduadx':                         '#a5d6a7',
+    'Retiradx':                         '#ffcdd2'
+  }
 };
+
+// =====================================================================
+// COLOR DE ESTADO
+// =====================================================================
+
+function aplicarColorEstadoFila(sheet, fila, estado) {
+  const color = CONFIG_AB.COLORES_ESTADO[estado] || null;
+  const numCols = sheet.getLastColumn();
+  if (numCols < 1) return;
+  const rango = sheet.getRange(fila, 1, 1, numCols);
+  if (color) {
+    rango.setBackground(color);
+  }
+}
 
 // =====================================================================
 // MENÚ PRINCIPAL
@@ -1862,6 +1894,7 @@ function alEditarAB(e) {
 
     // Estado en Hoja de Interés
     if (headerHI === 'Estado') {
+      aplicarColorEstadoFila(sheet, fila, val);
       if (val === 'Reprogramada') {
         manejarReprogramadaEnHojaInteres(sheet, fila);
         return;
@@ -1896,6 +1929,7 @@ function alEditarAB(e) {
   if (hoja === 'Entrevistas') {
     const headerEditado = sheet.getRange(1, columna).getValue();
     if (headerEditado === 'Estado') {
+      aplicarColorEstadoFila(sheet, fila, val);
       if (val === 'Derivación a Programas' || val === '🔗 Abrir Formulario') {
         abrirFormularioKobo(sheet, fila, columna);
         return;
@@ -15463,6 +15497,98 @@ function actualizarColumnasYDesplegablesAB() {
     log.join('\n') + '\n\n¡La Hoja de Interés está lista con la nueva estructura!',
     ui.ButtonSet.OK
   );
+}
+
+function aplicarColoresATodosLosEstadosAB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx'];
+  let total = 0;
+  hojas.forEach(nombre => {
+    const sheet = ss.getSheetByName(nombre);
+    if (!sheet) return;
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return;
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const idxEstado = headers.findIndex(h => h.toString().trim() === 'Estado');
+    if (idxEstado < 0) return;
+    const estados = sheet.getRange(2, idxEstado + 1, lastRow - 1, 1).getValues();
+    estados.forEach((row, i) => {
+      const estado = row[0] ? row[0].toString().trim() : '';
+      if (estado) {
+        aplicarColorEstadoFila(sheet, i + 2, estado);
+        total++;
+      }
+    });
+  });
+  ss.toast('✅ Colores aplicados a ' + total + ' filas', 'Colores', 4);
+}
+
+function crearGuiaColoresAB() {
+  _crearGuiaColores(SpreadsheetApp.getActiveSpreadsheet());
+}
+
+function _crearGuiaColores(ss) {
+  let guia = ss.getSheetByName('🎨 Guía de Colores');
+  if (guia) ss.deleteSheet(guia);
+  guia = ss.insertSheet('🎨 Guía de Colores');
+
+  const guiaData = [
+    ['#c8e6c9', 'Seleccionada/o',                 'Aprobado — avanza al siguiente paso',          'Entrevistas / Inscritx'],
+    ['#e3f2fd', 'Entrevista agendada',             'Prospecto activo — pendiente de contacto',     'Hoja de Interés'],
+    ['#fff9c4', 'Reprogramada',                    'Pendiente — requiere atención o seguimiento',  'Hoja de Interés / Entrevistas'],
+    ['#ffcdd2', 'No interesada/o · No asistió · No seleccionada/o', 'Inactivo — no continúa', 'Todas'],
+    ['#ffe0b2', 'Próxima cohorte',                 'En espera — continúa en siguiente grupo',      'Entrevistas'],
+    ['#ede7f6', 'Derivar a Paso a Paso',           'Canal alternativo — derivado a otro programa', 'Todas'],
+    ['#c5cae9', 'Derivación a Programas',          'Referido institucional — derivado a formación','Todas'],
+    ['#d7ccc8', 'Enviar a A y B / Enviar a Tech',  'Área gastronómica / tecnología cruzada',       'Todas'],
+    ['#a5d6a7', 'Graduadx',                        'Completó el programa exitosamente',            'Cohortes'],
+  ];
+
+  // Header row
+  guia.getRange(1, 1, 1, 4).setValues([['Color', 'Estado', 'Significado', 'Hoja']])
+    .setBackground('#263238').setFontColor('white').setFontWeight('bold')
+    .setHorizontalAlignment('center').setFontSize(11);
+  guia.setRowHeight(1, 36);
+
+  // Title above header
+  guia.insertRowBefore(1);
+  guia.getRange(1, 1, 1, 4).merge()
+    .setValue('🎨 Guía de Colores — Sistema de Inclusión Laboral')
+    .setBackground('#1565c0').setFontColor('white').setFontWeight('bold')
+    .setFontSize(13).setHorizontalAlignment('center').setVerticalAlignment('middle');
+  guia.setRowHeight(1, 48);
+
+  // Data rows (start at row 3 now)
+  guiaData.forEach((row, i) => {
+    const fila = i + 3;
+    guia.setRowHeight(fila, 40);
+    guia.getRange(fila, 1).setBackground(row[0]).setValue('');
+    guia.getRange(fila, 2).setValue(row[1]).setBackground(row[0]).setFontWeight('bold').setVerticalAlignment('middle');
+    guia.getRange(fila, 3).setValue(row[2]).setBackground(row[0]).setVerticalAlignment('middle');
+    guia.getRange(fila, 4).setValue(row[3]).setBackground(row[0])
+      .setFontColor('#555555').setVerticalAlignment('middle').setFontStyle('italic');
+    guia.getRange(fila, 1, 1, 4).setBorder(true, true, true, true, false, false, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
+  });
+
+  // Column widths
+  guia.setColumnWidth(1, 60);
+  guia.setColumnWidth(2, 220);
+  guia.setColumnWidth(3, 320);
+  guia.setColumnWidth(4, 180);
+
+  // Freeze header rows
+  guia.setFrozenRows(2);
+
+  // Note at bottom
+  const ultimaFila = guiaData.length + 4;
+  guia.getRange(ultimaFila, 1, 1, 4).merge()
+    .setValue('💡 Los colores se aplican automáticamente al cambiar el Estado en cualquier hoja.')
+    .setBackground('#f5f5f5').setFontColor('#757575').setFontStyle('italic')
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  guia.setRowHeight(ultimaFila, 36);
+
+  ss.setActiveSheet(guia);
+  ss.toast('✅ Guía de colores creada', 'Listo', 3);
 }
 
 function moverNotasAColumnaU_AB() {
