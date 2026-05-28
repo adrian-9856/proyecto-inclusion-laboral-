@@ -1884,6 +1884,10 @@ function alEditarTech(e) {
 
   const sheet = e.range.getSheet();
   const hoja = sheet.getName();
+
+  // Hojas de solo lectura — no aplicar ninguna lógica automática
+  if (hoja === 'Histórico 2025' || hoja === '🎨 Guía de Colores') return;
+
   const fila = e.range.getRow();
   const columna = e.range.getColumn();
   const valor = e.range.getValue();
