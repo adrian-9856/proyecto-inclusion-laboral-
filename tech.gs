@@ -197,7 +197,7 @@ const CONFIG_TECH = {
     'Derivación a Programas':           '#c5cae9',
     'Enviar a A y B':                   '#d7ccc8',
     'Enviar a Tecnología':              '#d7ccc8',
-    'Inscritx':                         '#c8e6c9',
+    'Pre-Inscritxs':                    '#c8e6c9',
     'Graduadx':                         '#a5d6a7',
     'Retiradx':                         '#ffcdd2'
   }
@@ -2559,7 +2559,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       'Nivel Educativo': getVal('Nivel Educativo'),
       'Zona': getVal('Zona'),
       'Notas': notaFinal,
-      'Estado': 'Inscritx'
+      'Estado': 'Pre-Inscritxs'
     };
 
     // Llenar el registro usando el mapa de destino (también robusto)
@@ -2998,7 +2998,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
       'Nivel Educativo': normalizarNivelEducativo(datosInteres ? datosInteres[8] : ''),
       'Zona': datosInteres ? datosInteres[9] : '',
       'Notas': 'Reingreso desde No Inscritx - ' + notas,
-      'Estado': 'Inscritx'
+      'Estado': 'Pre-Inscritxs'
     };
 
     const numColsInsc = seleccionadas.getLastColumn();
@@ -3059,7 +3059,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
     normalizarNivelEducativo(nivelEducativo),
     zona || '',       // Zona
     'Reingreso desde Deserción (' + cohorteAnterior + ') - ' + notas,
-    'Inscritx',       // Estado
+    'Pre-Inscritxs',  // Estado
     ''                // Enviar a Cohorte
   ];
 
@@ -7407,7 +7407,7 @@ function enviarParticipantesACohorteTech() {
         '',                  // Nivel Educativo - VACÍO (no sobrescribir)
         '',                  // Zona - VACÍO (no sobrescribir)
         p.datos[8] || '',    // Notas
-        'Inscritx',          // Estado (automático)
+        'Pre-Inscritxs',     // Estado (automático)
         ''                   // Enviar a Cohorte (vacío)
       ];
     } else {
@@ -7423,7 +7423,7 @@ function enviarParticipantesACohorteTech() {
         datosInteres ? datosInteres.datos[8] : '',   // Nivel Educativo
         datosInteres ? datosInteres.datos[9] : '',   // Zona
         p.datos[8] || '',                            // Notas
-        'Inscritx',                                  // Estado (automático)
+        'Pre-Inscritxs',                             // Estado (automático)
         ''                                           // Enviar a Cohorte (vacío)
       ];
     }
@@ -15285,7 +15285,7 @@ function actualizarPowerBIExport() {
       let estado = 'Interesada';
       if (rGrad)       estado = 'Graduadx';
       else if (rRet)   estado = 'Retiradx';
-      else if (rInsc)  estado = 'Inscritx';
+      else if (rInsc)  estado = 'Pre-Inscritxs';
       else if (rEnt)   estado = resultEnt || 'En Entrevista';
 
       filas.push([
@@ -15975,10 +15975,11 @@ function aplicarMejoras2026Tech() {
     '🔧 Aplicar Mejoras 2026',
     'Esta acción aplicará los siguientes cambios:\n\n' +
     '1️⃣ Renombrar "Inscritas" → "Pre-Inscritxs" en Cohortes\n' +
-    '2️⃣ Corregir fórmulas: Pre-Inscritxs ya no irá a 0 al graduarse la cohorte\n' +
+    '2️⃣ Corregir fórmulas: Pre-Inscritxs ya no irá a 0 al graduarse\n' +
     '3️⃣ Rellenar Fecha Envío faltante en hoja Inscritx\n' +
     '4️⃣ Normalizar valores de Género en todas las hojas\n' +
-    '   (Ej: "Mujer / Femenino" → "Mujer")\n\n' +
+    '   (Ej: "Mujer / Femenino" → "Mujer")\n' +
+    '5️⃣ Actualizar estado "Inscritx" → "Pre-Inscritxs" en hoja Inscritx\n\n' +
     '⚠️ Los datos existentes NO se borran.\n¿Continuar?',
     ui.ButtonSet.YES_NO
   );
@@ -16128,6 +16129,31 @@ function aplicarMejoras2026Tech() {
     }
     if (totalCambios === 0) log.push('ℹ Géneros: todos ya estaban normalizados');
   } catch(e) { errores.push('✗ Paso 4: ' + e.message); }
+
+  // ── Paso 5: Renombrar estado "Inscritx" → "Pre-Inscritxs" en hoja Inscritx ──
+  ss.toast('Paso 5/5: Actualizando estado en Inscritx...', 'Mejoras 2026', 10);
+  try {
+    const inscritx = ss.getSheetByName('Inscritx');
+    if (inscritx) {
+      const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const norm = h => quitarTildes((h || '').toString().toLowerCase()).replace(/[^a-z0-9]/g, '');
+      const lastRow = inscritx.getLastRow();
+      const hdrs = inscritx.getRange(1, 1, 1, inscritx.getLastColumn()).getValues()[0];
+      const colEstado = hdrs.findIndex(h => norm(h) === 'estado');
+      if (colEstado >= 0 && lastRow > 1) {
+        const datos = inscritx.getRange(2, colEstado + 1, lastRow - 1, 1).getValues();
+        let actualizados = 0;
+        const nuevos = datos.map(r => {
+          if ((r[0] || '').toString().trim() === 'Inscritx') { actualizados++; return ['Pre-Inscritxs']; }
+          return [r[0]];
+        });
+        inscritx.getRange(2, colEstado + 1, lastRow - 1, 1).setValues(nuevos);
+        log.push('✓ Inscritx: ' + actualizados + ' estados "Inscritx" → "Pre-Inscritxs"');
+      } else {
+        log.push('ℹ No se encontró columna Estado en Inscritx');
+      }
+    }
+  } catch(e) { errores.push('✗ Paso 5: ' + e.message); }
 
   // ── Resultado ─────────────────────────────────────────────────────────
   SpreadsheetApp.flush();
