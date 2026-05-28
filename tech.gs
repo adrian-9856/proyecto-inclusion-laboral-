@@ -15522,7 +15522,9 @@ function separarDatos2025Tech() {
 
   const lastCol = interes.getLastColumn();
   const lastRow = interes.getLastRow();
-  const datos = interes.getRange(1, 1, lastRow, lastCol).getValues();
+  const rango = interes.getRange(1, 1, lastRow, lastCol);
+  const datos   = rango.getValues();
+  const colores = rango.getBackgrounds();
   const headers = datos[0];
 
   // Crear encabezado en Histórico 2025 si no existe
@@ -15531,11 +15533,11 @@ function separarDatos2025Tech() {
       .setBackground('#37474f').setFontColor('white').setFontWeight('bold');
   }
 
-  // Identificar filas del 2025 (guardamos índice de fila real en la hoja, base 1)
+  // Identificar filas del 2025 — guardar valores Y colores
   const filas2025 = [];
   for (let i = 1; i < datos.length; i++) {
     const fila = datos[i];
-    if (!fila[4]) continue; // sin nombre, saltar
+    if (!fila[4]) continue;
     const fechaVal = fila[0];
     let es2025 = false;
     if (fechaVal instanceof Date && !isNaN(fechaVal)) {
@@ -15543,7 +15545,7 @@ function separarDatos2025Tech() {
     } else if (typeof fechaVal === 'string') {
       es2025 = fechaVal.includes('2025');
     }
-    if (es2025) filas2025.push({ filaHoja: i + 1, valores: fila }); // i+1 porque fila 1 = encabezado
+    if (es2025) filas2025.push({ filaHoja: i + 1, valores: fila, coloresFila: colores[i] });
   }
 
   if (filas2025.length === 0) {
@@ -15551,19 +15553,20 @@ function separarDatos2025Tech() {
     return;
   }
 
-  // Copiar datos del 2025 al Histórico
+  // Copiar datos Y colores del 2025 al Histórico
   const ultimaHistorico = Math.max(historico.getLastRow(), 1) + 1;
   historico.getRange(ultimaHistorico, 1, filas2025.length, headers.length)
-    .setValues(filas2025.map(r => r.valores));
+    .setValues(filas2025.map(r => r.valores))
+    .setBackgrounds(filas2025.map(r => r.coloresFila));
 
-  // Eliminar filas del 2025 de abajo hacia arriba para preservar índices y colores del 2026
+  // Eliminar filas del 2025 de abajo hacia arriba — preserva índices y colores del 2026
   const indicesAEliminar = filas2025.map(r => r.filaHoja).sort((a, b) => b - a);
   indicesAEliminar.forEach(idx => interes.deleteRow(idx));
 
   ui.alert(
     '✅ Listo',
     filas2025.length + ' registros del 2025 movidos a "Histórico 2025".\n' +
-    'Los colores de las filas del 2026 se han preservado.',
+    'Los colores se preservaron en ambas hojas.',
     ui.ButtonSet.OK
   );
 }
