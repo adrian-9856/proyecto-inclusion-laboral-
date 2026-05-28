@@ -655,7 +655,7 @@ function verificarInstalacion() {
   let mensaje = '📋 VERIFICACIÓN DEL SISTEMA\n\n';
 
   const hojasRequeridas = [
-    'Hoja de Interés', 'Entrevistas', 'Inscritx',
+    'Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs',
     'Cohortes', 'Graduadx', 'Retiradx',
     'No Inscritx', 'Lista Definitiva', 'Reporte', 'Reportes Mensuales'
   ];
@@ -762,7 +762,7 @@ function diagnosticarCamposNivelYZona() {
   }
 
   // Verificar Inscritx
-  const inscritx = ss.getSheetByName('Inscritx');
+  const inscritx = ss.getSheetByName('Pre-Inscritxs');
   if (inscritx) {
     const headers = inscritx.getRange(1, 1, 1, 12).getValues()[0];
     const tieneNivel = headers[7] === 'Nivel Educativo';
@@ -1148,8 +1148,8 @@ function crearHojaDetalleEntrevistasUnificada() {
  */
 function crearHojaInscritx() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss.getSheetByName('Inscritx')) return;
-  const sheet = ss.insertSheet('Inscritx');
+  if (ss.getSheetByName('Pre-Inscritxs')) return;
+  const sheet = ss.insertSheet('Pre-Inscritxs');
 
   const headers = [
     'No.',              // A
@@ -1458,7 +1458,7 @@ function crearHojaReporte() {
     ['', '', '', ''],                                                                           // 9
 
     ['SELECCIONADAS', 'Total', '', ''],                                                         // 10
-    ['Personas pendientes de asignar cohorte', '=IFERROR(COUNTA(Inscritx!D:D)-1,0)', '', ''], // 11
+    ['Personas pendientes de asignar cohorte', '=IFERROR(COUNTA(\'Pre-Inscritxs\'!D:D)-1,0)', '', ''], // 11
     ['', '', '', ''],                                                                           // 12
 
     ['PARTICIPANTES POR COHORTE', 'Ver hoja Cohortes', '', ''],                                 // 13
@@ -1656,7 +1656,7 @@ function configurarValidaciones() {
   }
 
   // === HOJA DE SELECCIONADAS (Inscritx) ===
-  const seleccionadas = ss.getSheetByName('Inscritx');
+  const seleccionadas = ss.getSheetByName('Pre-Inscritxs');
   if (seleccionadas) {
     const hdrsIns = seleccionadas.getRange(1, 1, 1, seleccionadas.getLastColumn()).getValues()[0];
 
@@ -1750,7 +1750,7 @@ function configurarValidaciones() {
     );
     // Origen (I)
     noInscritx.getRange('I2:I500').setDataValidation(
-      SpreadsheetApp.newDataValidation().requireValueInList(['Hoja de Interés', 'Entrevistas', 'Inscritx']).setAllowInvalid(false).build()
+      SpreadsheetApp.newDataValidation().requireValueInList(['Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs']).setAllowInvalid(false).build()
     );
     // Acción (K) - Opciones para reenviar según origen
     noInscritx.getRange('K2:K500').setDataValidation(
@@ -1986,7 +1986,7 @@ function alEditarTech(e) {
   }
 
   // === INSCRITX ===
-  if (hoja === 'Inscritx') {
+  if (hoja === 'Pre-Inscritxs') {
     const headerInsc = sheet.getRange(1, columna).getValue().toString().trim();
     if (headerInsc === 'Enviar a Cohorte' && val !== '') {
       procesarEnvioACohorte(sheet, fila, val);
@@ -2030,7 +2030,7 @@ function alEditarTech(e) {
   }
 
   // === HOJAS DE COHORTES INDIVIDUALES ===
-  const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
+  const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs', 'Cohortes',
                             'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte', 'Reportes Mensuales',
                             'Lista Definitiva', 'Detalle Entrevistas', 'Referencias IL', 'Referencias de Programas'];
   if (!hojasPrincipales.includes(hoja)) {
@@ -2513,7 +2513,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     const filaInteres = busqueda ? busqueda.fila : null;
 
     // Mover a Inscritx
-    const seleccionadas = ss.getSheetByName('Inscritx');
+    const seleccionadas = ss.getSheetByName('Pre-Inscritxs');
     const colMapInscritx = obtenerMapaColumnas(seleccionadas);
 
     // ✅ DEDUP: Verificar si ya existe en Inscritx antes de escribir
@@ -2979,7 +2979,7 @@ function procesarReenvioDesdeNoInscritx(sheet, fila, accion) {
   }
 
   if (accion === 'Reenviar a Inscritx') {
-    const seleccionadas = ss.getSheetByName('Inscritx');
+    const seleccionadas = ss.getSheetByName('Pre-Inscritxs');
     const colMapInscritx = obtenerMapaColumnas(seleccionadas);
     const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, ['B', 'D']);  // Columnas B=CreamosID y D=Nombre (evita sobrescritura en ambos casos)
 
@@ -3044,7 +3044,7 @@ function procesarReenvioDesdeRetiradx(sheet, fila) {
   const cohorteAnterior = datos[9];
   const notas = datos[11];
 
-  const seleccionadas = ss.getSheetByName('Inscritx');
+  const seleccionadas = ss.getSheetByName('Pre-Inscritxs');
   const nuevaFila = obtenerPrimeraFilaVacia(seleccionadas, ['B', 'D']);  // Columnas B=CreamosID y D=Nombre (evita sobrescritura en ambos casos)
 
   // Columnas: No, CreamosID, DPI, Nombre, Género, Edad, Tel, NivelEdu, Zona, Notas, Estado, EnviarACohorte
@@ -3921,7 +3921,7 @@ function instalarV4() {
     cambios.push('✅ Fórmulas de Cohortes corregidas');
 
     // 5. Aplicar formato a todas las hojas de cohorte actuales
-    const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
+    const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs', 'Cohortes',
                               'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte',
                               'Reportes Mensuales', 'Lista Definitiva', 'Detalle Entrevistas'];
     let cohortesFormateadas = 0;
@@ -7328,7 +7328,7 @@ function enviarParticipantesACohorteTech() {
   const entrevistas = ss.getSheetByName('Entrevistas');
   const datosEntrevistas = entrevistas.getDataRange().getValues();
 
-  const seleccionadas = ss.getSheetByName('Inscritx');
+  const seleccionadas = ss.getSheetByName('Pre-Inscritxs');
   const datosInscritx = seleccionadas.getDataRange().getValues();
 
   const idsSeleccionados = new Set();
@@ -7607,7 +7607,7 @@ function redisenarReporteTech() {
 
   // Detectar columna de "Fecha envío a Inscritx" dinámicamente
   let inscFechaCol = 'A';
-  const inscSheet = ss.getSheetByName('Inscritx');
+  const inscSheet = ss.getSheetByName('Pre-Inscritxs');
   if (inscSheet && inscSheet.getLastColumn() > 0) {
     const inscHdrs = inscSheet.getRange(1, 1, 1, inscSheet.getLastColumn()).getValues()[0];
     const idx = inscHdrs.findIndex(h => {
@@ -7628,8 +7628,8 @@ function redisenarReporteTech() {
     interesMes   : '=IFERROR(COUNTIFS(\'Hoja de Interés\'!A:A,' + monthStart + ',\'Hoja de Interés\'!A:A,' + monthEnd + '),0)',
     entrevTotal  : '=IFERROR(COUNTA(Entrevistas!D:D)-1,0)',
     entrevMes    : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!A:A,"<>"),0)',
-    inscMes      : '=IFERROR(COUNTIFS(Inscritx!' + inscFechaCol + ':' + inscFechaCol + ',' + monthStart + ',Inscritx!' + inscFechaCol + ':' + inscFechaCol + ',' + monthEnd + '),0)',
-    inscTotal    : '=IFERROR(MAX(COUNTA(Inscritx!B:B)-1,SUM(IFERROR(VALUE(Cohortes!H2:H),0))),0)',
+    inscMes      : '=IFERROR(COUNTIFS(\'Pre-Inscritxs\'!' + inscFechaCol + ':' + inscFechaCol + ',' + monthStart + ',\'Pre-Inscritxs\'!' + inscFechaCol + ':' + inscFechaCol + ',' + monthEnd + '),0)',
+    inscTotal    : '=IFERROR(MAX(COUNTA(\'Pre-Inscritxs\'!B:B)-1,SUM(IFERROR(VALUE(Cohortes!H2:H),0))),0)',
     gradTotal    : '=IFERROR(COUNTA(Graduadx!D:D)-1,0)',
     gradMes      : '=IFERROR(COUNTIFS(Graduadx!A:A,' + monthStart + ',Graduadx!A:A,' + monthEnd + '),0)',
     desTotal     : '=IFERROR(COUNTA(Retiradx!D:D)-1,0)',
@@ -7643,7 +7643,7 @@ function redisenarReporteTech() {
     derivMes     : '=IFERROR(COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!O:O,"Derivar a Paso a Paso")+COUNTIFS(Entrevistas!A:A,' + monthStart + ',Entrevistas!A:A,' + monthEnd + ',Entrevistas!N:N,"Derivar a Paso a Paso"),0)',
     cohActivas   : '=IFERROR(COUNTIF(Cohortes!N:N,"Activa"),0)',
     tasaExito    : '=IFERROR(IF((B22+B25)>0,ROUND(B22/(B22+B25)*100,1)&"%","0%"),"0%")',
-    totalAtend   : '=IFERROR(COUNTA(UNIQUE(FILTER({\'Hoja de Interés\'!B2:B;Entrevistas!B2:B;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B},{\'Hoja de Interés\'!B2:B;Entrevistas!B2:B;Inscritx!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B}<>""))),0)'
+    totalAtend   : '=IFERROR(COUNTA(UNIQUE(FILTER({\'Hoja de Interés\'!B2:B;Entrevistas!B2:B;\'Pre-Inscritxs\'!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B},{\'Hoja de Interés\'!B2:B;Entrevistas!B2:B;\'Pre-Inscritxs\'!B2:B;Graduadx!B2:B;Retiradx!B2:B;\'No Inscritx\'!B2:B}<>""))),0)'
   };
 
   sheet.getRange('A1:F1').merge()
@@ -7790,7 +7790,7 @@ function asegurarColumnaFechaEnvioInscritxTech() {
 function rellenarFechasInscritxFaltantesTech() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
-  const sheet = ss.getSheetByName('Inscritx');
+  const sheet = ss.getSheetByName('Pre-Inscritxs');
   if (!sheet) { ui.alert('❌', 'No existe la hoja Inscritx', ui.ButtonSet.OK); return; }
 
   const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -7909,7 +7909,7 @@ function verEstadoTriggers() {
 
 function repararColumnaFechaInscritxTech() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Inscritx');
+  const sheet = ss.getSheetByName('Pre-Inscritxs');
   const ui = SpreadsheetApp.getUi();
   if (!sheet) { ui.alert('❌', 'No existe la hoja Inscritx', ui.ButtonSet.OK); return; }
 
@@ -8418,7 +8418,7 @@ function guardarReporteMensualTech_(fechaRef) {
 
     const hojaInteres     = ss.getSheetByName('Hoja de Interés');
     const hojaEntrevistas = ss.getSheetByName('Entrevistas');
-    const hojaInscritx    = ss.getSheetByName('Inscritx');
+    const hojaInscritx    = ss.getSheetByName('Pre-Inscritxs');
     const hojaGraduadx    = ss.getSheetByName('Graduadx');
     const hojaRetiradx    = ss.getSheetByName('Retiradx');
     const hojaCohortes    = ss.getSheetByName('Cohortes');
@@ -8588,7 +8588,7 @@ function repararValidaciones() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.toast('🔧 Reparando...', 'Reparando', 2);
 
-  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes', 'Asistencias', 'Graduadx', 'Retiradx', 'No Inscritx'];
+  const hojas = ['Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs', 'Cohortes', 'Asistencias', 'Graduadx', 'Retiradx', 'No Inscritx'];
   hojas.forEach(nombre => {
     const hoja = ss.getSheetByName(nombre);
     if (hoja) hoja.getRange('A1:Z500').clearDataValidations();
@@ -8684,7 +8684,7 @@ function limpiarTodosLosDatos() {
   const resp = SpreadsheetApp.getUi().alert('⚠️ CONFIRMAR', '¿Eliminar TODOS los datos?', SpreadsheetApp.getUi().ButtonSet.YES_NO);
   if (resp !== SpreadsheetApp.getUi().Button.YES) return;
 
-  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Graduadx', 'Retiradx', 'No Inscritx', 'Reportes Mensuales'];
+  const hojas = ['Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs', 'Graduadx', 'Retiradx', 'No Inscritx', 'Reportes Mensuales'];
   hojas.forEach(nombre => {
     const hoja = ss.getSheetByName(nombre);
     if (hoja && hoja.getLastRow() > 1) {
@@ -8808,7 +8808,7 @@ function desinstalarSistema() {
       'Hoja de Interés',
       'Entrevistas',
       'Detalle Entrevistas',
-      'Inscritx',
+      'Pre-Inscritxs',
       'Cohortes',
       'Graduadx',
       'Retiradx',
@@ -9652,7 +9652,7 @@ function actualizarTodosDesdeDirectorio(silencioso) {
   }
 
   // ── Recorrer todas las hojas relevantes ──
-  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx', 'Retiradx', 'Graduadx', 'Lista Definitiva'];
+  const hojas = ['Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs', 'No Inscritx', 'Retiradx', 'Graduadx', 'Lista Definitiva'];
   let total = 0;
 
   for (const nombreHoja of hojas) {
@@ -9823,7 +9823,7 @@ function diagnosticoAutocompletado() {
  */
 function auditarCreamosIDsTech() {
   _auditarCreamosIDsEnSistema(NOMBRE_HOJA_CREAMOS_ID_TECH,
-    ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'No Inscritx', 'Retiradx', 'Graduadx']);
+    ['Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs', 'No Inscritx', 'Retiradx', 'Graduadx']);
 }
 
 function _auditarCreamosIDsEnSistema(nombreDirectorio, nombresHojas) {
@@ -10720,7 +10720,7 @@ function activarMejorasEntrevistasTech() {
 function activarTrasladosTech() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
-  const inscritx = ss.getSheetByName('Inscritx');
+  const inscritx = ss.getSheetByName('Pre-Inscritxs');
   if (!inscritx) {
     ui.alert('⚠️ Error', 'No se encontró la hoja "Inscritx".', ui.ButtonSet.OK);
     return;
@@ -10925,7 +10925,7 @@ function instalarTodo() {
     cambios.push('✅ Fórmulas instaladas y reparadas');
 
     // 7. Formato en hojas de cohorte existentes
-    const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
+    const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs', 'Cohortes',
       'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte',
       'Reportes Mensuales', 'Lista Definitiva', 'Detalle Entrevistas', 'Guía de Uso'];
     let cohortesFormateadas = 0;
@@ -11035,7 +11035,7 @@ function crearHojaGuiaUso() {
     // 21-33 — Hojas
     ['Hoja de Interés',          'Personas que se registraron y aún no han tenido entrevista. Primera etapa del flujo.'],
     ['Entrevistas',              'Personas con entrevista programada, pendientes de resultado. Segunda etapa.'],
-    ['Inscritx',            'Personas aprobadas en entrevista, esperando ser asignadas a una cohorte. Tercera etapa.'],
+    ['Pre-Inscritxs',            'Personas aprobadas en entrevista, esperando ser asignadas a una cohorte. Tercera etapa.'],
     ['Cohortes',                 'Tabla resumen de todas las cohortes: nombre, programa, fechas, estadísticas automáticas.'],
     ['[Nombre de Cohorte]',      'Hoja individual por cohorte con la lista de participantes activas. Se crea al crear la cohorte.'],
     ['Graduadx',                'Registro histórico de todas las personas que completaron el programa.'],
@@ -11287,7 +11287,7 @@ function reconstruirHistoricoCompleto() {
     }
   }
 
-  const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Inscritx', 'Cohortes',
+  const hojasPrincipales = ['Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs', 'Cohortes',
                             'Graduadx', 'Retiradx', 'No Inscritx', 'Reporte',
                             'Reportes Mensuales', 'Lista Definitiva', 'Detalle Entrevistas',
                             'Guía de Uso'];
@@ -11609,7 +11609,7 @@ function diagnosticoDetalladoTransferencia() {
   mensaje += '\n' + '='.repeat(50) + '\n\n';
 
   // === HOJA DE INSCRITX ===
-  const inscritx = ss.getSheetByName('Inscritx');
+  const inscritx = ss.getSheetByName('Pre-Inscritxs');
   if (inscritx && inscritx.getLastRow() > 1) {
     mensaje += '📄 HOJA: INSCRITX\n';
     mensaje += '─'.repeat(50) + '\n';
@@ -13531,7 +13531,7 @@ function importarEstipendiosDesdeKobo() {
     // Validar Creamos IDs contra Lista Definitiva e Inscritx (una sola lectura)
     const idsValidosTech = new Set();
     let hayValidacionTech = false;
-    ['Lista Definitiva', 'Inscritx'].forEach(function(nombre) {
+    ['Lista Definitiva', 'Pre-Inscritxs'].forEach(function(nombre) {
       const h = ss.getSheetByName(nombre);
       if (!h || h.getLastRow() <= 1) return;
       hayValidacionTech = true;
@@ -15224,7 +15224,7 @@ function actualizarPowerBIExport() {
 
     const dInt  = get('Hoja de Interés');
     const dEnt  = get('Entrevistas');
-    const dInsc = get('Inscritx');
+    const dInsc = get('Pre-Inscritxs');
     const dGrad = get('Graduadx');
     const dRet  = get('Retiradx');
 
@@ -15806,7 +15806,7 @@ function actualizarColumnasYDesplegablesTech() {
 
 function aplicarColoresATodosLosEstadosTech() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hojas = ['Hoja de Interés', 'Entrevistas', 'Inscritx'];
+  const hojas = ['Hoja de Interés', 'Entrevistas', 'Pre-Inscritxs'];
   let total = 0;
   hojas.forEach(nombre => {
     const sheet = ss.getSheetByName(nombre);
@@ -16035,7 +16035,7 @@ function aplicarMejoras2026Tech() {
   // ── Paso 3: Rellenar Fecha Envío faltante en Inscritx ─────────────────
   ss.toast('Paso 3/4: Rellenando fechas faltantes en Inscritx...', 'Mejoras 2026', 10);
   try {
-    const inscritx = ss.getSheetByName('Inscritx');
+    const inscritx = ss.getSheetByName('Pre-Inscritxs');
     if (inscritx) {
       const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
       const norm = h => quitarTildes((h || '').toString().toLowerCase()).replace(/[^a-z0-9]/g, '');
@@ -16130,10 +16130,19 @@ function aplicarMejoras2026Tech() {
     if (totalCambios === 0) log.push('ℹ Géneros: todos ya estaban normalizados');
   } catch(e) { errores.push('✗ Paso 4: ' + e.message); }
 
-  // ── Paso 5: Renombrar estado "Inscritx" → "Pre-Inscritxs" en hoja Inscritx ──
-  ss.toast('Paso 5/5: Actualizando estado en Inscritx...', 'Mejoras 2026', 10);
+  // ── Paso 5: Renombrar pestaña "Inscritx" → "Pre-Inscritxs" y migrar datos ──
+  ss.toast('Paso 5/5: Renombrando pestaña Pre-Inscritxs...', 'Mejoras 2026', 10);
   try {
-    const inscritx = ss.getSheetByName('Inscritx');
+    // Renombrar pestaña (si aún se llama Inscritx)
+    const hojaVieja = ss.getSheetByName('Inscritx');
+    if (hojaVieja) {
+      hojaVieja.setName('Pre-Inscritxs');
+      log.push('✓ Pestaña renombrada: "Inscritx" → "Pre-Inscritxs"');
+    } else if (ss.getSheetByName('Pre-Inscritxs')) {
+      log.push('ℹ Pestaña ya se llama "Pre-Inscritxs"');
+    }
+    // Migrar valor de Estado en la hoja (de 'Inscritx' a 'Pre-Inscritxs')
+    const inscritx = ss.getSheetByName('Pre-Inscritxs');
     if (inscritx) {
       const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
       const norm = h => quitarTildes((h || '').toString().toLowerCase()).replace(/[^a-z0-9]/g, '');
@@ -16148,9 +16157,7 @@ function aplicarMejoras2026Tech() {
           return [r[0]];
         });
         inscritx.getRange(2, colEstado + 1, lastRow - 1, 1).setValues(nuevos);
-        log.push('✓ Inscritx: ' + actualizados + ' estados "Inscritx" → "Pre-Inscritxs"');
-      } else {
-        log.push('ℹ No se encontró columna Estado en Inscritx');
+        if (actualizados > 0) log.push('✓ ' + actualizados + ' estados "Inscritx" → "Pre-Inscritxs"');
       }
     }
   } catch(e) { errores.push('✗ Paso 5: ' + e.message); }
