@@ -293,7 +293,10 @@ function setupMenuAB() {
         .addItem('🔧 Reparar Columnas', 'repararColumnasAB')
         .addSeparator()
         .addItem('🗑️ Migrar: Eliminar Cómo se enteró y Responsable', 'migrarColumnasAB')
-        .addItem('↩️ Mover Notas/Comentario a columna U', 'moverNotasAColumnaU_AB'))
+        .addItem('↩️ Mover Notas/Comentario a columna U', 'moverNotasAColumnaU_AB')
+        .addSeparator()
+        .addItem('🎨 Aplicar colores por Estado (todas las hojas)', 'aplicarColoresATodosLosEstadosAB')
+        .addItem('🎨 Crear / Actualizar Guía de Colores', 'crearGuiaColoresAB'))
       .addSeparator()
 
       .addSubMenu(ui.createMenu('⚙️ Configuración')

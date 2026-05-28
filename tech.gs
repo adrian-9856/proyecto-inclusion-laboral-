@@ -292,7 +292,10 @@ function setupMenuTech() {
         .addItem('🔧 Reparar Columnas', 'repararColumnasTech')
         .addSeparator()
         .addItem('🗑️ Migrar: Eliminar Cómo se enteró y Responsable', 'migrarColumnasTech')
-        .addItem('↩️ Mover Notas/Comentario a columna U', 'moverNotasAColumnaU_Tech'))
+        .addItem('↩️ Mover Notas/Comentario a columna U', 'moverNotasAColumnaU_Tech')
+        .addSeparator()
+        .addItem('🎨 Aplicar colores por Estado (todas las hojas)', 'aplicarColoresATodosLosEstadosTech')
+        .addItem('🎨 Crear / Actualizar Guía de Colores', 'crearGuiaColoresTech'))
       .addSeparator()
 
       .addSubMenu(ui.createMenu('⚙️ Configuración')
