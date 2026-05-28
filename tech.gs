@@ -1357,17 +1357,17 @@ function crearHojaListaDefinitiva() {
   const sheet = ss.insertSheet('Lista Definitiva');
 
   const headers = [
-    'No.',              // A
-    'Fecha Envío',      // B
-    'Creamos ID',       // C
-    'DPI',              // D
-    'Nombre Completo',  // E
-    'Género',           // F
-    'Edad',             // G
-    'Teléfono',         // H
-    'Nivel Educativo',  // I
-    'Zona',             // J
-    'Cohorte'           // K
+    'No.',                    // A
+    'Fecha Envío a Cohorte',  // B
+    'Creamos ID',             // C
+    'DPI',                    // D
+    'Nombre Completo',        // E
+    'Género',                 // F
+    'Edad',                   // G
+    'Teléfono',               // H
+    'Nivel Educativo',        // I
+    'Zona',                   // J
+    'Cohorte'                 // K
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -3241,7 +3241,10 @@ function procesarEnvioACohorte(sheet, fila, cohorteDestino) {
       const numColsDef = listaDefinitiva.getLastColumn();
       const registroDef = new Array(numColsDef).fill('');
 
-      const mappingDef = Object.assign({}, mappingCohorte, {'Cohorte': cohorteDestino});
+      const mappingDef = Object.assign({}, mappingCohorte, {
+        'Cohorte': cohorteDestino,
+        'Fecha Envío a Cohorte': new Date()
+      });
 
       for (let [header, valor] of Object.entries(mappingDef)) {
         const targetIdx = colMapListaDef[header.toLowerCase()];
@@ -16168,6 +16171,27 @@ function aplicarMejoras2026Tech() {
       }
     }
   } catch(e) { errores.push('✗ Paso 5: ' + e.message); }
+
+  // ── Paso 6: Renombrar "Fecha Envío" → "Fecha Envío a Cohorte" en Lista Definitiva ──
+  ss.toast('Paso 6/6: Actualizando Lista Definitiva...', 'Mejoras 2026', 10);
+  try {
+    const listaDef = ss.getSheetByName('Lista Definitiva');
+    if (listaDef) {
+      const hdrs = listaDef.getRange(1, 1, 1, listaDef.getLastColumn()).getValues()[0];
+      const colFecha = hdrs.findIndex(h => h.toString().trim() === 'Fecha Envío' || h.toString().trim() === 'Fecha');
+      if (colFecha >= 0) {
+        listaDef.getRange(1, colFecha + 1).setValue('Fecha Envío a Cohorte');
+        if (listaDef.getLastRow() > 1) {
+          listaDef.getRange(2, colFecha + 1, listaDef.getLastRow() - 1, 1).setNumberFormat('dd/mm/yyyy hh:mm');
+        }
+        log.push('✓ Lista Definitiva: columna renombrada a "Fecha Envío a Cohorte"');
+      } else if (hdrs.some(h => h.toString().trim() === 'Fecha Envío a Cohorte')) {
+        log.push('ℹ Lista Definitiva: columna ya se llama "Fecha Envío a Cohorte"');
+      } else {
+        log.push('ℹ Lista Definitiva: no se encontró columna de fecha');
+      }
+    }
+  } catch(e) { errores.push('✗ Paso 6: ' + e.message); }
 
   // ── Resultado ─────────────────────────────────────────────────────────
   SpreadsheetApp.flush();
