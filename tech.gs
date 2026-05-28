@@ -293,6 +293,7 @@ function setupMenuTech() {
         .addSeparator()
         .addItem('🗑️ Migrar: Eliminar Cómo se enteró y Responsable', 'migrarColumnasTech')
         .addItem('↩️ Mover Notas/Comentario a columna U', 'moverNotasAColumnaU_Tech')
+        .addItem('🧹 Limpiar notas repetidas', 'limpiarNotaRepetidaTech')
         .addSeparator()
         .addItem('🎨 Aplicar colores por Estado (todas las hojas)', 'aplicarColoresATodosLosEstadosTech')
         .addItem('🎨 Crear / Actualizar Guía de Colores', 'crearGuiaColoresTech'))
@@ -15884,4 +15885,60 @@ function moverNotasAColumnaU_Tech() {
   if (idx < 0) { SpreadsheetApp.getUi().alert('No se encontró la columna Notas/Comentario.'); return; }
   sheet.moveColumns(sheet.getRange(1, idx + 1), 21); // mover a posición U (col 21)
   SpreadsheetApp.getActiveSpreadsheet().toast('✅ Notas/Comentario movida a columna U', 'Listo', 3);
+}
+
+function limpiarNotaRepetidaTech() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+  const sheet = ss.getSheetByName('Hoja de Interés');
+  if (!sheet) { ui.alert('No se encontró la Hoja de Interés.'); return; }
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const idxNotas = headers.findIndex(h => h.toString().trim() === 'Notas/Comentario');
+  if (idxNotas < 0) { ui.alert('No se encontró la columna Notas/Comentario.'); return; }
+
+  const lastRow = sheet.getLastRow();
+  const colNotas = idxNotas + 1;
+  const notas = sheet.getRange(2, colNotas, lastRow - 1, 1).getValues();
+
+  // Contar cuántas veces aparece cada texto (solo textos con >1 aparición)
+  const conteo = {};
+  notas.forEach(r => {
+    const texto = r[0] ? r[0].toString().trim() : '';
+    if (texto) conteo[texto] = (conteo[texto] || 0) + 1;
+  });
+  const duplicados = Object.entries(conteo).filter(([, n]) => n > 1);
+
+  if (duplicados.length === 0) {
+    ui.alert('No se encontraron notas repetidas.'); return;
+  }
+
+  // Mostrar al usuario los duplicados encontrados
+  let msg = 'Se encontraron estos textos repetidos en Notas/Comentario:\n\n';
+  duplicados.forEach(([texto, n]) => {
+    msg += '• (' + n + ' veces) "' + texto.substring(0, 80) + (texto.length > 80 ? '...' : '') + '"\n';
+  });
+  msg += '\n¿Dejar solo la PRIMERA aparición y limpiar las demás?';
+
+  const res = ui.alert('🧹 Limpiar notas repetidas', msg, ui.ButtonSet.YES_NO);
+  if (res !== ui.Button.YES) return;
+
+  // Limpiar duplicados: mantener solo la primera aparición
+  const textosDuplicados = new Set(duplicados.map(([t]) => t));
+  const vistos = new Set();
+  let limpiadas = 0;
+
+  for (let i = 0; i < notas.length; i++) {
+    const texto = notas[i][0] ? notas[i][0].toString().trim() : '';
+    if (textosDuplicados.has(texto)) {
+      if (vistos.has(texto)) {
+        sheet.getRange(i + 2, colNotas).clearContent();
+        limpiadas++;
+      } else {
+        vistos.add(texto);
+      }
+    }
+  }
+
+  ui.alert('✅ Listo', limpiadas + ' celdas duplicadas limpiadas.\nSe conservó la primera aparición de cada nota.', ui.ButtonSet.OK);
 }
