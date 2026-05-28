@@ -49,13 +49,13 @@ const CONFIG_AB = {
     'Paola Ortiz'
   ],
 
-  // Opciones de Género (valores válidos del formulario Kobo)
+  // Opciones de Género (valores normalizados — se usan en desplegables y en importación)
   GENEROS: [
-    'Mujer / Femenino',
-    'Hombre / Masculino',
+    'Mujer',
+    'Hombre',
     'Trans Mujer',
     'Trans Hombre',
-    'No Binarie / Género Queer / Género No Conforme',
+    'No Binarie',
     'Agénero',
     'Prefiero autodescribirme',
     'No quiere contestar'
@@ -204,6 +204,21 @@ const CONFIG_AB = {
 };
 
 // =====================================================================
+// NORMALIZACIÓN DE GÉNERO
+// =====================================================================
+
+function normalizarGeneroAB(g) {
+  const mapa = {
+    'mujer / femenino': 'Mujer',
+    'hombre / masculino': 'Hombre',
+    'no binarie / género queer / género no conforme': 'No Binarie',
+    'no binarie / genero queer / genero no conforme': 'No Binarie',
+  };
+  const key = (g || '').toString().toLowerCase().trim();
+  return mapa[key] || g;
+}
+
+// =====================================================================
 // COLOR DE ESTADO
 // =====================================================================
 
@@ -237,6 +252,7 @@ function setupMenuAB() {
       .addItem('🔄 ACTUALIZAR TODO', 'actualizarTodoAB')
       .addItem('🆕 APLICAR ACTUALIZACIONES', 'aplicarActualizacionesAB')
       .addItem('🛠️ ACTUALIZAR COLUMNAS Y DESPLEGABLES', 'actualizarColumnasYDesplegablesAB')
+      .addItem('🔧 APLICAR MEJORAS 2026', 'aplicarMejoras2026AB')
       .addSeparator()
 
       .addSubMenu(ui.createMenu('📥 Datos')
@@ -4686,8 +4702,8 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       const apellidos = colIndices.apellidos >= 0 ? fila[colIndices.apellidos].toString().trim() : '';
       const nombreCompleto = (nombres + ' ' + apellidos).trim();
 
-      // Obtener género
-      const genero = colIndices.genero >= 0 ? fila[colIndices.genero].toString().trim() : '';
+      // Obtener género (normalizado)
+      const genero = normalizarGeneroAB(colIndices.genero >= 0 ? fila[colIndices.genero].toString().trim() : '');
 
       // Verificar duplicados por CreamosID, DPI o Nombre (como último recurso)
       const esDuplicadoId = creamosId && idsExistentes.has(creamosId.toUpperCase());
@@ -15668,4 +15684,177 @@ function limpiarNotaRepetidaAB() {
   }
 
   ui.alert('✅ Listo', limpiadas + ' celdas duplicadas limpiadas.\nSe conservó la primera aparición de cada nota.', ui.ButtonSet.OK);
+}
+
+// =====================================================================
+// APLICAR MEJORAS 2026 (botón único)
+// =====================================================================
+
+function aplicarMejoras2026AB() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const confirmar = ui.alert(
+    '🔧 Aplicar Mejoras 2026',
+    'Esta acción aplicará los siguientes cambios:\n\n' +
+    '1️⃣ Renombrar "Inscritas" → "Pre-Inscritxs" en Cohortes\n' +
+    '2️⃣ Corregir fórmulas: Pre-Inscritxs ya no irá a 0 al graduarse la cohorte\n' +
+    '3️⃣ Rellenar Fecha Envío faltante en hoja Inscritx\n' +
+    '4️⃣ Normalizar valores de Género en todas las hojas\n' +
+    '   (Ej: "Mujer / Femenino" → "Mujer")\n\n' +
+    '⚠️ Los datos existentes NO se borran.\n¿Continuar?',
+    ui.ButtonSet.YES_NO
+  );
+  if (confirmar !== ui.Button.YES) return;
+
+  const log = [];
+  const errores = [];
+
+  // ── Paso 1: Renombrar "Inscritas" → "Pre-Inscritxs" en Cohortes ──────
+  ss.toast('Paso 1/4: Renombrando columna en Cohortes...', 'Mejoras 2026', 10);
+  try {
+    const cohortes = ss.getSheetByName('Cohortes');
+    if (cohortes) {
+      const hdrs = cohortes.getRange(1, 1, 1, cohortes.getLastColumn()).getValues()[0];
+      const colInscritas = hdrs.findIndex(h => h.toString().trim() === 'Inscritas') + 1;
+      if (colInscritas > 0) {
+        cohortes.getRange(1, colInscritas).setValue('Pre-Inscritxs');
+        log.push('✓ "Inscritas" renombrada a "Pre-Inscritxs" (columna ' + String.fromCharCode(64 + colInscritas) + ')');
+      } else {
+        log.push('ℹ "Inscritas" no encontrada (puede que ya se haya renombrado)');
+      }
+    } else {
+      log.push('ℹ Hoja Cohortes no existe');
+    }
+  } catch(e) { errores.push('✗ Paso 1: ' + e.message); }
+
+  // ── Paso 2: Corregir fórmulas de Pre-Inscritxs ───────────────────────
+  ss.toast('Paso 2/4: Corrigiendo fórmulas de Cohortes...', 'Mejoras 2026', 10);
+  try {
+    const cohortes = ss.getSheetByName('Cohortes');
+    if (cohortes) {
+      const hdrs = cohortes.getRange(1, 1, 1, cohortes.getLastColumn()).getValues()[0];
+      const colPreIns = hdrs.findIndex(h =>
+        h.toString().trim() === 'Pre-Inscritxs' || h.toString().trim() === 'Inscritas'
+      ) + 1;
+      const lastRow = cohortes.getLastRow();
+      let actualizadas = 0;
+      if (colPreIns > 0 && lastRow > 1) {
+        const colLetra = String.fromCharCode(64 + colPreIns);
+        for (let i = 2; i <= lastRow; i++) {
+          // Nueva fórmula: solo cuenta personas en la hoja individual (sin restar Graduadx/Retiradx)
+          cohortes.getRange(colLetra + i).setFormula(
+            '=IF(A' + i + '="",0,IFERROR(COUNTA(INDIRECT("\'"&A' + i + '&"\'!E:E"))-1,0))'
+          );
+          actualizadas++;
+        }
+        log.push('✓ Fórmulas Pre-Inscritxs corregidas (' + actualizadas + ' filas)');
+      } else {
+        log.push('ℹ No se encontró columna Pre-Inscritxs para corregir fórmulas');
+      }
+    }
+  } catch(e) { errores.push('✗ Paso 2: ' + e.message); }
+
+  // ── Paso 3: Rellenar Fecha Envío faltante en Inscritx ─────────────────
+  ss.toast('Paso 3/4: Rellenando fechas faltantes en Inscritx...', 'Mejoras 2026', 10);
+  try {
+    const inscritx = ss.getSheetByName('Inscritx');
+    if (inscritx) {
+      const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const norm = h => quitarTildes((h || '').toString().toLowerCase()).replace(/[^a-z0-9]/g, '');
+      const headers = inscritx.getRange(1, 1, 1, inscritx.getLastColumn()).getValues()[0];
+      const colFecha = headers.findIndex(h => norm(h) === 'fechaenvioainscritx');
+      const colCreamosId = headers.findIndex(h => norm(h) === 'creamosid');
+
+      if (colFecha >= 0 && colCreamosId >= 0) {
+        const entrevistas = ss.getSheetByName('Entrevistas');
+        const mapFechas = new Map();
+        if (entrevistas) {
+          const dataEnt = entrevistas.getDataRange().getValues();
+          const hdrsEnt = dataEnt[0];
+          const eIdCol = hdrsEnt.findIndex(h => norm(h) === 'creamosid');
+          const eFechaCol = hdrsEnt.findIndex(h => norm(h).startsWith('fechaentrevista') || norm(h) === 'fecha');
+          if (eIdCol >= 0 && eFechaCol >= 0) {
+            for (let i = 1; i < dataEnt.length; i++) {
+              const id = (dataEnt[i][eIdCol] || '').toString().trim();
+              const fecha = dataEnt[i][eFechaCol];
+              if (id && fecha) mapFechas.set(id, fecha);
+            }
+          }
+        }
+
+        const datos = inscritx.getDataRange().getValues();
+        let rellenas = 0;
+        for (let i = 1; i < datos.length; i++) {
+          const id = (datos[i][colCreamosId] || '').toString().trim();
+          const fechaActual = datos[i][colFecha];
+          if (!fechaActual && id) {
+            const fechaEnt = mapFechas.get(id);
+            if (fechaEnt) {
+              inscritx.getRange(i + 1, colFecha + 1).setValue(fechaEnt).setNumberFormat('dd/mm/yyyy');
+              rellenas++;
+            } else {
+              inscritx.getRange(i + 1, colFecha + 1).setValue(new Date()).setNumberFormat('dd/mm/yyyy');
+              rellenas++;
+            }
+          }
+        }
+        log.push('✓ Fechas rellenadas en Inscritx: ' + rellenas + ' filas');
+      } else {
+        log.push('ℹ No se encontraron columnas necesarias en Inscritx para rellenar fechas');
+      }
+    } else {
+      log.push('ℹ Hoja Inscritx no existe');
+    }
+  } catch(e) { errores.push('✗ Paso 3: ' + e.message); }
+
+  // ── Paso 4: Normalizar Género en todas las hojas ──────────────────────
+  ss.toast('Paso 4/4: Normalizando valores de Género...', 'Mejoras 2026', 15);
+  try {
+    const MAPA_GENERO = {
+      'Mujer / Femenino': 'Mujer',
+      'Hombre / Masculino': 'Hombre',
+      'No Binarie / Género Queer / Género No Conforme': 'No Binarie',
+    };
+
+    const quitarTildes = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const norm = h => quitarTildes((h || '').toString().toLowerCase()).replace(/[^a-z0-9]/g, '');
+
+    const hojasAReviar = ss.getSheets().filter(sh => {
+      const nombre = sh.getName();
+      return !['Histórico 2025', '🎨 Guía de Colores', 'Reporte', 'Reportes Mensuales',
+               'PowerBI_Export', 'Estipendios'].includes(nombre);
+    });
+
+    let totalCambios = 0;
+    for (const sheet of hojasAReviar) {
+      try {
+        const lastCol = sheet.getLastColumn();
+        const lastRow = sheet.getLastRow();
+        if (lastRow < 2 || lastCol < 1) continue;
+        const hdrs = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+        const colGenero = hdrs.findIndex(h => norm(h) === 'genero');
+        if (colGenero < 0) continue;
+
+        const datos = sheet.getRange(2, colGenero + 1, lastRow - 1, 1).getValues();
+        const nuevos = datos.map(r => {
+          const val = (r[0] || '').toString().trim();
+          return [MAPA_GENERO[val] || val];
+        });
+        sheet.getRange(2, colGenero + 1, lastRow - 1, 1).setValues(nuevos);
+
+        const cambios = datos.filter((r, i) => r[0] !== nuevos[i][0]).length;
+        if (cambios > 0) {
+          log.push('✓ ' + sheet.getName() + ': ' + cambios + ' géneros normalizados');
+          totalCambios += cambios;
+        }
+      } catch(eSheet) { /* skip hojas problemáticas */ }
+    }
+    if (totalCambios === 0) log.push('ℹ Géneros: todos ya estaban normalizados');
+  } catch(e) { errores.push('✗ Paso 4: ' + e.message); }
+
+  // ── Resultado ─────────────────────────────────────────────────────────
+  SpreadsheetApp.flush();
+  const resumen = log.join('\n') + (errores.length > 0 ? '\n\n⚠️ Errores:\n' + errores.join('\n') : '');
+  ui.alert('✅ Mejoras 2026 aplicadas', resumen, ui.ButtonSet.OK);
 }
