@@ -199,7 +199,8 @@ const CONFIG_TECH = {
     'Enviar a Tecnología':              '#d7ccc8',
     'Pre-Inscritxs':                    '#c8e6c9',
     'Graduadx':                         '#a5d6a7',
-    'Retiradx':                         '#ffcdd2'
+    'Retiradx':                         '#ffcdd2',
+    'Certificaciones':                  '#b2dfdb'
   }
 };
 
@@ -1617,7 +1618,7 @@ function configurarValidaciones() {
     };
 
     aplicarHI('Género', CONFIG_TECH.GENEROS, true);
-    aplicarHI('Estado', ['Entrevista agendada', 'Reprogramada', 'No interesada/o', 'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a A y B'], true);
+    aplicarHI('Estado', ['Entrevista agendada', 'Reprogramada', 'No interesada/o', 'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a A y B', 'Certificaciones'], true);
   }
 
   // === HOJA DE ENTREVISTAS ===
@@ -4845,7 +4846,7 @@ function importarDesdeKoboInterno(ss, ui, url, tipoImportacion) {
       if (colEstadoHI > 0) {
         hojaInteres.getRange(nuevaFila, colEstadoHI).setDataValidation(
           SpreadsheetApp.newDataValidation()
-            .requireValueInList(['Entrevista agendada', 'Reprogramada', 'No interesada/o', 'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a A y B'])
+            .requireValueInList(['Entrevista agendada', 'Reprogramada', 'No interesada/o', 'Derivar a Paso a Paso', 'Derivación a Programas', 'Enviar a A y B', 'Certificaciones'])
             .setAllowInvalid(true).build()
         );
       }
@@ -15866,6 +15867,7 @@ function _escribirGuiaEnReporte(sheet) {
     ['#c5cae9', 'Derivación a Programas',                  'Referido institucional — derivado a formación', 'Todas'],
     ['#d7ccc8', 'Enviar a A y B / Enviar a Tecnología',    'Referido al otro programa de IL',               'Todas'],
     ['#a5d6a7', 'Graduadx',                                'Completó el programa exitosamente',             'Cohortes'],
+    ['#b2dfdb', 'Certificaciones',                         'Persona referida a proceso de certificación',   'Hoja de Interés'],
   ];
 
   const totalFilas = guiaData.length + 3;
