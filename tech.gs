@@ -1526,6 +1526,9 @@ function crearHojaReporte() {
     .setBorder(true, true, true, true, true, true, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
 
   sheet.setFrozenRows(2);
+
+  // Agregar guía de colores a la derecha (col H en adelante)
+  _escribirGuiaEnReporte(sheet);
 }
 
 /**
@@ -15836,67 +15839,79 @@ function crearGuiaColoresTech() {
 }
 
 function _crearGuiaColores(ss) {
-  let guia = ss.getSheetByName('🎨 Guía de Colores');
-  if (guia) ss.deleteSheet(guia);
-  guia = ss.insertSheet('🎨 Guía de Colores');
+  // Eliminar pestaña independiente si existe (ya no se usa)
+  const hojaVieja = ss.getSheetByName('🎨 Guía de Colores');
+  if (hojaVieja) ss.deleteSheet(hojaVieja);
+
+  // Escribir la guía dentro de la hoja Reporte (col H en adelante)
+  const reporte = ss.getSheetByName('Reporte');
+  if (!reporte) {
+    ss.toast('⚠️ Crea la hoja Reporte primero (menú → ACTUALIZAR TODO)', 'Guía de Colores', 5);
+    return;
+  }
+  _escribirGuiaEnReporte(reporte);
+  ss.toast('✅ Guía de colores actualizada en Reporte (col H)', 'Listo', 3);
+}
+
+function _escribirGuiaEnReporte(sheet) {
+  const C = 8; // Columna H = índice 8
 
   const guiaData = [
-    ['#c8e6c9', 'Seleccionada/o',                 'Aprobado — avanza al siguiente paso',          'Entrevistas / Inscritx'],
-    ['#e3f2fd', 'Entrevista agendada',             'Prospecto activo — pendiente de contacto',     'Hoja de Interés'],
-    ['#fff9c4', 'Reprogramada',                    'Pendiente — requiere atención o seguimiento',  'Hoja de Interés / Entrevistas'],
-    ['#ffcdd2', 'No interesada/o · No asistió · No seleccionada/o', 'Inactivo — no continúa', 'Todas'],
-    ['#ffe0b2', 'Próxima cohorte',                 'En espera — continúa en siguiente grupo',      'Entrevistas'],
-    ['#ede7f6', 'Derivar a Paso a Paso',           'Canal alternativo — derivado a otro programa', 'Todas'],
-    ['#c5cae9', 'Derivación a Programas',          'Referido institucional — derivado a formación','Todas'],
-    ['#d7ccc8', 'Enviar a A y B / Enviar a Tech',  'Área gastronómica / tecnología cruzada',       'Todas'],
-    ['#a5d6a7', 'Graduadx',                        'Completó el programa exitosamente',            'Cohortes'],
+    ['#c8e6c9', 'Seleccionada/o',                          'Aprobado — avanza al siguiente paso',           'Entrevistas / Pre-Inscritxs'],
+    ['#e3f2fd', 'Entrevista agendada',                     'Prospecto activo — pendiente de contacto',      'Hoja de Interés'],
+    ['#fff9c4', 'Reprogramada',                            'Pendiente — requiere atención o seguimiento',   'Hoja de Interés / Entrevistas'],
+    ['#ffcdd2', 'No interesada/o · No asistió',            'Inactivo — no continúa en el proceso',          'Todas'],
+    ['#ffe0b2', 'Próxima cohorte',                         'En espera — continúa en siguiente grupo',       'Entrevistas'],
+    ['#ede7f6', 'Derivar a Paso a Paso',                   'Canal alternativo — derivado a otro programa',  'Todas'],
+    ['#c5cae9', 'Derivación a Programas',                  'Referido institucional — derivado a formación', 'Todas'],
+    ['#d7ccc8', 'Enviar a A y B / Enviar a Tecnología',    'Referido al otro programa de IL',               'Todas'],
+    ['#a5d6a7', 'Graduadx',                                'Completó el programa exitosamente',             'Cohortes'],
   ];
 
-  // Header row
-  guia.getRange(1, 1, 1, 4).setValues([['Color', 'Estado', 'Significado', 'Hoja']])
-    .setBackground('#263238').setFontColor('white').setFontWeight('bold')
-    .setHorizontalAlignment('center').setFontSize(11);
-  guia.setRowHeight(1, 36);
+  const totalFilas = guiaData.length + 3;
 
-  // Title above header
-  guia.insertRowBefore(1);
-  guia.getRange(1, 1, 1, 4).merge()
-    .setValue('🎨 Guía de Colores — Sistema de Inclusión Laboral')
+  // Limpiar área previa
+  sheet.getRange(1, C, totalFilas + 1, 4).clearContent().clearFormat();
+
+  // Separador visual: columna G angosta
+  sheet.setColumnWidth(7, 20);
+
+  // Fila 1 — Título
+  sheet.getRange(1, C, 1, 4).merge()
+    .setValue('🎨 Guía de Colores')
     .setBackground('#1565c0').setFontColor('white').setFontWeight('bold')
-    .setFontSize(13).setHorizontalAlignment('center').setVerticalAlignment('middle');
-  guia.setRowHeight(1, 48);
+    .setFontSize(12).setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-  // Data rows (start at row 3 now)
+  // Fila 2 — Encabezados
+  sheet.getRange(2, C, 1, 4)
+    .setValues([['Color', 'Estado', 'Significado', 'Hoja']])
+    .setBackground('#263238').setFontColor('white').setFontWeight('bold')
+    .setHorizontalAlignment('center').setFontSize(10);
+
+  // Filas de datos (a partir de fila 3)
   guiaData.forEach((row, i) => {
     const fila = i + 3;
-    guia.setRowHeight(fila, 40);
-    guia.getRange(fila, 1).setBackground(row[0]).setValue('');
-    guia.getRange(fila, 2).setValue(row[1]).setBackground(row[0]).setFontWeight('bold').setVerticalAlignment('middle');
-    guia.getRange(fila, 3).setValue(row[2]).setBackground(row[0]).setVerticalAlignment('middle');
-    guia.getRange(fila, 4).setValue(row[3]).setBackground(row[0])
-      .setFontColor('#555555').setVerticalAlignment('middle').setFontStyle('italic');
-    guia.getRange(fila, 1, 1, 4).setBorder(true, true, true, true, false, false, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange(fila, C).setBackground(row[0]).setValue('');
+    sheet.getRange(fila, C + 1).setValue(row[1]).setBackground(row[0]).setFontWeight('bold').setVerticalAlignment('middle').setFontSize(10);
+    sheet.getRange(fila, C + 2).setValue(row[2]).setBackground(row[0]).setVerticalAlignment('middle').setFontSize(10).setWrap(true);
+    sheet.getRange(fila, C + 3).setValue(row[3]).setBackground(row[0])
+      .setFontColor('#555555').setVerticalAlignment('middle').setFontSize(9).setFontStyle('italic');
+    sheet.getRange(fila, C, 1, 4)
+      .setBorder(true, true, true, true, false, false, '#cccccc', SpreadsheetApp.BorderStyle.SOLID);
   });
 
-  // Column widths
-  guia.setColumnWidth(1, 60);
-  guia.setColumnWidth(2, 220);
-  guia.setColumnWidth(3, 320);
-  guia.setColumnWidth(4, 180);
-
-  // Freeze header rows
-  guia.setFrozenRows(2);
-
-  // Note at bottom
-  const ultimaFila = guiaData.length + 4;
-  guia.getRange(ultimaFila, 1, 1, 4).merge()
-    .setValue('💡 Los colores se aplican automáticamente al cambiar el Estado en cualquier hoja.')
+  // Fila final — nota
+  const notaFila = guiaData.length + 3;
+  sheet.getRange(notaFila, C, 1, 4).merge()
+    .setValue('💡 Los colores se aplican automáticamente al cambiar el Estado.')
     .setBackground('#f5f5f5').setFontColor('#757575').setFontStyle('italic')
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  guia.setRowHeight(ultimaFila, 36);
+    .setHorizontalAlignment('center').setFontSize(9);
 
-  ss.setActiveSheet(guia);
-  ss.toast('✅ Guía de colores creada', 'Listo', 3);
+  // Anchos de columna de la guía
+  sheet.setColumnWidth(C,     50);  // H — muestra de color
+  sheet.setColumnWidth(C + 1, 180); // I — estado
+  sheet.setColumnWidth(C + 2, 250); // J — significado
+  sheet.setColumnWidth(C + 3, 130); // K — hoja
 }
 
 function moverNotasAColumnaU_Tech() {
