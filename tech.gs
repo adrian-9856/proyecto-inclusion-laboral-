@@ -15996,10 +15996,11 @@ function aplicarMejoras2026Tech() {
     'Esta acción aplicará los siguientes cambios:\n\n' +
     '1️⃣ Renombrar "Inscritas" → "Pre-Inscritxs" en Cohortes\n' +
     '2️⃣ Corregir fórmulas: Pre-Inscritxs ya no irá a 0 al graduarse\n' +
-    '3️⃣ Rellenar Fecha Envío faltante en hoja Inscritx\n' +
-    '4️⃣ Normalizar valores de Género en todas las hojas\n' +
-    '   (Ej: "Mujer / Femenino" → "Mujer")\n' +
-    '5️⃣ Actualizar estado "Inscritx" → "Pre-Inscritxs" en hoja Inscritx\n\n' +
+    '3️⃣ Rellenar Fecha Envío faltante en hoja Pre-Inscritxs\n' +
+    '4️⃣ Normalizar Género + actualizar TODOS los desplegables\n' +
+    '5️⃣ Renombrar pestaña "Inscritx" → "Pre-Inscritxs"\n' +
+    '6️⃣ Renombrar "Fecha Envío" → "Fecha Envío a Cohorte" en Lista Definitiva\n' +
+    '7️⃣ Actualizar Guía de Colores en hoja Reporte (col H)\n\n' +
     '⚠️ Los datos existentes NO se borran.\n¿Continuar?',
     ui.ButtonSet.YES_NO
   );
@@ -16209,6 +16210,20 @@ function aplicarMejoras2026Tech() {
       }
     }
   } catch(e) { errores.push('✗ Paso 6: ' + e.message); }
+
+  // ── Paso 7: Actualizar Guía de Colores en Reporte ─────────────────────
+  ss.toast('Paso 7/7: Actualizando Guía de Colores en Reporte...', 'Mejoras 2026', 10);
+  try {
+    const hojaVieja = ss.getSheetByName('🎨 Guía de Colores');
+    if (hojaVieja) ss.deleteSheet(hojaVieja);
+    const reporte = ss.getSheetByName('Reporte');
+    if (reporte) {
+      _escribirGuiaEnReporte(reporte);
+      log.push('✓ Guía de Colores actualizada en Reporte (col H)');
+    } else {
+      log.push('ℹ Hoja Reporte no existe — crea el Reporte primero');
+    }
+  } catch(e) { errores.push('✗ Paso 7: ' + e.message); }
 
   // ── Resultado ─────────────────────────────────────────────────────────
   SpreadsheetApp.flush();
