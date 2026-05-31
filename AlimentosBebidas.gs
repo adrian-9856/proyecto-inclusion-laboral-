@@ -14968,13 +14968,13 @@ function crearHojaPowerBIExport() {
   const COLS = ['Creamos ID','Nombre Completo','DPI','Teléfono','Edad','Género',
     'Zona','Nivel Educativo','Estado Actual','Fecha Interés','Fecha Entrevista',
     'Resultado Entrevista','Fecha Inscripción','Cohorte','Fecha Graduación',
-    'Fecha Retiro','Responsable'];
+    'Fecha Retiro','Responsable','Proyecto','Cupo Máximo','Motivo Retiro'];
 
   sheet.clearContents();
   sheet.getRange(1, 1, 1, COLS.length).setValues([COLS])
     .setFontWeight('bold').setBackground('#1565c0').setFontColor('white');
   sheet.setFrozenRows(1);
-  [120,160,110,90,50,110,70,140,100,130,130,150,130,140,130,100,120]
+  [120,160,110,90,50,110,70,140,100,130,130,150,130,140,130,100,120,130,100,180]
     .forEach((w,i) => sheet.setColumnWidth(i+1, w));
   return sheet;
 }
@@ -14991,6 +14991,7 @@ function actualizarPowerBIExport() {
     const dInsc = get('Pre-Inscritxs');
     const dGrad = get('Graduadx');
     const dRet  = get('Retiradx');
+    const dCoh  = get('Cohortes');
 
     const c = {
       int: { id: _pbiCol(dInt[0],['Creamos ID','CREAMOS ID']), nom: _pbiCol(dInt[0],['Nombre Completo']),
@@ -15003,13 +15004,25 @@ function actualizarPowerBIExport() {
       ins: { id: _pbiCol(dInsc[0],['Creamos ID']), fecha: _pbiCol(dInsc[0],['Fecha envío a Inscritx','Fecha']),
         coh: _pbiCol(dInsc[0],['Enviar a Cohorte','Cohorte']) },
       grd: { id: _pbiCol(dGrad[0],['Creamos ID']), fecha: _pbiCol(dGrad[0],['Fecha','Fecha graduación']) },
-      ret: { id: _pbiCol(dRet[0],['Creamos ID']),  fecha: _pbiCol(dRet[0],['Fecha','Fecha retiro']) }
+      ret: { id: _pbiCol(dRet[0],['Creamos ID']),  fecha: _pbiCol(dRet[0],['Fecha','Fecha retiro']),
+        motivo: _pbiCol(dRet[0],['Motivo']) }
     };
 
     const idxEnt  = _pbiIndex(dEnt,  c.ent.id);
     const idxInsc = _pbiIndex(dInsc, c.ins.id);
     const idxGrad = _pbiIndex(dGrad, c.grd.id);
     const idxRet  = _pbiIndex(dRet,  c.ret.id);
+
+    // Mapa Cohorte → Cupo Máximo
+    const cCohNom  = _pbiCol(dCoh.length ? dCoh[0] : [], ['Nombre Cohorte']);
+    const cCohCupo = _pbiCol(dCoh.length ? dCoh[0] : [], ['Cupo Máximo','Cupo Maximo']);
+    const mapCupo  = new Map();
+    if (dCoh.length > 1 && cCohNom >= 0 && cCohCupo >= 0) {
+      for (let i = 1; i < dCoh.length; i++) {
+        const nom = (dCoh[i][cCohNom] || '').toString().trim();
+        if (nom) mapCupo.set(nom, dCoh[i][cCohCupo] !== undefined ? dCoh[i][cCohCupo] : '');
+      }
+    }
 
     const filas = [];
     for (let i = 1; i < dInt.length; i++) {
@@ -15047,7 +15060,10 @@ function actualizarPowerBIExport() {
         rInsc && c.ins.coh   >= 0 ? _pbiFmt(rInsc[c.ins.coh])   : '',
         rGrad && c.grd.fecha >= 0 ? _pbiFmt(rGrad[c.grd.fecha]) : '',
         rRet  && c.ret.fecha >= 0 ? _pbiFmt(rRet[c.ret.fecha])  : '',
-        c.int.resp  >= 0 ? _pbiFmt(row[c.int.resp])  : ''
+        c.int.resp  >= 0 ? _pbiFmt(row[c.int.resp])  : '',
+        'Alimentos y Bebidas',
+        '',  // Cupo Máximo — se llena después de resolver la cohorte
+        rRet  && c.ret.motivo >= 0 ? _pbiFmt(rRet[c.ret.motivo]) : ''
       ]);
     }
 
@@ -15084,12 +15100,19 @@ function actualizarPowerBIExport() {
       }
     }
 
+    // Llenar Cupo Máximo usando la Cohorte ya resuelta (col 13)
+    for (let i = 0; i < filas.length; i++) {
+      if (filas[i][13]) filas[i][18] = mapCupo.get(filas[i][13].toString().trim()) || '';
+    }
+
     if (filas.length > 0) {
-      sheet.getRange(2, 1, filas.length, 17).setValues(filas);
+      sheet.getRange(2, 1, filas.length, 20).setValues(filas);
     }
 
     SpreadsheetApp.flush();
-    ui.alert('✅ PowerBI_Export actualizado', 'Se consolidaron ' + filas.length + ' registros', ui.ButtonSet.OK);
+    ui.alert('✅ PowerBI_Export actualizado',
+      'Se consolidaron ' + filas.length + ' registros con:\n• Proyecto\n• Cupo Máximo\n• Motivo Retiro',
+      ui.ButtonSet.OK);
     Logger.log('✅ PowerBI_Export: ' + filas.length + ' filas actualizadas');
   } catch (e) {
     Logger.log('❌ Error en PowerBI_Export: ' + e.message);
