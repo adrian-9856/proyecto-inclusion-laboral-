@@ -2507,20 +2507,29 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
     const busqueda = creamosId ? buscarPorCreamosID(interes, creamosId) : null;
     const filaInteres = busqueda ? busqueda.fila : null;
 
-    // Mover a Inscritx
+    // Mover a Pre-Inscritxs
     const seleccionadas = ss.getSheetByName('Pre-Inscritxs');
     const colMapInscritx = obtenerMapaColumnas(seleccionadas);
 
-    // ✅ DEDUP: Verificar si ya existe en Inscritx antes de escribir
-    if (creamosId) {
-      const datosInscritx = seleccionadas.getDataRange().getValues();
-      const idxInscritxId = colMapInscritx['creamosid'];
-      for (let r = 1; r < datosInscritx.length; r++) {
-        const idExistente = idxInscritxId !== undefined ? (datosInscritx[r][idxInscritxId] || '').toString().trim() : '';
-        if (idExistente && idExistente === creamosId.toString().trim()) {
-          ss.toast('⚠️ ' + (datos[colMapEntrevistas['nombrecompleto']] || creamosId) + ' ya está en Pre-Inscritxs (ID: ' + creamosId + ')', 'Duplicado omitido', 8);
-          return;
-        }
+    // ID real = no vacío y no placeholder como "⚠️ Crear perfil"
+    const esIdReal = (id) => { const s = (id || '').toString().trim(); return s.length > 0 && !s.includes('⚠️') && !/crear/i.test(s); };
+    const creamosIdReal = esIdReal(creamosId) ? creamosId.toString().trim() : '';
+
+    // ✅ DEDUP: verificar por Creamos ID real O por Nombre Completo
+    const datosInscritx  = seleccionadas.getDataRange().getValues();
+    const idxInscritxId  = colMapInscritx['creamosid'];
+    const idxInscritxNom = colMapInscritx['nombrecompleto'];
+    const nombreBuscar   = (getVal('Nombre Completo') || '').toString().trim().toLowerCase();
+    for (let r = 1; r < datosInscritx.length; r++) {
+      const idExist  = idxInscritxId  !== undefined ? (datosInscritx[r][idxInscritxId]  || '').toString().trim() : '';
+      const nomExist = idxInscritxNom !== undefined ? (datosInscritx[r][idxInscritxNom] || '').toString().trim().toLowerCase() : '';
+      const matchId  = creamosIdReal && esIdReal(idExist) && idExist === creamosIdReal;
+      const matchNom = nombreBuscar && nomExist && nomExist === nombreBuscar;
+      if (matchId || matchNom) {
+        const quien  = getVal('Nombre Completo') || creamosIdReal;
+        const motivo = matchId ? 'ID: ' + creamosIdReal : 'nombre duplicado';
+        ss.toast('⚠️ ' + quien + ' ya está en Pre-Inscritxs (' + motivo + ')', 'Duplicado omitido', 8);
+        return;
       }
     }
 
@@ -2544,7 +2553,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
 
     // Mapeo dinámico robusto Entrevistas → Inscritx
     const mapping = {
-      'Creamos ID': creamosId || '',
+      'Creamos ID': creamosIdReal || '',
       'No.': nuevaFila - 1,
       'DPI': getVal('DPI'),
       'Nombre Completo': getVal('Nombre Completo'),
