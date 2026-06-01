@@ -2518,7 +2518,7 @@ function procesarResultadoEntrevista(sheet, fila, resultado) {
       for (let r = 1; r < datosInscritx.length; r++) {
         const idExistente = idxInscritxId !== undefined ? (datosInscritx[r][idxInscritxId] || '').toString().trim() : '';
         if (idExistente && idExistente === creamosId.toString().trim()) {
-          ss.toast('⚠️ ' + (datos[colMapEntrevistas['nombrecompleto']] || creamosId) + ' ya está en Inscritx', 'Duplicado omitido', 5);
+          ss.toast('⚠️ ' + (datos[colMapEntrevistas['nombrecompleto']] || creamosId) + ' ya está en Pre-Inscritxs (ID: ' + creamosId + ')', 'Duplicado omitido', 8);
           return;
         }
       }
