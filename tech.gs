@@ -297,11 +297,7 @@ function setupMenuTech() {
       .addSeparator()
 
       .addSubMenu(ui.createMenu('🔌 Power BI')
-        .addItem('🚀 Actualizar TODO para Power BI', 'actualizarTodoParaPowerBI')
-        .addSeparator()
-        .addItem('🔄 Actualizar Participantes (PowerBI_Export)', 'actualizarPowerBIExport')
-        .addItem('📊 Actualizar Cohortes (PowerBI Export)', 'crearHojaPowerBICohortes')
-        .addItem('💰 Actualizar Estipendios (EXPORT_PowerBI)', 'exportarParaPowerBI')
+        .addItem('🔄 Actualizar PowerBI_Export', 'actualizarTodoParaPowerBI')
         .addSeparator()
         .addItem('⏰ Activar Auto-Actualización (2 AM)', 'instalarTriggerPowerBIExport')
         .addItem('🛑 Desactivar Auto-Actualización', 'desinstalarTriggerPowerBIExport'))
@@ -15264,14 +15260,15 @@ function crearHojaPowerBIExport() {
     'Resultado Entrevista','Fecha Inscripción','Cohorte','Fecha Graduación',
     'Fecha Retiro','Responsable','Proyecto','Cupo Máximo','Motivo Retiro',
     'Año Interés','Mes Num','Mes Nombre','Rango de Edad',
-    'Días a Inscripción','Días a Graduación','Nivel Funnel'];
+    'Días a Inscripción','Días a Graduación','Nivel Funnel',
+    'Fecha Inicio Cohorte','Fecha Fin Cohorte','Estado Cohorte'];
 
   sheet.clearContents();
   sheet.getRange(1, 1, 1, COLS.length).setValues([COLS])
     .setFontWeight('bold').setBackground('#1565c0').setFontColor('white');
   sheet.setFrozenRows(1);
   [120,160,110,90,50,110,70,140,100,130,130,150,130,140,130,100,120,130,100,180,
-   80,70,110,110,120,120,90]
+   80,70,110,110,120,120,90,130,130,120]
     .forEach((w,i) => sheet.setColumnWidth(i+1, w));
   return sheet;
 }
@@ -15337,14 +15334,22 @@ function actualizarPowerBIExport() {
     const idxGrad = _pbiIndex(dGrad, c.grd.id);
     const idxRet  = _pbiIndex(dRet,  c.ret.id);
 
-    // Mapa Cohorte → Cupo Máximo
-    const cCohNom  = _pbiCol(dCoh.length ? dCoh[0] : [], ['Nombre Cohorte']);
-    const cCohCupo = _pbiCol(dCoh.length ? dCoh[0] : [], ['Cupo Máximo','Cupo Maximo']);
-    const mapCupo  = new Map();
-    if (dCoh.length > 1 && cCohNom >= 0 && cCohCupo >= 0) {
+    // Mapa Cohorte → datos (Cupo Máximo, Fecha Inicio, Fecha Fin, Estado)
+    const cCohNom    = _pbiCol(dCoh.length ? dCoh[0] : [], ['Nombre Cohorte']);
+    const cCohCupo   = _pbiCol(dCoh.length ? dCoh[0] : [], ['Cupo Máximo','Cupo Maximo']);
+    const cCohInicio = _pbiCol(dCoh.length ? dCoh[0] : [], ['Fecha Inicio','Inicio']);
+    const cCohFin    = _pbiCol(dCoh.length ? dCoh[0] : [], ['Fecha Fin','Fin']);
+    const cCohEstado = _pbiCol(dCoh.length ? dCoh[0] : [], ['Estado']);
+    const mapCoh = new Map();
+    if (dCoh.length > 1 && cCohNom >= 0) {
       for (let i = 1; i < dCoh.length; i++) {
         const nom = (dCoh[i][cCohNom] || '').toString().trim();
-        if (nom) mapCupo.set(nom, dCoh[i][cCohCupo] !== undefined ? dCoh[i][cCohCupo] : '');
+        if (nom) mapCoh.set(nom, {
+          cupo:   cCohCupo   >= 0 ? (dCoh[i][cCohCupo]   !== undefined ? dCoh[i][cCohCupo]   : '') : '',
+          inicio: cCohInicio >= 0 ? _pbiFmt(dCoh[i][cCohInicio]) : '',
+          fin:    cCohFin    >= 0 ? _pbiFmt(dCoh[i][cCohFin])    : '',
+          estado: cCohEstado >= 0 ? (dCoh[i][cCohEstado] || 'Activa').toString().trim()           : 'Activa'
+        });
       }
     }
 
@@ -15407,7 +15412,8 @@ function actualizarPowerBIExport() {
         _pbiRangoEdad(c.int.edad >= 0 ? row[c.int.edad] : ''),
         _pbiDiasEntre(fechaIntV, fechaInscV),
         _pbiDiasEntre(fechaIntV, fechaGradV),
-        nivelFunnel
+        nivelFunnel,
+        '', '', ''  // Fecha Inicio Cohorte, Fecha Fin Cohorte, Estado Cohorte — se llenan después
       ]);
     }
 
@@ -15446,19 +15452,26 @@ function actualizarPowerBIExport() {
       }
     }
 
-    // Llenar Cupo Máximo usando la Cohorte ya resuelta (col 13)
+    // Llenar datos de cohorte usando la Cohorte ya resuelta (col 13)
     for (let i = 0; i < filas.length; i++) {
-      if (filas[i][13]) filas[i][18] = mapCupo.get(filas[i][13].toString().trim()) || '';
+      const nomCoh = filas[i][13] ? filas[i][13].toString().trim() : '';
+      if (nomCoh) {
+        const info = mapCoh.get(nomCoh) || {};
+        filas[i][18] = info.cupo   !== undefined ? info.cupo   : '';
+        filas[i][27] = info.inicio !== undefined ? info.inicio : '';
+        filas[i][28] = info.fin    !== undefined ? info.fin    : '';
+        filas[i][29] = info.estado !== undefined ? info.estado : '';
+      }
     }
 
     // Escribir todo de una vez
     const lastRow = sheet.getLastRow();
-    if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 27).clearContent();
-    if (filas.length > 0) sheet.getRange(2, 1, filas.length, 27).setValues(filas);
+    if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 30).clearContent();
+    if (filas.length > 0) sheet.getRange(2, 1, filas.length, 30).setValues(filas);
 
     SpreadsheetApp.flush();
     ui.alert('✅ PowerBI_Export actualizado',
-      filas.length + ' participantes exportados con:\n• Estado Actual\n• Proyecto\n• Cupo Máximo\n• Motivo Retiro\n• Año / Mes / Nombre Mes\n• Rango de Edad\n• Días a Inscripción / Graduación\n• Nivel Funnel',
+      filas.length + ' participantes exportados con:\n• Estado / Cohorte / Proyecto\n• Cupo Máximo / Fecha Inicio-Fin / Estado Cohorte\n• Año / Mes / Rango de Edad\n• Días a Inscripción / Graduación / Nivel Funnel',
       ui.ButtonSet.OK);
     Logger.log('✅ PowerBI_Export: ' + filas.length + ' filas');
 
@@ -15502,23 +15515,14 @@ function autoActualizarPowerBIExport() {
 }
 
 function actualizarTodoParaPowerBI() {
-  const ui = SpreadsheetApp.getUi();
-  const errores = [];
-  SpreadsheetApp.getActiveSpreadsheet().toast('Actualizando las 3 tablas de Power BI...', '🔄 Power BI', -1);
-  try { actualizarPowerBIExport(); } catch (e) { errores.push('Participantes: ' + e.message); }
-  try { crearHojaPowerBICohortes(); } catch (e) { errores.push('Cohortes: ' + e.message); }
-  try { exportarParaPowerBI(); } catch (e) { errores.push('Estipendios: ' + e.message); }
-  SpreadsheetApp.getActiveSpreadsheet().toast('', '', 1);
-  if (errores.length > 0) {
-    ui.alert('⚠️ Actualización con errores', errores.join('\n'), ui.ButtonSet.OK);
-  } else {
-    ui.alert('✅ Power BI actualizado',
-      'Las 3 tablas están listas para conectar desde Power BI:\n\n' +
-      '• PowerBI_Export — Participantes (27 columnas)\n' +
-      '• PowerBI Export — Cohortes y métricas\n' +
-      '• EXPORT_PowerBI — Estipendios',
-      ui.ButtonSet.OK);
-  }
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast('Actualizando PowerBI_Export...', '🔄 Power BI', -1);
+  // Eliminar tablas antiguas si existen
+  ['PowerBI Export', 'EXPORT_PowerBI'].forEach(nombre => {
+    const h = ss.getSheetByName(nombre);
+    if (h) ss.deleteSheet(h);
+  });
+  actualizarPowerBIExport();
 }
 
 // =====================================================================
