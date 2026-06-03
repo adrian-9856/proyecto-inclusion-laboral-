@@ -15367,22 +15367,25 @@ function actualizarPowerBIExport() {
 
       // Estado actual (prioridad: Graduadx > Retiradx > Inscritx > resultado entrevista > En Entrevista > Interesada)
       const resultEnt = rEnt && c.ent.estado >= 0 ? _pbiFmt(rEnt[c.ent.estado]) : '';
+      const cohorteInsc = rInsc && c.ins.coh >= 0 ? _pbiFmt(rInsc[c.ins.coh]) : '';
       let estado = 'Interesada';
-      if (rGrad)       estado = 'Graduadx';
-      else if (rRet)   estado = 'Retiradx';
-      else if (rInsc)  estado = 'Pre-Inscritxs';
-      else if (rEnt)   estado = resultEnt || 'En Entrevista';
+      if (rGrad)                    estado = 'Graduadx';
+      else if (rRet)                estado = 'Retiradx';
+      else if (rInsc && cohorteInsc) estado = 'Inscritxs';
+      else if (rInsc)               estado = 'Pre-Inscritxs';
+      else if (rEnt)                estado = resultEnt || 'En Entrevista';
 
       // Valores de fecha para columnas calculadas
       const fechaIntV  = c.int.fecha >= 0 ? row[c.int.fecha] : null;
       const fechaInscV = rInsc && c.ins.fecha >= 0 ? rInsc[c.ins.fecha] : null;
       const fechaGradV = rGrad && c.grd.fecha >= 0 ? rGrad[c.grd.fecha] : null;
-      // Nivel Funnel: 0=Retirada, 1=Solo interés, 2=Entrevistada, 3=Inscrita, 5=Graduada
+      // Nivel Funnel: 0=Retirada, 1=Interesada, 2=Entrevistada, 3=Pre-Inscritxs, 4=Inscritxs, 5=Graduada
       let nivelFunnel = 1;
-      if (rGrad)      nivelFunnel = 5;
-      else if (rRet)  nivelFunnel = 0;
-      else if (rInsc) nivelFunnel = 3;
-      else if (rEnt)  nivelFunnel = 2;
+      if (rGrad)                    nivelFunnel = 5;
+      else if (rRet)                nivelFunnel = 0;
+      else if (rInsc && cohorteInsc) nivelFunnel = 4;
+      else if (rInsc)               nivelFunnel = 3;
+      else if (rEnt)                nivelFunnel = 2;
 
       filas.push([
         cId,
@@ -15461,6 +15464,12 @@ function actualizarPowerBIExport() {
         filas[i][27] = info.inicio !== undefined ? info.inicio : '';
         filas[i][28] = info.fin    !== undefined ? info.fin    : '';
         filas[i][29] = info.estado !== undefined ? info.estado : '';
+        // Cohorte asignada: si no es Graduadx ni Retiradx, el estado real es Inscritxs
+        const est = (filas[i][8] || '').toString();
+        if (est !== 'Graduadx' && est !== 'Retiradx' && est !== 'Inscritxs') {
+          filas[i][8]  = 'Inscritxs';
+          filas[i][26] = 4;
+        }
       }
     }
 
