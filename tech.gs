@@ -297,7 +297,12 @@ function setupMenuTech() {
       .addSeparator()
 
       .addSubMenu(ui.createMenu('🔌 Power BI')
-        .addItem('🔄 Actualizar PowerBI_Export Ahora', 'actualizarPowerBIExport')
+        .addItem('🚀 Actualizar TODO para Power BI', 'actualizarTodoParaPowerBI')
+        .addSeparator()
+        .addItem('🔄 Actualizar Participantes (PowerBI_Export)', 'actualizarPowerBIExport')
+        .addItem('📊 Actualizar Cohortes (PowerBI Export)', 'crearHojaPowerBICohortes')
+        .addItem('💰 Actualizar Estipendios (EXPORT_PowerBI)', 'exportarParaPowerBI')
+        .addSeparator()
         .addItem('⏰ Activar Auto-Actualización (2 AM)', 'instalarTriggerPowerBIExport')
         .addItem('🛑 Desactivar Auto-Actualización', 'desinstalarTriggerPowerBIExport'))
       .addSeparator()
@@ -15172,6 +15177,49 @@ function repararColumnasTech() {
  */
 // ── Helpers compartidos por PowerBI_Export ────────────────────────────────
 
+const _MESES_NOMBRES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function _pbiFechaObj(v) {
+  if (!v) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function _pbiAnio(v) {
+  const d = _pbiFechaObj(v);
+  return d ? d.getFullYear() : '';
+}
+
+function _pbiMesNum(v) {
+  const d = _pbiFechaObj(v);
+  return d ? d.getMonth() + 1 : '';
+}
+
+function _pbiNombreMes(v) {
+  const d = _pbiFechaObj(v);
+  return d ? _MESES_NOMBRES[d.getMonth()] : '';
+}
+
+function _pbiRangoEdad(edad) {
+  const n = parseInt(edad);
+  if (isNaN(n) || n <= 0) return '';
+  if (n < 18) return 'Menor 18';
+  if (n <= 24) return '18-24';
+  if (n <= 35) return '25-35';
+  if (n <= 50) return '36-50';
+  return 'Mayor 50';
+}
+
+function _pbiDiasEntre(f1, f2) {
+  const d1 = _pbiFechaObj(f1);
+  const d2 = _pbiFechaObj(f2);
+  if (!d1 || !d2) return '';
+  const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+  return diff >= 0 ? diff : '';
+}
+
 function _pbiFmt(v) {
   if (!v && v !== 0) return '';
   if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
@@ -15214,13 +15262,16 @@ function crearHojaPowerBIExport() {
   const COLS = ['Creamos ID','Nombre Completo','DPI','Teléfono','Edad','Género',
     'Zona','Nivel Educativo','Estado Actual','Fecha Interés','Fecha Entrevista',
     'Resultado Entrevista','Fecha Inscripción','Cohorte','Fecha Graduación',
-    'Fecha Retiro','Responsable','Proyecto','Cupo Máximo','Motivo Retiro'];
+    'Fecha Retiro','Responsable','Proyecto','Cupo Máximo','Motivo Retiro',
+    'Año Interés','Mes Num','Mes Nombre','Rango de Edad',
+    'Días a Inscripción','Días a Graduación','Nivel Funnel'];
 
   sheet.clearContents();
   sheet.getRange(1, 1, 1, COLS.length).setValues([COLS])
     .setFontWeight('bold').setBackground('#1565c0').setFontColor('white');
   sheet.setFrozenRows(1);
-  [120,160,110,90,50,110,70,140,100,130,130,150,130,140,130,100,120,130,100,180]
+  [120,160,110,90,50,110,70,140,100,130,130,150,130,140,130,100,120,130,100,180,
+   80,70,110,110,120,120,90]
     .forEach((w,i) => sheet.setColumnWidth(i+1, w));
   return sheet;
 }
@@ -15317,6 +15368,17 @@ function actualizarPowerBIExport() {
       else if (rInsc)  estado = 'Pre-Inscritxs';
       else if (rEnt)   estado = resultEnt || 'En Entrevista';
 
+      // Valores de fecha para columnas calculadas
+      const fechaIntV  = c.int.fecha >= 0 ? row[c.int.fecha] : null;
+      const fechaInscV = rInsc && c.ins.fecha >= 0 ? rInsc[c.ins.fecha] : null;
+      const fechaGradV = rGrad && c.grd.fecha >= 0 ? rGrad[c.grd.fecha] : null;
+      // Nivel Funnel: 0=Retirada, 1=Solo interés, 2=Entrevistada, 3=Inscrita, 5=Graduada
+      let nivelFunnel = 1;
+      if (rGrad)      nivelFunnel = 5;
+      else if (rRet)  nivelFunnel = 0;
+      else if (rInsc) nivelFunnel = 3;
+      else if (rEnt)  nivelFunnel = 2;
+
       filas.push([
         cId,
         c.int.nom   >= 0 ? _pbiFmt(row[c.int.nom])   : '',
@@ -15337,7 +15399,15 @@ function actualizarPowerBIExport() {
         c.int.resp  >= 0 ? _pbiFmt(row[c.int.resp])  : '',
         'Tecnología',
         '',  // Cupo Máximo — se llena después de resolver la cohorte
-        rRet  && c.ret.motivo >= 0 ? _pbiFmt(rRet[c.ret.motivo]) : ''
+        rRet  && c.ret.motivo >= 0 ? _pbiFmt(rRet[c.ret.motivo]) : '',
+        // Columnas calculadas para dashboard Power BI
+        _pbiAnio(fechaIntV),
+        _pbiMesNum(fechaIntV),
+        _pbiNombreMes(fechaIntV),
+        _pbiRangoEdad(c.int.edad >= 0 ? row[c.int.edad] : ''),
+        _pbiDiasEntre(fechaIntV, fechaInscV),
+        _pbiDiasEntre(fechaIntV, fechaGradV),
+        nivelFunnel
       ]);
     }
 
@@ -15383,12 +15453,12 @@ function actualizarPowerBIExport() {
 
     // Escribir todo de una vez
     const lastRow = sheet.getLastRow();
-    if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 20).clearContent();
-    if (filas.length > 0) sheet.getRange(2, 1, filas.length, 20).setValues(filas);
+    if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 27).clearContent();
+    if (filas.length > 0) sheet.getRange(2, 1, filas.length, 27).setValues(filas);
 
     SpreadsheetApp.flush();
     ui.alert('✅ PowerBI_Export actualizado',
-      filas.length + ' participantes exportados con:\n• Estado Actual\n• Proyecto\n• Cupo Máximo\n• Motivo Retiro',
+      filas.length + ' participantes exportados con:\n• Estado Actual\n• Proyecto\n• Cupo Máximo\n• Motivo Retiro\n• Año / Mes / Nombre Mes\n• Rango de Edad\n• Días a Inscripción / Graduación\n• Nivel Funnel',
       ui.ButtonSet.OK);
     Logger.log('✅ PowerBI_Export: ' + filas.length + ' filas');
 
@@ -15428,6 +15498,26 @@ function autoActualizarPowerBIExport() {
     Logger.log('✅ PowerBI_Export actualizado automáticamente a ' + new Date());
   } catch (e) {
     Logger.log('❌ Error en actualización automática: ' + e.message);
+  }
+}
+
+function actualizarTodoParaPowerBI() {
+  const ui = SpreadsheetApp.getUi();
+  const errores = [];
+  SpreadsheetApp.getActiveSpreadsheet().toast('Actualizando las 3 tablas de Power BI...', '🔄 Power BI', -1);
+  try { actualizarPowerBIExport(); } catch (e) { errores.push('Participantes: ' + e.message); }
+  try { crearHojaPowerBICohortes(); } catch (e) { errores.push('Cohortes: ' + e.message); }
+  try { exportarParaPowerBI(); } catch (e) { errores.push('Estipendios: ' + e.message); }
+  SpreadsheetApp.getActiveSpreadsheet().toast('', '', 1);
+  if (errores.length > 0) {
+    ui.alert('⚠️ Actualización con errores', errores.join('\n'), ui.ButtonSet.OK);
+  } else {
+    ui.alert('✅ Power BI actualizado',
+      'Las 3 tablas están listas para conectar desde Power BI:\n\n' +
+      '• PowerBI_Export — Participantes (27 columnas)\n' +
+      '• PowerBI Export — Cohortes y métricas\n' +
+      '• EXPORT_PowerBI — Estipendios',
+      ui.ButtonSet.OK);
   }
 }
 
