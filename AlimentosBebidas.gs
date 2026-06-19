@@ -1153,10 +1153,11 @@ function crearHojaInscritx() {
     'Zona',             // I
     'Notas',            // J
     'Estado',                   // K - Automático "Inscritx"
-    'Enviar a Cohorte',         // L - Desplegable dinámico (última columna - trigger)
-    'Fecha envío a Inscritx',   // M - Fecha automática para reportes mensuales
-    'Trasladar a Tecnología',   // N - Traslado a programa de Tecnología
-    'Cohorte Tentativa'         // O - Solo recordatorio hasta firmar convenio (sin acción)
+    'Fecha envío a Inscritx',   // L - Fecha automática para reportes mensuales
+    'Cohorte Tentativa',        // M - Solo recordatorio hasta firmar convenio (sin acción)
+    'Cohorte Tentativa',        // M - Solo recordatorio hasta firmar convenio (sin acción)
+    'Enviar a Cohorte',         // N - Desplegable dinámico (trigger - envía a cohorte)
+    'Trasladar a Tecnología'    // O - Traslado a programa de Tecnología
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -1165,16 +1166,16 @@ function crearHojaInscritx() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [50, 100, 130, 200, 120, 60, 120, 150, 120, 250, 120, 180, 100, 180, 160].forEach((w, i) => {
+  [50, 100, 130, 200, 120, 60, 120, 150, 120, 250, 120, 100, 160, 180, 180].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
   // Destacar columnas importantes
   sheet.getRange('K1').setBackground('#ffd54f'); // Estado en amarillo
-  sheet.getRange('L1').setBackground('#4caf50');  // Enviar a Cohorte en verde
-  sheet.getRange('M1').setBackground('#90caf9');  // Fecha envío a Inscritx
-  sheet.getRange('N1').setBackground('#ce93d8');  // Trasladar a Tecnología en morado
-  sheet.getRange('O1').setBackground('#e3f2fd');  // Cohorte Tentativa en azul claro
+  sheet.getRange('L1').setBackground('#90caf9');  // Fecha envío a Inscritx en azul
+  sheet.getRange('M1').setBackground('#e3f2fd');  // Cohorte Tentativa en azul claro
+  sheet.getRange('N1').setBackground('#4caf50');  // Enviar a Cohorte en verde (trigger)
+  sheet.getRange('O1').setBackground('#ce93d8');  // Trasladar a Tecnología en morado
 }
 
 /**
@@ -3430,7 +3431,7 @@ function enviarAOtroProgramaDesdeEntrevistas(sheet, fila, columnaEstado, destino
 function trasladarPersonaATech(sheet, fila) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ui = SpreadsheetApp.getUi();
-  const colN = 14; // columna N = "Trasladar a Tecnología"
+  const colO = 15; // columna O = "Trasladar a Tecnología"
 
   const idDestino = CONFIG_AB.ID_SPREADSHEET_TECH;
   if (!idDestino || idDestino.trim() === '') {
@@ -3443,7 +3444,7 @@ function trasladarPersonaATech(sheet, fila) {
       'docs.google.com/spreadsheets/d/[ESTE_ID]/edit',
       ui.ButtonSet.OK
     );
-    sheet.getRange(fila, colN).setValue('');
+    sheet.getRange(fila, colO).setValue('');
     return;
   }
 
@@ -3455,7 +3456,7 @@ function trasladarPersonaATech(sheet, fila) {
   const nombre = getVal('Nombre Completo');
   if (!nombre || nombre.toString().trim() === '') {
     ui.alert('⚠️ Error', 'Esta fila no tiene nombre. No se puede trasladar.', ui.ButtonSet.OK);
-    sheet.getRange(fila, colN).setValue('');
+    sheet.getRange(fila, colO).setValue('');
     return;
   }
 
@@ -3466,7 +3467,7 @@ function trasladarPersonaATech(sheet, fila) {
     ui.ButtonSet.YES_NO
   );
   if (resp !== ui.Button.YES) {
-    sheet.getRange(fila, colN).setValue('');
+    sheet.getRange(fila, colO).setValue('');
     return;
   }
 
@@ -3475,14 +3476,14 @@ function trasladarPersonaATech(sheet, fila) {
     ssDest = SpreadsheetApp.openById(idDestino.trim());
   } catch (e) {
     ui.alert('⚠️ Error al abrir Tecnología', 'No se pudo abrir el Sheets de Tecnología.\nVerifica el ID en CONFIG_AB.ID_SPREADSHEET_TECH.\n\nError: ' + e.message, ui.ButtonSet.OK);
-    sheet.getRange(fila, colN).setValue('');
+    sheet.getRange(fila, colO).setValue('');
     return;
   }
 
   const hojaDestino = ssDest.getSheetByName('Hoja de Interés');
   if (!hojaDestino) {
     ui.alert('⚠️ Error', 'No se encontró la hoja "Hoja de Interés" en el Sheets de Tecnología.', ui.ButtonSet.OK);
-    sheet.getRange(fila, colN).setValue('');
+    sheet.getRange(fila, colO).setValue('');
     return;
   }
 
@@ -3514,11 +3515,11 @@ function trasladarPersonaATech(sheet, fila) {
     SpreadsheetApp.flush();
   } catch (e) {
     ui.alert('⚠️ Error al guardar', 'No se pudo escribir en la Hoja de Interés de Tecnología.\n\nError: ' + e.message, ui.ButtonSet.OK);
-    sheet.getRange(fila, colN).setValue('');
+    sheet.getRange(fila, colO).setValue('');
     return;
   }
 
-  sheet.getRange(fila, colN).setValue('✅ Trasladado');
+  sheet.getRange(fila, colO).setValue('✅ Trasladado');
   ss.toast('✅ ' + nombre + ' trasladada a Tecnología', 'Traslado completado', 4);
 }
 
