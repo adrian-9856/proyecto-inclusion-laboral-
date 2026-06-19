@@ -15185,7 +15185,11 @@ function repararColumnasTech() {
     }
   }
 
-  // ── 3. Reconfigurar validaciones ──────────────────────────────────────
+  // ── 3. Reordenar Pre-Inscritxs: M=Cohorte Tentativa, N=Enviar a Cohorte ─
+  const resultadoOrden = reordenarColumnasPreInscritxs();
+  if (resultadoOrden) log.push(resultadoOrden);
+
+  // ── 4. Reconfigurar validaciones ──────────────────────────────────────
   configurarValidaciones();
   log.push('✓ Validaciones actualizadas');
 
@@ -15194,6 +15198,38 @@ function repararColumnasTech() {
     log.join('\n'),
     ui.ButtonSet.OK
   );
+}
+
+function reordenarColumnasPreInscritxs() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Pre-Inscritxs');
+  if (!sheet) return null;
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const iEnviar = headers.findIndex(h => h.toString().trim() === 'Enviar a Cohorte');
+  const iTent   = headers.findIndex(h => h.toString().trim() === 'Cohorte Tentativa');
+
+  // Si ya están en el orden correcto (Tentativa antes que Enviar) no hacer nada
+  if (iTent < iEnviar && iTent >= 0 && iEnviar >= 0) return '✓ Pre-Inscritxs ya tiene el orden correcto';
+  if (iEnviar < 0 || iTent < 0) return null;
+
+  const lastRow = sheet.getLastRow();
+  const colEnviar = iEnviar + 1; // 1-indexed
+  const colTent   = iTent   + 1;
+
+  // Leer datos de ambas columnas completas (incluyendo header)
+  const datosEnviar = sheet.getRange(1, colEnviar, lastRow, 1).getValues();
+  const datosTent   = sheet.getRange(1, colTent,   lastRow, 1).getValues();
+
+  // Intercambiar datos
+  sheet.getRange(1, colEnviar, lastRow, 1).setValues(datosTent);
+  sheet.getRange(1, colTent,   lastRow, 1).setValues(datosEnviar);
+
+  // Actualizar colores de encabezados
+  sheet.getRange(1, colTent).setBackground('#e3f2fd');   // Cohorte Tentativa → azul claro
+  sheet.getRange(1, colEnviar).setBackground('#4caf50'); // Enviar a Cohorte  → verde
+
+  SpreadsheetApp.flush();
+  return '✓ Pre-Inscritxs reordenada: M=Cohorte Tentativa, N=Enviar a Cohorte';
 }
 
 /**

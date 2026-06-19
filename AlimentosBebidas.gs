@@ -14951,7 +14951,11 @@ function repararColumnasAB() {
     }
   }
 
-  // ── 5. Reconfigurar validaciones ──────────────────────────────────────
+  // ── 5. Reordenar Pre-Inscritxs: M=Cohorte Tentativa, N=Enviar a Cohorte ─
+  const resultadoOrden = reordenarColumnasPreInscritxs();
+  if (resultadoOrden) log.push(resultadoOrden);
+
+  // ── 6. Reconfigurar validaciones ──────────────────────────────────────
   configurarValidaciones();
   log.push('✓ Validaciones actualizadas');
 
@@ -14960,6 +14964,34 @@ function repararColumnasAB() {
     log.join('\n'),
     ui.ButtonSet.OK
   );
+}
+
+function reordenarColumnasPreInscritxs() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Pre-Inscritxs');
+  if (!sheet) return null;
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const iEnviar = headers.findIndex(h => h.toString().trim() === 'Enviar a Cohorte');
+  const iTent   = headers.findIndex(h => h.toString().trim() === 'Cohorte Tentativa');
+
+  if (iTent < iEnviar && iTent >= 0 && iEnviar >= 0) return '✓ Pre-Inscritxs ya tiene el orden correcto';
+  if (iEnviar < 0 || iTent < 0) return null;
+
+  const lastRow = sheet.getLastRow();
+  const colEnviar = iEnviar + 1;
+  const colTent   = iTent   + 1;
+
+  const datosEnviar = sheet.getRange(1, colEnviar, lastRow, 1).getValues();
+  const datosTent   = sheet.getRange(1, colTent,   lastRow, 1).getValues();
+
+  sheet.getRange(1, colEnviar, lastRow, 1).setValues(datosTent);
+  sheet.getRange(1, colTent,   lastRow, 1).setValues(datosEnviar);
+
+  sheet.getRange(1, colTent).setBackground('#e3f2fd');   // Cohorte Tentativa → azul claro
+  sheet.getRange(1, colEnviar).setBackground('#4caf50'); // Enviar a Cohorte  → verde
+
+  SpreadsheetApp.flush();
+  return '✓ Pre-Inscritxs reordenada: M=Cohorte Tentativa, N=Enviar a Cohorte';
 }
 
 /**
