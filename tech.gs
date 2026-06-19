@@ -312,6 +312,7 @@ function setupMenuTech() {
         .addItem('🗑️ Migrar: Eliminar Cómo se enteró y Responsable', 'migrarColumnasTech')
         .addItem('↩️ Mover Notas/Comentario a columna U', 'moverNotasAColumnaU_Tech')
         .addItem('🧹 Limpiar notas repetidas', 'limpiarNotaRepetidaTech')
+        .addItem('🗑️ Eliminar registros "Interés General" de Hoja de Interés', 'limpiarInteresGeneral')
         .addSeparator()
         .addItem('🎨 Aplicar colores por Estado (todas las hojas)', 'aplicarColoresATodosLosEstadosTech')
         .addItem('🎨 Crear / Actualizar Guía de Colores', 'crearGuiaColoresTech'))
@@ -16149,6 +16150,79 @@ function limpiarNotaRepetidaTech() {
 
   ui.alert('✅ Listo', limpiadas + ' celdas duplicadas limpiadas.\nSe conservó la primera aparición de cada nota.', ui.ButtonSet.OK);
 }
+
+// =====================================================================
+// LIMPIAR REGISTROS DE INTERÉS GENERAL
+// =====================================================================
+
+function limpiarInteresGeneral() {
+  const ss  = SpreadsheetApp.getActiveSpreadsheet();
+  const ui  = SpreadsheetApp.getUi();
+  const sheet = ss.getSheetByName('Hoja de Interés');
+  if (!sheet) { ui.alert('❌ Error', 'No se encontró la hoja "Hoja de Interés".', ui.ButtonSet.OK); return; }
+
+  const datos = sheet.getDataRange().getValues();
+  if (datos.length < 2) { ui.alert('ℹ️', 'La Hoja de Interés está vacía.', ui.ButtonSet.OK); return; }
+
+  // Detectar columna de programa (Servicio/Formación de Interés)
+  const norm = s => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const colProg = datos[0].findIndex(h => {
+    const n = norm(h);
+    return n.includes('servicio') || n.includes('formacion') || n.includes('programa');
+  });
+  const colNombre = datos[0].findIndex(h => norm(h).includes('nombre'));
+  const colId     = datos[0].findIndex(h => norm(h).includes('creamosid') || norm(h).includes('id'));
+
+  if (colProg < 0) {
+    ui.alert('❌ Error', 'No se encontró la columna de Programa/Servicio en la Hoja de Interés.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Programas válidos para Tecnología
+  const programasValidos = CONFIG_TECH.PROGRAMAS_TECNOLOGIA;
+
+  // Identificar filas con programas ajenos (Interés General u otros)
+  const filasEliminar = [];
+  for (let i = 1; i < datos.length; i++) {
+    const prog = (datos[i][colProg] || '').toString().trim();
+    if (!prog) continue;
+    const esValido = programasValidos.some(p => prog.toLowerCase().includes(p.toLowerCase()));
+    if (!esValido) {
+      const nombre = colNombre >= 0 ? (datos[i][colNombre] || '').toString().trim() : '';
+      const id     = colId     >= 0 ? (datos[i][colId]     || '').toString().trim() : '';
+      filasEliminar.push({ fila: i + 1, nombre: nombre || id || 'Sin nombre', programa: prog });
+    }
+  }
+
+  if (filasEliminar.length === 0) {
+    ui.alert('✅ Todo limpio', 'No hay registros con programas ajenos a Tecnología en la Hoja de Interés.', ui.ButtonSet.OK);
+    return;
+  }
+
+  // Preview de hasta 15 registros
+  const preview = filasEliminar.slice(0, 15).map(r => `• ${r.nombre}  →  ${r.programa}`).join('\n');
+  const masLineas = filasEliminar.length > 15 ? `\n... y ${filasEliminar.length - 15} más` : '';
+
+  const resp = ui.alert(
+    '⚠️ Confirmar eliminación',
+    `Se eliminarán ${filasEliminar.length} registros que NO pertenecen a Tecnología:\n\n` +
+    preview + masLineas +
+    '\n\n¿Continuar? (Los colores y el resto de datos quedan intactos)',
+    ui.ButtonSet.YES_NO
+  );
+  if (resp !== ui.Button.YES) return;
+
+  // Eliminar de abajo hacia arriba para no desplazar índices
+  filasEliminar.slice().reverse().forEach(r => sheet.deleteRow(r.fila));
+
+  SpreadsheetApp.flush();
+  ss.toast('✅ ' + filasEliminar.length + ' registros eliminados', 'Hoja de Interés', 5);
+  ui.alert('✅ Listo',
+    filasEliminar.length + ' registros de "Interés General" eliminados.\n\n' +
+    'Los colores y el ordenamiento de las filas restantes están intactos.',
+    ui.ButtonSet.OK);
+}
+
 
 // =====================================================================
 // APLICAR MEJORAS 2026 (botón único)
