@@ -1681,7 +1681,10 @@ function configurarValidaciones() {
     aplicarIns('Zona', CONFIG_TECH.ZONAS, true);
     if (cohortes.length > 0) {
       aplicarIns('Enviar a Cohorte', cohortes, false);
-      // Migrar: agregar columna Cohorte Tentativa si no existe
+    }
+    // Cohorte Tentativa: TODAS las cohortes (históricas + activas), con color condicional
+    const todasCohortes = obtenerCohortesActuales();
+    if (todasCohortes.length > 0) {
       if (!hdrsIns.some(h => h.toString().trim().toLowerCase() === 'cohorte tentativa')) {
         const nuevaCol = seleccionadas.getLastColumn() + 1;
         seleccionadas.getRange(1, nuevaCol).setValue('Cohorte Tentativa')
@@ -1689,7 +1692,21 @@ function configurarValidaciones() {
         seleccionadas.setColumnWidth(nuevaCol, 160);
         hdrsIns.push('Cohorte Tentativa');
       }
-      aplicarIns('Cohorte Tentativa', cohortes, true);
+      aplicarIns('Cohorte Tentativa', todasCohortes, true);
+      // Color condicional: azul cuando tiene valor seleccionado
+      const idxTent = hdrsIns.findIndex(h => h.toString().trim().toLowerCase() === 'cohorte tentativa');
+      if (idxTent >= 0) {
+        const rangoTent = seleccionadas.getRange(2, idxTent + 1, 499, 1);
+        const reglaColor = SpreadsheetApp.newConditionalFormatRule()
+          .whenCellNotEmpty()
+          .setBackground('#bbdefb')
+          .setFontColor('#0d47a1')
+          .setRanges([rangoTent])
+          .build();
+        const reglasActuales = seleccionadas.getConditionalFormatRules()
+          .filter(r => !r.getRanges().some(rng => rng.getColumn() === idxTent + 1));
+        seleccionadas.setConditionalFormatRules([...reglasActuales, reglaColor]);
+      }
     }
   }
 
@@ -1826,7 +1843,7 @@ function obtenerCohortesActuales() {
   const sheet = ss.getSheetByName('Cohortes');
   if (!sheet) return CONFIG_TECH.COHORTES;
 
-  const datos = sheet.getRange('A2:A50').getValues();
+  const datos = sheet.getRange('A2:A500').getValues();
   const cohortes = [];
   datos.forEach(fila => {
     if (fila[0] && fila[0].toString().trim() !== '') {
