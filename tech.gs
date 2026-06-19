@@ -1167,7 +1167,8 @@ function crearHojaInscritx() {
     'Estado',                   // K - Automático "Inscritx"
     'Enviar a Cohorte',         // L - Desplegable dinámico (última columna - trigger)
     'Fecha envío a Inscritx',   // M - Fecha automática para reportes mensuales
-    'Trasladar a A y B'         // N - Traslado a programa de Alimentos y Bebidas
+    'Trasladar a A y B',        // N - Traslado a programa de Alimentos y Bebidas
+    'Cohorte Tentativa'         // O - Solo recordatorio hasta firmar convenio (sin acción)
   ];
 
   sheet.getRange(1, 1, 1, headers.length).setValues([headers])
@@ -1176,7 +1177,7 @@ function crearHojaInscritx() {
     .setFontWeight('bold')
     .setHorizontalAlignment('center');
 
-  [50, 100, 130, 200, 120, 60, 120, 150, 120, 250, 120, 180, 100, 180].forEach((w, i) => {
+  [50, 100, 130, 200, 120, 60, 120, 150, 120, 250, 120, 180, 100, 180, 160].forEach((w, i) => {
     sheet.setColumnWidth(i + 1, w);
   });
 
@@ -1185,6 +1186,7 @@ function crearHojaInscritx() {
   sheet.getRange('L1').setBackground('#4caf50');  // Enviar a Cohorte en verde
   sheet.getRange('M1').setBackground('#90caf9');  // Fecha envío a Inscritx
   sheet.getRange('N1').setBackground('#ffcc80');  // Trasladar a A y B en naranja
+  sheet.getRange('O1').setBackground('#e3f2fd');  // Cohorte Tentativa en azul claro
 }
 
 /**
@@ -1679,6 +1681,15 @@ function configurarValidaciones() {
     aplicarIns('Zona', CONFIG_TECH.ZONAS, true);
     if (cohortes.length > 0) {
       aplicarIns('Enviar a Cohorte', cohortes, false);
+      // Migrar: agregar columna Cohorte Tentativa si no existe
+      if (!hdrsIns.some(h => h.toString().trim().toLowerCase() === 'cohorte tentativa')) {
+        const nuevaCol = seleccionadas.getLastColumn() + 1;
+        seleccionadas.getRange(1, nuevaCol).setValue('Cohorte Tentativa')
+          .setBackground('#e3f2fd').setFontColor('#000000').setFontWeight('bold').setHorizontalAlignment('center');
+        seleccionadas.setColumnWidth(nuevaCol, 160);
+        hdrsIns.push('Cohorte Tentativa');
+      }
+      aplicarIns('Cohorte Tentativa', cohortes, true);
     }
   }
 
@@ -15305,7 +15316,8 @@ function actualizarPowerBIExport() {
         zona:   _pbiCol(dInt[0],  ['Zona']),
         nivel:  _pbiCol(dInt[0],  ['Nivel Educativo']),
         resp:   _pbiCol(dInt[0],  ['Responsable']),
-        fecha:  _pbiCol(dInt[0],  ['Fecha','Fecha registro'])
+        fecha:  _pbiCol(dInt[0],  ['Fecha','Fecha registro']),
+        prog:   _pbiCol(dInt[0],  ['Servicio/Formación de Interés','Servicio','Formación de Interés','Programa'])
       },
       ent: {
         id:     _pbiCol(dEnt[0],  ['Creamos ID']),
@@ -15359,6 +15371,11 @@ function actualizarPowerBIExport() {
       const row = dInt[i];
       const cId = (c.int.id >= 0 ? row[c.int.id] : '').toString().trim();
       if (!cId) continue;
+      // Filtrar: solo participantes de programas de Tecnología
+      if (c.int.prog >= 0) {
+        const prog = (row[c.int.prog] || '').toString().trim().toLowerCase();
+        if (!CONFIG_TECH.PROGRAMAS_TECNOLOGIA.some(p => prog.includes(p.toLowerCase()))) continue;
+      }
 
       const rEnt  = idxEnt.get(cId)  || null;
       const rInsc = idxInsc.get(cId) || null;
