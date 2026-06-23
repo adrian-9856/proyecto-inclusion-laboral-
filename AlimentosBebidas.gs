@@ -15071,6 +15071,33 @@ if (typeof _pbiFechaObj === 'undefined') {
   };
 }
 
+if (typeof _pbiTrimestre === 'undefined') {
+  var _pbiTrimestre = function(v) {
+    var d = _pbiFechaObj(v);
+    return d ? Math.ceil((d.getMonth() + 1) / 3) : '';
+  };
+  var _pbiTrimestrePeriodo = function(v) {
+    var d = _pbiFechaObj(v);
+    if (!d) return '';
+    return d.getFullYear() + '-Q' + Math.ceil((d.getMonth() + 1) / 3);
+  };
+  var _pbiMesAnio = function(v) {
+    var d = _pbiFechaObj(v);
+    return d ? _MESES_NOMBRES[d.getMonth()].substring(0, 3) + '-' + d.getFullYear() : '';
+  };
+  var _pbiEspecialidad = function(cohorte) {
+    var c = (cohorte || '').toString().toLowerCase();
+    if (c.indexOf('sac') >= 0)        return 'SAC';
+    if (c.indexOf('computaci') >= 0)  return 'Computación';
+    if (c.indexOf('cocina') >= 0)     return 'Cocina';
+    if (c.indexOf('reposteri') >= 0)  return 'Repostería';
+    if (c.indexOf('barismo') >= 0)    return 'Barismo';
+    if (c.indexOf('pasteleri') >= 0)  return 'Pastelería';
+    if (c.indexOf('panaderi') >= 0)   return 'Panadería';
+    return cohorte ? 'Otro' : '';
+  };
+}
+
 function crearHojaPowerBIExport() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName('PowerBI_Export');
@@ -15082,14 +15109,18 @@ function crearHojaPowerBIExport() {
     'Fecha Retiro','Responsable','Proyecto','Cupo Máximo','Motivo Retiro',
     'Año Interés','Mes Num','Mes Nombre','Rango de Edad',
     'Días a Inscripción','Días a Graduación','Nivel Funnel',
-    'Fecha Inicio Cohorte','Fecha Fin Cohorte','Estado Cohorte'];
+    'Fecha Inicio Cohorte','Fecha Fin Cohorte','Estado Cohorte',
+    'Especialidad','Trimestre Num','Trimestre Período','Mes-Año',
+    'Flag Graduada','Flag Retirada','Flag Inscrita','Flag Entrevistada',
+    'Año Cohorte'];
 
   sheet.clearContents();
   sheet.getRange(1, 1, 1, COLS.length).setValues([COLS])
     .setFontWeight('bold').setBackground('#1565c0').setFontColor('white');
   sheet.setFrozenRows(1);
   [120,160,110,90,50,110,70,140,100,130,130,150,130,140,130,100,120,130,100,180,
-   80,70,110,110,120,120,90,130,130,120]
+   80,70,110,110,120,120,90,130,130,120,
+   120,80,120,100,80,80,80,90,90]
     .forEach((w,i) => sheet.setColumnWidth(i+1, w));
   return sheet;
 }
@@ -15215,7 +15246,16 @@ function actualizarPowerBIExport() {
         _pbiDiasEntre(fechaIntV, fechaInscV),
         _pbiDiasEntre(fechaIntV, fechaGradV),
         nivelFunnel,
-        '', '', ''  // Fecha Inicio Cohorte, Fecha Fin Cohorte, Estado Cohorte — se llenan después
+        '', '', '',  // Fecha Inicio Cohorte, Fecha Fin Cohorte, Estado Cohorte — se llenan después
+        '',  // 30: Especialidad — se llena en post-proceso
+        _pbiTrimestre(fechaIntV),
+        _pbiTrimestrePeriodo(fechaIntV),
+        _pbiMesAnio(fechaIntV),
+        rGrad ? 1 : 0,
+        rRet  ? 1 : 0,
+        nivelFunnel >= 4 ? 1 : 0,
+        nivelFunnel >= 2 ? 1 : 0,
+        ''   // 38: Año Cohorte — se llena en post-proceso
       ]);
     }
 
@@ -15261,24 +15301,28 @@ function actualizarPowerBIExport() {
         filas[i][27] = info.inicio !== undefined ? info.inicio : '';
         filas[i][28] = info.fin    !== undefined ? info.fin    : '';
         filas[i][29] = info.estado !== undefined ? info.estado : '';
+        filas[i][30] = _pbiEspecialidad(nomCoh);
+        const inicioD = _pbiFechaObj(info.inicio);
+        filas[i][38] = inicioD ? inicioD.getFullYear() : '';
         // Cohorte asignada: si no es Graduadx ni Retiradx, el estado real es Inscritxs
         const est = (filas[i][8] || '').toString();
         if (est !== 'Graduadx' && est !== 'Retiradx' && est !== 'Inscritxs') {
           filas[i][8]  = 'Inscritxs';
           filas[i][26] = 4;
+          filas[i][36] = 1;
         }
       }
     }
 
     const lastRow = sheet.getLastRow();
-    if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 30).clearContent();
+    if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 39).clearContent();
     if (filas.length > 0) {
-      sheet.getRange(2, 1, filas.length, 30).setValues(filas);
+      sheet.getRange(2, 1, filas.length, 39).setValues(filas);
     }
 
     SpreadsheetApp.flush();
     ui.alert('✅ PowerBI_Export actualizado',
-      'Se consolidaron ' + filas.length + ' registros con:\n• Estado / Cohorte / Proyecto\n• Cupo Máximo / Fecha Inicio-Fin / Estado Cohorte\n• Año / Mes / Rango de Edad\n• Días a Inscripción / Graduación / Nivel Funnel',
+      'Se consolidaron ' + filas.length + ' registros (39 columnas):\n• Estado / Cohorte / Proyecto / Especialidad\n• Cupo Máximo / Fechas Cohorte / Estado Cohorte\n• Año / Mes / Trimestre / Mes-Año\n• Rango de Edad / Nivel Funnel\n• Flags: Graduada / Retirada / Inscrita / Entrevistada',
       ui.ButtonSet.OK);
     Logger.log('✅ PowerBI_Export: ' + filas.length + ' filas actualizadas');
   } catch (e) {
